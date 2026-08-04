@@ -1,7 +1,94 @@
+pub mod commands;
 pub mod store;
+// pub mod tray; // Task 5에서 생성 — 그 전까지는 이 줄과 tray 호출은 주석 처리
+pub mod windows;
+
+use std::sync::Mutex;
+use store::{MetaPatch, Store};
+use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // 두 번째 실행 시: 숨겨지지 않은 노트 창 모두 표시
+            let _ = crate::show_all_notes(app);
+        }))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .invoke_handler(tauri::generate_handler![
+            commands::list_notes,
+            commands::create_note,
+            commands::save_body,
+            commands::save_meta,
+            commands::delete_note,
+            commands::open_note,
+            commands::open_list,
+            commands::save_image,
+            commands::import_image,
+            commands::data_root,
+        ])
+        .setup(|app| {
+            let root = app.path().app_data_dir()?;
+            let store = Store::new(&root)?;
+            let notes = store.list();
+            app.manage(Mutex::new(store));
+            // tray::create_tray(app.handle())?; // Task 5
+            let visible: Vec<_> = notes.iter().filter(|n| !n.meta.hidden).collect();
+            if notes.is_empty() {
+                let s = app.state::<Mutex<Store>>();
+                let note = s.lock().unwrap().create()?;
+                windows::open_note_window(app.handle(), &note)?;
+            } else {
+                for n in visible {
+                    windows::open_note_window(app.handle(), n)?;
+                }
+            }
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if let Some(id) = window.label().strip_prefix("note-") {
+                    // 닫기 = 숨김 (삭제 아님), 트레이 상주
+                    api.prevent_close();
+                    let _ = window.hide();
+                    let app = window.app_handle();
+                    let s = app.state::<Mutex<Store>>();
+                    let _ = s.lock().unwrap().save_meta(
+                        id,
+                        &MetaPatch {
+                            hidden: Some(true),
+                            ..Default::default()
+                        },
+                    );
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running stickdown");
+}
+
+pub fn show_all_notes(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let s = app.state::<Mutex<Store>>();
+    let notes: Vec<_> = {
+        let store = s.lock().unwrap();
+        store.list()
+    };
+    for n in notes {
+        let n = {
+            let store = s.lock().unwrap();
+            store
+                .save_meta(
+                    &n.meta.id,
+                    &MetaPatch {
+                        hidden: Some(false),
+                        ..Default::default()
+                    },
+                )
+                .unwrap_or(n)
+        };
+        windows::open_note_window(app, &n)?;
+    }
+    Ok(())
 }

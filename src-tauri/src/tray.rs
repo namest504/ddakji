@@ -1,0 +1,45 @@
+use std::sync::Mutex;
+use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
+use tauri::{AppHandle, Manager};
+use tauri_plugin_autostart::ManagerExt;
+
+pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
+    let new_note = MenuItemBuilder::with_id("new", "새 노트").build(app)?;
+    let list = MenuItemBuilder::with_id("list", "노트 목록").build(app)?;
+    let show_all = MenuItemBuilder::with_id("show_all", "모든 노트 표시").build(app)?;
+    let autostart = CheckMenuItemBuilder::with_id("autostart", "부팅 시 시작")
+        .checked(app.autolaunch().is_enabled().unwrap_or(false))
+        .build(app)?;
+    let quit = MenuItemBuilder::with_id("quit", "종료").build(app)?;
+    let menu = MenuBuilder::new(app)
+        .items(&[&new_note, &list, &show_all])
+        .separator()
+        .item(&autostart)
+        .separator()
+        .item(&quit)
+        .build()?;
+
+    TrayIconBuilder::with_id("main")
+        .icon(app.default_window_icon().expect("icon configured").clone())
+        .tooltip("stickdown")
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "new" => {
+                if let Ok(note) = app.state::<Mutex<crate::store::Store>>().lock().unwrap().create() {
+                    let _ = crate::windows::open_note_window(app, &note);
+                }
+            }
+            "list" => { let _ = crate::windows::open_list_window(app); }
+            "show_all" => { let _ = crate::show_all_notes(app); }
+            "autostart" => {
+                let al = app.autolaunch();
+                if al.is_enabled().unwrap_or(false) { let _ = al.disable(); }
+                else { let _ = al.enable(); }
+            }
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .build(app)?;
+    Ok(())
+}

@@ -1,6 +1,6 @@
 pub mod commands;
 pub mod store;
-// pub mod tray; // Task 5에서 생성 — 그 전까지는 이 줄과 tray 호출은 주석 처리
+pub mod tray;
 pub mod windows;
 
 use std::sync::Mutex;
@@ -34,7 +34,7 @@ pub fn run() {
             let store = Store::new(&root)?;
             let notes = store.list();
             app.manage(Mutex::new(store));
-            // tray::create_tray(app.handle())?; // Task 5
+            tray::create_tray(app.handle())?;
             let visible: Vec<_> = notes.iter().filter(|n| !n.meta.hidden).collect();
             if notes.is_empty() {
                 let s = app.state::<Mutex<Store>>();

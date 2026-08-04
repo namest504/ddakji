@@ -33,10 +33,11 @@ pub fn save_meta(store: StoreState, id: String, patch: MetaPatch) -> Result<Note
 
 #[tauri::command]
 pub fn delete_note(app: AppHandle, store: StoreState, id: String) -> Result<(), String> {
+    store.lock().map_err(err)?.delete(&id).map_err(err)?;
     if let Some(win) = app.get_webview_window(&format!("note-{id}")) {
         win.destroy().map_err(err)?;
     }
-    store.lock().map_err(err)?.delete(&id).map_err(err)
+    Ok(())
 }
 
 #[tauri::command]

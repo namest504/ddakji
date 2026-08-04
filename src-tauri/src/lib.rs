@@ -65,8 +65,18 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running stickdown");
+        .build(tauri::generate_context!())
+        .expect("error while running stickdown")
+        .run(|_app, event| {
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
+                // 창이 전부 닫혀도(숨김이 아니라 destroy로 전부 사라져도) 트레이 상주를 위해
+                // 종료를 막는다. 단, app.exit()/restart()로 명시적으로 요청된 경우(code: Some)는
+                // 실제 종료를 허용한다 (Task 5의 트레이 "종료" 메뉴 등).
+                if code.is_none() {
+                    api.prevent_exit();
+                }
+            }
+        });
 }
 
 pub fn show_all_notes(app: &tauri::AppHandle) -> tauri::Result<()> {

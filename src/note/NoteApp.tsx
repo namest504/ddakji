@@ -11,6 +11,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   const [note, setNote] = useState<Note | null>(null);
   const [saveError, setSaveError] = useState(false);
   const bodyRef = useRef("");
+  const loadedRef = useRef(false);
   const saveTimer = useRef<number>();
   const failedOp = useRef<{ key: string; run: () => void } | null>(null);
 
@@ -20,9 +21,11 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   };
 
   useEffect(() => {
+    loadedRef.current = false;
     api.listNotes().then((all) => {
       const n = all.find((n) => n.meta.id === noteId) ?? null;
       if (n) bodyRef.current = n.body;
+      loadedRef.current = true;
       setNote(n);
     });
   }, [noteId]);
@@ -92,9 +95,13 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   }, [changeFont, flushBody]);
 
   // 이미지 붙여넣기: 저장은 비동기이므로, 완료 시점의 "현재" 본문(bodyRef.current)에
-  // 삽입한다. 붙여넣기 시점의 커서 오프셋이 그새 본문 길이를 넘어섰다면(=본문이
-  // 바뀜) 그 위치에 끼워 넣는 대신 끝에 덧붙여 사용자가 입력한 내용을 보존한다.
+  // 삽입한다. 붙여넣기 시점의 본문 스냅샷을 캡처해두고, 저장이 끝난 시점에 본문이
+  // 그때와 완전히 동일할 때만 캡처해둔 오프셋에 끼워 넣는다 — 그 사이 본문이 조금이라도
+  // 바뀌었다면(오프셋 앞쪽 편집 포함) 위치가 더 이상 유효하지 않으므로 끝에 덧붙인다.
+  // 실패 키는 동시 붙여넣기/드롭이 서로의 배너를 지우지 않도록 매 작업마다 고유하게 발급한다.
   const pasteImage = useCallback((file: File, selStart: number, selEnd: number) => {
+    const snapshot = bodyRef.current;
+    const key = `image:${crypto.randomUUID()}`;
     const run = async () => {
       try {
         const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
@@ -102,13 +109,13 @@ export default function NoteApp({ noteId }: { noteId: string }) {
         const rel = await api.saveImage(noteId, ext, bytes);
         const md = `![](${rel})`;
         const body = bodyRef.current;
-        const next = selEnd <= body.length
+        const next = body === snapshot
           ? body.slice(0, selStart) + md + body.slice(selEnd)
           : body + `\n${md}`;
         onBodyChange(next);
-        clearIfFailed("image");
+        clearIfFailed(key);
       } catch {
-        failWith("image", run);
+        failWith(key, run);
       }
     };
     run();
@@ -121,16 +128,19 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     (async () => {
       const { getCurrentWebview } = await import("@tauri-apps/api/webview");
       const fn = await getCurrentWebview().onDragDropEvent((e) => {
-        if (e.payload.type !== "drop") return;
+        // 초기 노트 로드가 끝나기 전 드롭이 들어오면 bodyRef.current가 아직 ""이라
+        // 그대로 삽입/저장 경로를 타면 실제 본문을 덮어쓸 수 있다 — 로드 완료까지 무시.
+        if (e.payload.type !== "drop" || !loadedRef.current) return;
         for (const path of e.payload.paths) {
           if (!/\.(png|jpe?g|gif|webp)$/i.test(path)) continue;
+          const key = `image:${crypto.randomUUID()}`;
           const run = async () => {
             try {
               const rel = await api.importImage(noteId, path);
               onBodyChange(bodyRef.current + `\n![](${rel})`);
-              clearIfFailed("image");
+              clearIfFailed(key);
             } catch {
-              failWith("image", run);
+              failWith(key, run);
             }
           };
           run();

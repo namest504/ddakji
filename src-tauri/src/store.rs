@@ -77,6 +77,7 @@ impl Note {
 
     pub fn from_file_string(id: &str, content: &str) -> Note {
         if let Some(rest) = content.strip_prefix("---\n") {
+            // Try to find closing delimiter with newline: \n---\n
             if let Some(end) = rest.find("\n---\n") {
                 let (yaml, body) = (&rest[..end], &rest[end + 5..]);
                 if let Ok(mut meta) = serde_yaml::from_str::<NoteMeta>(yaml) {
@@ -90,6 +91,23 @@ impl Note {
                 return Note {
                     meta: NoteMeta::new_default(id.into()),
                     body: body.to_string(),
+                };
+            }
+            // Try closing delimiter at EOF (no trailing newline): \n---
+            if rest.ends_with("\n---") {
+                let end = rest.len() - 4; // length of "\n---"
+                let yaml = &rest[..end];
+                if let Ok(mut meta) = serde_yaml::from_str::<NoteMeta>(yaml) {
+                    meta.id = id.to_string();
+                    return Note {
+                        meta,
+                        body: String::new(),
+                    };
+                }
+                // 프론트매터 손상: 본문은 비어있음
+                return Note {
+                    meta: NoteMeta::new_default(id.into()),
+                    body: String::new(),
                 };
             }
         }
@@ -134,5 +152,25 @@ mod tests {
         let parsed = Note::from_file_string("id-2", "그냥 텍스트");
         assert_eq!(parsed.body, "그냥 텍스트");
         assert_eq!(parsed.meta.id, "id-2");
+    }
+
+    #[test]
+    fn frontmatter_no_trailing_newline() {
+        // File ends right after closing --- (no trailing newline)
+        let content = "---\nid: abc-123\ncolor: blue\n---";
+        let parsed = Note::from_file_string("abc-123", content);
+        assert_eq!(parsed.meta.id, "abc-123");
+        assert_eq!(parsed.meta.color, "blue");
+        assert_eq!(parsed.body, "");
+    }
+
+    #[test]
+    fn corrupt_frontmatter_at_eof_no_trailing_newline() {
+        // Corrupt YAML at EOF (no trailing newline after closing delimiter)
+        let content = "---\ncolor: [broken yaml\n---";
+        let parsed = Note::from_file_string("id-x", content);
+        assert_eq!(parsed.meta.id, "id-x");
+        assert_eq!(parsed.meta.color, "yellow");
+        assert_eq!(parsed.body, "");
     }
 }

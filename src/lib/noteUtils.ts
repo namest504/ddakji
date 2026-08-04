@@ -11,5 +11,5 @@ export function filterNotes(notes: Note[], query: string): Note[] {
 export function noteTitle(note: Note): string {
   const line = note.body.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
   if (!line) return "(빈 노트)";
-  return line.replace(/^[#>\-*\s\d.]+/, "").replace(/[*_`~]/g, "").trim() || "(빈 노트)";
+  return line.replace(/^(#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+)+/, "").replace(/[*_`~]/g, "").trim() || "(빈 노트)";
 }

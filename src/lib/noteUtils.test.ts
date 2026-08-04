@@ -32,4 +32,13 @@ describe("noteTitle", () => {
     expect(noteTitle(note("a", "\n# 제목이다\n본문"))).toBe("제목이다");
   });
   it("falls back for empty note", () => expect(noteTitle(note("a", ""))).toBe("(빈 노트)"));
+  it("preserves titles starting with digits", () => {
+    expect(noteTitle(note("a", "2026 목표"))).toBe("2026 목표");
+  });
+  it("preserves 3D and similar mixed alphanumeric", () => {
+    expect(noteTitle(note("a", "3D 프린터 구매"))).toBe("3D 프린터 구매");
+  });
+  it("strips numbered list markers", () => {
+    expect(noteTitle(note("a", "1. 항목"))).toBe("항목");
+  });
 });

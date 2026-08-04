@@ -24,4 +24,20 @@ describe("renderMarkdown", () => {
     const html = renderMarkdown("![img](https://x.com/a.png)", id);
     expect(html).toContain('src="https://x.com/a.png"');
   });
+
+  // XSS regression guards
+  it("removes onerror attributes from images", () => {
+    const html = renderMarkdown('<img src=x onerror="alert(1)">', id);
+    expect(html).not.toContain("onerror");
+  });
+
+  it("prevents javascript: protocol in links", () => {
+    const html = renderMarkdown("[click](javascript:alert(1))", id);
+    expect(html).not.toContain("javascript:");
+  });
+
+  it("removes onload attributes from SVG", () => {
+    const html = renderMarkdown('<svg onload=alert(1)>', id);
+    expect(html).not.toContain("onload");
+  });
 });

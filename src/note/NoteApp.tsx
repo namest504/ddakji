@@ -11,6 +11,9 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   const [saveError, setSaveError] = useState(false);
   const bodyRef = useRef("");
   const saveTimer = useRef<number>();
+  const retryRef = useRef<() => void>(() => {});
+
+  const failWith = (op: () => void) => { retryRef.current = op; setSaveError(true); };
 
   useEffect(() => {
     api.listNotes().then((all) => {
@@ -22,9 +25,10 @@ export default function NoteApp({ noteId }: { noteId: string }) {
 
   const flushBody = useCallback(() => {
     window.clearTimeout(saveTimer.current);
-    api.saveBody(noteId, bodyRef.current)
+    const run = () => api.saveBody(noteId, bodyRef.current)
       .then(() => setSaveError(false))
-      .catch(() => setSaveError(true));
+      .catch(() => failWith(run));
+    run();
   }, [noteId]);
 
   const onBodyChange = useCallback((body: string) => {
@@ -57,7 +61,10 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     setNote((n) => {
       if (!n) return n;
       const font_size = clampFontSize(n.meta.font_size + delta);
-      api.saveMeta(noteId, { font_size }).catch(() => setSaveError(true));
+      const run = () => api.saveMeta(noteId, { font_size })
+        .then(() => setSaveError(false))
+        .catch(() => failWith(run));
+      run();
       return { ...n, meta: { ...n.meta, font_size } };
     });
   }, [noteId]);
@@ -84,7 +91,10 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   const m = note.meta;
 
   const patchMeta = (patch: api.MetaPatch) => {
-    api.saveMeta(noteId, patch).catch(() => setSaveError(true));
+    const run = () => api.saveMeta(noteId, patch)
+      .then(() => setSaveError(false))
+      .catch(() => failWith(run));
+    run();
     setNote((n) => (n ? { ...n, meta: { ...n.meta, ...patch } } : n));
   };
 
@@ -103,14 +113,19 @@ export default function NoteApp({ noteId }: { noteId: string }) {
         onNew={() => api.createNote()}
         onDelete={async () => {
           if (window.confirm("이 노트를 삭제할까요? 되돌릴 수 없습니다.")) {
-            await api.deleteNote(noteId).catch(() => setSaveError(true));
+            const run = async () => {
+              await api.deleteNote(noteId)
+                .then(() => setSaveError(false))
+                .catch(() => failWith(run));
+            };
+            await run();
           }
         }}
         onOpenList={() => api.openList()}
       />
       {saveError && (
         <div className="save-error">
-          저장 실패 — <button onClick={flushBody}>재시도</button>
+          저장 실패 — <button onClick={() => retryRef.current()}>재시도</button>
         </div>
       )}
       {m.viewer_mode

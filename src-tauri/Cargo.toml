@@ -22,3 +22,8 @@ chrono = "0.4"
 
 [dev-dependencies]
 tempfile = "3"
+
+[features]
+# `cargo tauri build`가 활성화함 — 없으면 plain `cargo build --release`가
+# 프론트엔드 없이 동작하는 깨진 바이너리를 만든다
+custom-protocol = ["tauri/custom-protocol"]

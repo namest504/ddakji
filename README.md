@@ -25,4 +25,5 @@
 Tauri 2 · React · TypeScript · marked
 
 ## 데모
-<!-- demo gif here -->
+
+![stickdown 데모 — 마크다운 편집, 뷰어 토글, 글씨 크기 조절](docs/assets/demo.gif)

@@ -1,5 +1,6 @@
 # --- AI/에이전트 작업 파일 (공개 금지) ---
 docs/superpowers/
+.superpowers/
 .claude/
 CLAUDE.md
 CLAUDE.local.md

@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WindowBounds {
@@ -63,6 +66,16 @@ impl NoteMeta {
     }
 }
 
+#[derive(Deserialize, Default, Debug, Clone)]
+pub struct MetaPatch {
+    pub color: Option<String>,
+    pub font_size: Option<u32>,
+    pub viewer_mode: Option<bool>,
+    pub always_on_top: Option<bool>,
+    pub hidden: Option<bool>,
+    pub window: Option<WindowBounds>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Note {
     pub meta: NoteMeta,
@@ -118,9 +131,140 @@ impl Note {
     }
 }
 
+pub struct Store {
+    root: PathBuf,
+}
+
+impl Store {
+    pub fn new(root: &Path) -> io::Result<Store> {
+        fs::create_dir_all(root.join("notes"))?;
+        fs::create_dir_all(root.join("assets"))?;
+        Ok(Store {
+            root: root.to_path_buf(),
+        })
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn notes_dir(&self) -> PathBuf {
+        self.root.join("notes")
+    }
+
+    fn note_path(&self, id: &str) -> PathBuf {
+        self.notes_dir().join(format!("{id}.md"))
+    }
+
+    fn write_atomic(&self, note: &Note) -> io::Result<()> {
+        let path = self.note_path(&note.meta.id);
+        let tmp = path.with_extension("md.tmp");
+        fs::write(&tmp, note.to_file_string())?;
+        fs::rename(&tmp, &path)
+    }
+
+    pub fn list(&self) -> Vec<Note> {
+        let mut notes: Vec<Note> = fs::read_dir(self.notes_dir())
+            .map(|rd| {
+                rd.filter_map(|e| e.ok())
+                    .filter(|e| e.path().extension().map(|x| x == "md").unwrap_or(false))
+                    .filter_map(|e| {
+                        let id = e.path().file_stem()?.to_str()?.to_string();
+                        let content = fs::read_to_string(e.path()).ok()?;
+                        Some(Note::from_file_string(&id, &content))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        notes.sort_by(|a, b| b.meta.updated_at.cmp(&a.meta.updated_at));
+        notes
+    }
+
+    pub fn load(&self, id: &str) -> Option<Note> {
+        let content = fs::read_to_string(self.note_path(id)).ok()?;
+        Some(Note::from_file_string(id, &content))
+    }
+
+    pub fn create(&self) -> io::Result<Note> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let note = Note {
+            meta: NoteMeta::new_default(id),
+            body: String::new(),
+        };
+        self.write_atomic(&note)?;
+        Ok(note)
+    }
+
+    pub fn save_body(&self, id: &str, body: &str) -> io::Result<Note> {
+        let mut note = self.load(id).ok_or(io::ErrorKind::NotFound)?;
+        note.body = body.to_string();
+        note.meta.updated_at = chrono::Local::now().to_rfc3339();
+        self.write_atomic(&note)?;
+        Ok(note)
+    }
+
+    pub fn save_meta(&self, id: &str, patch: &MetaPatch) -> io::Result<Note> {
+        let mut note = self.load(id).ok_or(io::ErrorKind::NotFound)?;
+        let m = &mut note.meta;
+        if let Some(v) = &patch.color {
+            m.color = v.clone();
+        }
+        if let Some(v) = patch.font_size {
+            m.font_size = v;
+        }
+        if let Some(v) = patch.viewer_mode {
+            m.viewer_mode = v;
+        }
+        if let Some(v) = patch.always_on_top {
+            m.always_on_top = v;
+        }
+        if let Some(v) = patch.hidden {
+            m.hidden = v;
+        }
+        if let Some(v) = &patch.window {
+            m.window = v.clone();
+        }
+        self.write_atomic(&note)?;
+        Ok(note)
+    }
+
+    pub fn delete(&self, id: &str) -> io::Result<()> {
+        fs::remove_file(self.note_path(id))?;
+        let assets = self.root.join("assets").join(id);
+        if assets.exists() {
+            fs::remove_dir_all(assets)?;
+        }
+        Ok(())
+    }
+
+    pub fn save_asset(&self, note_id: &str, ext: &str, bytes: &[u8]) -> io::Result<String> {
+        let dir = self.root.join("assets").join(note_id);
+        fs::create_dir_all(&dir)?;
+        let name = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+        fs::write(dir.join(&name), bytes)?;
+        Ok(format!("assets/{note_id}/{name}"))
+    }
+
+    pub fn import_asset(&self, note_id: &str, src: &Path) -> io::Result<String> {
+        let ext = src
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("png");
+        let bytes = fs::read(src)?;
+        self.save_asset(note_id, ext, &bytes)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
+
+    fn store() -> (TempDir, Store) {
+        let dir = TempDir::new().unwrap();
+        let s = Store::new(dir.path()).unwrap();
+        (dir, s)
+    }
 
     #[test]
     fn frontmatter_roundtrip() {
@@ -172,5 +316,90 @@ mod tests {
         assert_eq!(parsed.meta.id, "id-x");
         assert_eq!(parsed.meta.color, "yellow");
         assert_eq!(parsed.body, "");
+    }
+
+    #[test]
+    fn create_load_roundtrip() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        let loaded = s.load(&n.meta.id).unwrap();
+        assert_eq!(loaded, n);
+    }
+
+    #[test]
+    fn save_body_bumps_updated_at_and_persists() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        let n2 = s.save_body(&n.meta.id, "새 본문").unwrap();
+        assert_eq!(n2.body, "새 본문");
+        assert!(n2.meta.updated_at > n.meta.updated_at);
+        assert_eq!(s.load(&n.meta.id).unwrap().body, "새 본문");
+    }
+
+    #[test]
+    fn save_meta_partial_does_not_bump_updated_at() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        let patch = MetaPatch {
+            color: Some("blue".into()),
+            font_size: Some(22),
+            ..Default::default()
+        };
+        let n2 = s.save_meta(&n.meta.id, &patch).unwrap();
+        assert_eq!(n2.meta.color, "blue");
+        assert_eq!(n2.meta.font_size, 22);
+        assert_eq!(n2.meta.updated_at, n.meta.updated_at);
+        assert_eq!(n2.meta.hidden, false); // 미지정 필드 유지
+    }
+
+    #[test]
+    fn list_sorted_by_updated_at_desc() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        let b = s.create().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        s.save_body(&a.meta.id, "수정").unwrap();
+        let ids: Vec<String> = s.list().into_iter().map(|n| n.meta.id).collect();
+        assert_eq!(ids, vec![a.meta.id.clone(), b.meta.id.clone()]);
+    }
+
+    #[test]
+    fn atomic_write_leaves_no_tmp_files() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        s.save_body(&n.meta.id, "x").unwrap();
+        let leftovers: Vec<_> = std::fs::read_dir(s.notes_dir())
+            .unwrap()
+            .filter(|e| {
+                e.as_ref()
+                    .unwrap()
+                    .path()
+                    .extension()
+                    .map(|x| x == "tmp")
+                    .unwrap_or(false)
+            })
+            .collect();
+        assert!(leftovers.is_empty());
+    }
+
+    #[test]
+    fn delete_removes_note_and_assets() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        let rel = s.save_asset(&n.meta.id, "png", b"fakepng").unwrap();
+        assert!(rel.starts_with(&format!("assets/{}/", n.meta.id)));
+        s.delete(&n.meta.id).unwrap();
+        assert!(s.load(&n.meta.id).is_none());
+        assert!(!_d.path().join("assets").join(&n.meta.id).exists());
+    }
+
+    #[test]
+    fn save_asset_writes_bytes() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        let rel = s.save_asset(&n.meta.id, "png", b"bytes!").unwrap();
+        assert_eq!(std::fs::read(_d.path().join(&rel)).unwrap(), b"bytes!");
     }
 }

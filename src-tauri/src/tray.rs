@@ -11,6 +11,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     let autostart = CheckMenuItemBuilder::with_id("autostart", "부팅 시 시작")
         .checked(app.autolaunch().is_enabled().unwrap_or(false))
         .build(app)?;
+    let autostart_handle = autostart.clone();
     let quit = MenuItemBuilder::with_id("quit", "종료").build(app)?;
     let menu = MenuBuilder::new(app)
         .items(&[&new_note, &list, &show_all])
@@ -24,9 +25,10 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .icon(app.default_window_icon().expect("icon configured").clone())
         .tooltip("stickdown")
         .menu(&menu)
-        .on_menu_event(|app, event| match event.id().as_ref() {
+        .on_menu_event(move |app, event| match event.id().as_ref() {
             "new" => {
-                if let Ok(note) = app.state::<Mutex<crate::store::Store>>().lock().unwrap().create() {
+                let note = app.state::<Mutex<crate::store::Store>>().lock().unwrap().create();
+                if let Ok(note) = note {
                     let _ = crate::windows::open_note_window(app, &note);
                 }
             }
@@ -36,6 +38,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
                 let al = app.autolaunch();
                 if al.is_enabled().unwrap_or(false) { let _ = al.disable(); }
                 else { let _ = al.enable(); }
+                let _ = autostart_handle.set_checked(al.is_enabled().unwrap_or(false));
             }
             "quit" => app.exit(0),
             _ => {}

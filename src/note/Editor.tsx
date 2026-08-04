@@ -2,7 +2,7 @@ interface Props {
   noteId: string;
   value: string;
   onChange: (v: string) => void;
-  onPasteImage?: (file: File, insert: (md: string) => void) => void;
+  onPasteImage?: (file: File, selStart: number, selEnd: number) => void;
 }
 
 export default function Editor({ value, onChange, onPasteImage }: Props) {
@@ -17,11 +17,11 @@ export default function Editor({ value, onChange, onPasteImage }: Props) {
         const file = item?.getAsFile();
         if (file && onPasteImage) {
           e.preventDefault();
-          const ta = e.currentTarget;
-          onPasteImage(file, (md) => {
-            const { selectionStart: s, selectionEnd: en } = ta;
-            onChange(value.slice(0, s) + md + value.slice(en));
-          });
+          // Capture the selection synchronously — by the time the image save
+          // (async) resolves, both the textarea's selection and the note body
+          // may have moved on. The caller re-validates against the live body.
+          const { selectionStart: s, selectionEnd: en } = e.currentTarget;
+          onPasteImage(file, s, en);
         }
       }}
       autoFocus

@@ -5,6 +5,7 @@ import type { Note } from "../lib/api";
 import { clampFontSize } from "../lib/noteUtils";
 import Toolbar from "./Toolbar";
 import Editor from "./Editor";
+import Viewer from "./Viewer";
 
 export default function NoteApp({ noteId }: { noteId: string }) {
   const [note, setNote] = useState<Note | null>(null);
@@ -90,6 +91,60 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     };
   }, [changeFont, flushBody]);
 
+  // 이미지 붙여넣기: 저장은 비동기이므로, 완료 시점의 "현재" 본문(bodyRef.current)에
+  // 삽입한다. 붙여넣기 시점의 커서 오프셋이 그새 본문 길이를 넘어섰다면(=본문이
+  // 바뀜) 그 위치에 끼워 넣는 대신 끝에 덧붙여 사용자가 입력한 내용을 보존한다.
+  const pasteImage = useCallback((file: File, selStart: number, selEnd: number) => {
+    const run = async () => {
+      try {
+        const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const rel = await api.saveImage(noteId, ext, bytes);
+        const md = `![](${rel})`;
+        const body = bodyRef.current;
+        const next = selEnd <= body.length
+          ? body.slice(0, selStart) + md + body.slice(selEnd)
+          : body + `\n${md}`;
+        onBodyChange(next);
+        clearIfFailed("image");
+      } catch {
+        failWith("image", run);
+      }
+    };
+    run();
+  }, [noteId, onBodyChange]);
+
+  // 파일 드롭으로 이미지 삽입
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+    (async () => {
+      const { getCurrentWebview } = await import("@tauri-apps/api/webview");
+      const fn = await getCurrentWebview().onDragDropEvent((e) => {
+        if (e.payload.type !== "drop") return;
+        for (const path of e.payload.paths) {
+          if (!/\.(png|jpe?g|gif|webp)$/i.test(path)) continue;
+          const run = async () => {
+            try {
+              const rel = await api.importImage(noteId, path);
+              onBodyChange(bodyRef.current + `\n![](${rel})`);
+              clearIfFailed("image");
+            } catch {
+              failWith("image", run);
+            }
+          };
+          run();
+        }
+      });
+      if (cancelled) fn();
+      else unlisten = fn;
+    })();
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
+  }, [noteId, onBodyChange]);
+
   if (!note) return null;
   const m = note.meta;
 
@@ -131,8 +186,8 @@ export default function NoteApp({ noteId }: { noteId: string }) {
         </div>
       )}
       {m.viewer_mode
-        ? <div className="viewer-placeholder" onDoubleClick={() => patchMeta({ viewer_mode: false })}>뷰어는 다음 태스크에서</div>
-        : <Editor noteId={noteId} value={note.body} onChange={onBodyChange} />}
+        ? <Viewer body={note.body} onEdit={() => patchMeta({ viewer_mode: false })} />
+        : <Editor noteId={noteId} value={note.body} onChange={onBodyChange} onPasteImage={pasteImage} />}
     </div>
   );
 }

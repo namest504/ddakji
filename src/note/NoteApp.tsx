@@ -11,9 +11,12 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   const [saveError, setSaveError] = useState(false);
   const bodyRef = useRef("");
   const saveTimer = useRef<number>();
-  const retryRef = useRef<() => void>(() => {});
+  const failedOp = useRef<{ key: string; run: () => void } | null>(null);
 
-  const failWith = (op: () => void) => { retryRef.current = op; setSaveError(true); };
+  const failWith = (key: string, run: () => void) => { failedOp.current = { key, run }; setSaveError(true); };
+  const clearIfFailed = (key: string) => {
+    if (failedOp.current?.key === key) { failedOp.current = null; setSaveError(false); }
+  };
 
   useEffect(() => {
     api.listNotes().then((all) => {
@@ -26,8 +29,8 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   const flushBody = useCallback(() => {
     window.clearTimeout(saveTimer.current);
     const run = () => api.saveBody(noteId, bodyRef.current)
-      .then(() => setSaveError(false))
-      .catch(() => failWith(run));
+      .then(() => clearIfFailed("body"))
+      .catch(() => failWith("body", run));
     run();
   }, [noteId]);
 
@@ -62,8 +65,8 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       if (!n) return n;
       const font_size = clampFontSize(n.meta.font_size + delta);
       const run = () => api.saveMeta(noteId, { font_size })
-        .then(() => setSaveError(false))
-        .catch(() => failWith(run));
+        .then(() => clearIfFailed("meta"))
+        .catch(() => failWith("meta", run));
       run();
       return { ...n, meta: { ...n.meta, font_size } };
     });
@@ -92,8 +95,8 @@ export default function NoteApp({ noteId }: { noteId: string }) {
 
   const patchMeta = (patch: api.MetaPatch) => {
     const run = () => api.saveMeta(noteId, patch)
-      .then(() => setSaveError(false))
-      .catch(() => failWith(run));
+      .then(() => clearIfFailed("meta"))
+      .catch(() => failWith("meta", run));
     run();
     setNote((n) => (n ? { ...n, meta: { ...n.meta, ...patch } } : n));
   };
@@ -115,8 +118,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
           if (window.confirm("이 노트를 삭제할까요? 되돌릴 수 없습니다.")) {
             const run = async () => {
               await api.deleteNote(noteId)
-                .then(() => setSaveError(false))
-                .catch(() => failWith(run));
+                .catch(() => failWith("delete", run));
             };
             await run();
           }
@@ -125,7 +127,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       />
       {saveError && (
         <div className="save-error">
-          저장 실패 — <button onClick={() => retryRef.current()}>재시도</button>
+          저장 실패 — <button onClick={() => failedOp.current?.run()}>재시도</button>
         </div>
       )}
       {m.viewer_mode

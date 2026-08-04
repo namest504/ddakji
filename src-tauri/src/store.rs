@@ -88,23 +88,39 @@ impl Note {
         format!("---\n{yaml}---\n{}", self.body)
     }
 
-    pub fn from_file_string(id: &str, content: &str) -> Note {
+    /// Parses `content` (raw file text) into a `Note`.
+    ///
+    /// Returns `(note, recovered)`: `recovered` is `true` when the frontmatter
+    /// was missing or corrupt and `NoteMeta::new_default` had to be synthesized
+    /// as a fallback. Callers that persist notes (`Store::load`/`Store::list`)
+    /// use this flag to write the recovered meta back to disk once, so a
+    /// fresh `updated_at`/`hidden` is not re-synthesized on every read.
+    ///
+    /// This function stays pure (no I/O) — recovery persistence is the
+    /// caller's responsibility.
+    pub fn from_file_string(id: &str, content: &str) -> (Note, bool) {
         if let Some(rest) = content.strip_prefix("---\n") {
             // Try to find closing delimiter with newline: \n---\n
             if let Some(end) = rest.find("\n---\n") {
                 let (yaml, body) = (&rest[..end], &rest[end + 5..]);
                 if let Ok(mut meta) = serde_yaml::from_str::<NoteMeta>(yaml) {
                     meta.id = id.to_string(); // 파일명이 진실
-                    return Note {
-                        meta,
-                        body: body.to_string(),
-                    };
+                    return (
+                        Note {
+                            meta,
+                            body: body.to_string(),
+                        },
+                        false,
+                    );
                 }
                 // 프론트매터 손상: 본문만 보존
-                return Note {
-                    meta: NoteMeta::new_default(id.into()),
-                    body: body.to_string(),
-                };
+                return (
+                    Note {
+                        meta: NoteMeta::new_default(id.into()),
+                        body: body.to_string(),
+                    },
+                    true,
+                );
             }
             // Try closing delimiter at EOF (no trailing newline): \n---
             if rest.ends_with("\n---") {
@@ -112,22 +128,31 @@ impl Note {
                 let yaml = &rest[..end];
                 if let Ok(mut meta) = serde_yaml::from_str::<NoteMeta>(yaml) {
                     meta.id = id.to_string();
-                    return Note {
-                        meta,
-                        body: String::new(),
-                    };
+                    return (
+                        Note {
+                            meta,
+                            body: String::new(),
+                        },
+                        false,
+                    );
                 }
                 // 프론트매터 손상: 본문은 비어있음
-                return Note {
-                    meta: NoteMeta::new_default(id.into()),
-                    body: String::new(),
-                };
+                return (
+                    Note {
+                        meta: NoteMeta::new_default(id.into()),
+                        body: String::new(),
+                    },
+                    true,
+                );
             }
         }
-        Note {
-            meta: NoteMeta::new_default(id.into()),
-            body: content.to_string(),
-        }
+        (
+            Note {
+                meta: NoteMeta::new_default(id.into()),
+                body: content.to_string(),
+            },
+            true,
+        )
     }
 }
 
@@ -202,7 +227,14 @@ impl Store {
                     .filter_map(|e| {
                         let id = e.path().file_stem()?.to_str()?.to_string();
                         let content = fs::read_to_string(e.path()).ok()?;
-                        Some(Note::from_file_string(&id, &content))
+                        let (note, recovered) = Note::from_file_string(&id, &content);
+                        if recovered {
+                            // Persist the synthesized meta once so it doesn't get
+                            // regenerated (fresh updated_at, hidden=false) on every
+                            // subsequent read/poll.
+                            let _ = self.write_atomic(&note);
+                        }
+                        Some(note)
                     })
                     .collect()
             })
@@ -217,7 +249,12 @@ impl Store {
             return None;
         }
         let content = fs::read_to_string(self.note_path(id)).ok()?;
-        Some(Note::from_file_string(id, &content))
+        let (note, recovered) = Note::from_file_string(id, &content);
+        if recovered {
+            // Same rationale as list(): stabilize recovered meta on disk.
+            let _ = self.write_atomic(&note);
+        }
+        Some(note)
     }
 
     pub fn create(&self) -> io::Result<Note> {
@@ -318,45 +355,50 @@ mod tests {
             body: "# 제목\n본문 --- 대시 포함\n".into(),
         };
         let s = note.to_file_string();
-        let parsed = Note::from_file_string("abc-123", &s);
+        let (parsed, recovered) = Note::from_file_string("abc-123", &s);
         assert_eq!(parsed.meta, meta);
         assert_eq!(parsed.body, "# 제목\n본문 --- 대시 포함\n");
+        assert!(!recovered);
     }
 
     #[test]
     fn corrupt_frontmatter_preserves_body_with_default_meta() {
         let content = "---\ncolor: [broken yaml\n---\n본문은 살아야 한다";
-        let parsed = Note::from_file_string("id-1", content);
+        let (parsed, recovered) = Note::from_file_string("id-1", content);
         assert_eq!(parsed.meta.id, "id-1");
         assert_eq!(parsed.meta.color, "yellow");
         assert_eq!(parsed.body, "본문은 살아야 한다");
+        assert!(recovered);
     }
 
     #[test]
     fn no_frontmatter_treats_all_as_body() {
-        let parsed = Note::from_file_string("id-2", "그냥 텍스트");
+        let (parsed, recovered) = Note::from_file_string("id-2", "그냥 텍스트");
         assert_eq!(parsed.body, "그냥 텍스트");
         assert_eq!(parsed.meta.id, "id-2");
+        assert!(recovered);
     }
 
     #[test]
     fn frontmatter_no_trailing_newline() {
         // File ends right after closing --- (no trailing newline)
         let content = "---\nid: abc-123\ncolor: blue\n---";
-        let parsed = Note::from_file_string("abc-123", content);
+        let (parsed, recovered) = Note::from_file_string("abc-123", content);
         assert_eq!(parsed.meta.id, "abc-123");
         assert_eq!(parsed.meta.color, "blue");
         assert_eq!(parsed.body, "");
+        assert!(!recovered);
     }
 
     #[test]
     fn corrupt_frontmatter_at_eof_no_trailing_newline() {
         // Corrupt YAML at EOF (no trailing newline after closing delimiter)
         let content = "---\ncolor: [broken yaml\n---";
-        let parsed = Note::from_file_string("id-x", content);
+        let (parsed, recovered) = Note::from_file_string("id-x", content);
         assert_eq!(parsed.meta.id, "id-x");
         assert_eq!(parsed.meta.color, "yellow");
         assert_eq!(parsed.body, "");
+        assert!(recovered);
     }
 
     #[test]
@@ -508,5 +550,59 @@ mod tests {
         assert!(s.save_asset(&n.meta.id, "txt", b"data").is_ok());
         assert!(s.save_asset(&n.meta.id, "a", b"data").is_ok());
         assert!(s.save_asset(&n.meta.id, "abcde", b"data").is_ok());
+    }
+
+    #[test]
+    fn load_persists_recovered_frontmatter_across_reads() {
+        let (_d, s) = store();
+        let id = uuid::Uuid::new_v4().to_string();
+        let path = s.notes_dir().join(format!("{id}.md"));
+        fs::write(&path, "---\ncolor: [broken yaml\n---\n본문 유지").unwrap();
+
+        // First load recovers with a synthesized default meta.
+        let first = s.load(&id).unwrap();
+        assert_eq!(first.meta.color, "yellow");
+        assert_eq!(first.body, "본문 유지");
+
+        // (a) Second load must return the SAME meta (same updated_at) —
+        // proves the recovered meta was written back, not re-synthesized.
+        let second = s.load(&id).unwrap();
+        assert_eq!(second.meta, first.meta);
+
+        // (b) The file on disk now round-trips cleanly with no further
+        // recovery needed.
+        let raw = fs::read_to_string(&path).unwrap();
+        let (reparsed, recovered) = Note::from_file_string(&id, &raw);
+        assert!(!recovered);
+        assert_eq!(reparsed.meta, first.meta);
+        assert_eq!(reparsed.body, "본문 유지");
+    }
+
+    #[test]
+    fn list_persists_recovered_frontmatter_stable_across_polls() {
+        let (_d, s) = store();
+        let id = uuid::Uuid::new_v4().to_string();
+        let path = s.notes_dir().join(format!("{id}.md"));
+        // No frontmatter at all — also triggers recovery.
+        fs::write(&path, "프론트매터 없는 파일").unwrap();
+
+        let first = s.list();
+        assert_eq!(first.len(), 1);
+        let updated_at_1 = first[0].meta.updated_at.clone();
+        assert_eq!(first[0].meta.hidden, false);
+
+        std::thread::sleep(std::time::Duration::from_millis(5));
+
+        // A second poll (as the 2s frontend timer would do) must not
+        // regenerate updated_at — otherwise the note stays pinned to the
+        // top of the sorted list forever.
+        let second = s.list();
+        let updated_at_2 = second[0].meta.updated_at.clone();
+        assert_eq!(updated_at_1, updated_at_2);
+
+        // The file on disk is now clean frontmatter.
+        let raw = fs::read_to_string(&path).unwrap();
+        let (_, recovered) = Note::from_file_string(&id, &raw);
+        assert!(!recovered);
     }
 }

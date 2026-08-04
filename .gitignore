@@ -1,0 +1,33 @@
+# --- AI/에이전트 작업 파일 (공개 금지) ---
+docs/superpowers/
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+MEMORY.md
+
+# --- Node / 프론트엔드 ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# --- Tauri / Rust ---
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# --- 환경 변수 / 시크릿 ---
+.env
+.env.*
+!.env.example
+
+# --- 에디터 / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.DS_Store
+Thumbs.db

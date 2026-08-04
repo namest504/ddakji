@@ -62,3 +62,10 @@ html, body, #root { height: 100%; }
 }
 .list-item:hover { background: #f0f0f0; }
 .list-item .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-item[data-color="yellow"]   { --bar: #f5e478; }
+.list-item[data-color="green"]    { --bar: #b9e8ab; }
+.list-item[data-color="pink"]     { --bar: #f7b8d2; }
+.list-item[data-color="purple"]   { --bar: #cdb8ee; }
+.list-item[data-color="blue"]     { --bar: #aed9ec; }
+.list-item[data-color="gray"]     { --bar: #d4d4d4; }
+.list-item[data-color="charcoal"] { --bar: #3a3a3a; }

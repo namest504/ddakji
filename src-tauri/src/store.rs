@@ -135,6 +135,35 @@ pub struct Store {
     root: PathBuf,
 }
 
+fn validate_id(id: &str) -> io::Result<()> {
+    // Validate id as a valid UUID to prevent path traversal
+    if uuid::Uuid::parse_str(id).is_ok() {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "id must be a valid UUID",
+        ))
+    }
+}
+
+fn validate_ext(ext: &str) -> io::Result<()> {
+    // Validate ext as ASCII-alphanumeric only, length 1..=5
+    if ext.is_empty() || ext.len() > 5 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "ext must be 1..=5 characters",
+        ));
+    }
+    if !ext.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "ext must contain only ASCII alphanumeric characters",
+        ));
+    }
+    Ok(())
+}
+
 impl Store {
     pub fn new(root: &Path) -> io::Result<Store> {
         fs::create_dir_all(root.join("notes"))?;
@@ -158,7 +187,9 @@ impl Store {
 
     fn write_atomic(&self, note: &Note) -> io::Result<()> {
         let path = self.note_path(&note.meta.id);
-        let tmp = path.with_extension("md.tmp");
+        // Use unique tmp name to avoid concurrent write conflicts
+        let tmp_id = uuid::Uuid::new_v4().to_string();
+        let tmp = path.with_extension(format!("md.{}.tmp", tmp_id));
         fs::write(&tmp, note.to_file_string())?;
         fs::rename(&tmp, &path)
     }
@@ -181,6 +212,10 @@ impl Store {
     }
 
     pub fn load(&self, id: &str) -> Option<Note> {
+        // Return None for invalid ids instead of error
+        if validate_id(id).is_err() {
+            return None;
+        }
         let content = fs::read_to_string(self.note_path(id)).ok()?;
         Some(Note::from_file_string(id, &content))
     }
@@ -196,6 +231,7 @@ impl Store {
     }
 
     pub fn save_body(&self, id: &str, body: &str) -> io::Result<Note> {
+        validate_id(id)?;
         let mut note = self.load(id).ok_or(io::ErrorKind::NotFound)?;
         note.body = body.to_string();
         note.meta.updated_at = chrono::Local::now().to_rfc3339();
@@ -204,6 +240,7 @@ impl Store {
     }
 
     pub fn save_meta(&self, id: &str, patch: &MetaPatch) -> io::Result<Note> {
+        validate_id(id)?;
         let mut note = self.load(id).ok_or(io::ErrorKind::NotFound)?;
         let m = &mut note.meta;
         if let Some(v) = &patch.color {
@@ -229,6 +266,7 @@ impl Store {
     }
 
     pub fn delete(&self, id: &str) -> io::Result<()> {
+        validate_id(id)?;
         fs::remove_file(self.note_path(id))?;
         let assets = self.root.join("assets").join(id);
         if assets.exists() {
@@ -238,6 +276,8 @@ impl Store {
     }
 
     pub fn save_asset(&self, note_id: &str, ext: &str, bytes: &[u8]) -> io::Result<String> {
+        validate_id(note_id)?;
+        validate_ext(ext)?;
         let dir = self.root.join("assets").join(note_id);
         fs::create_dir_all(&dir)?;
         let name = format!("{}.{}", uuid::Uuid::new_v4(), ext);
@@ -246,6 +286,7 @@ impl Store {
     }
 
     pub fn import_asset(&self, note_id: &str, src: &Path) -> io::Result<String> {
+        validate_id(note_id)?;
         let ext = src
             .extension()
             .and_then(|e| e.to_str())
@@ -401,5 +442,71 @@ mod tests {
         let n = s.create().unwrap();
         let rel = s.save_asset(&n.meta.id, "png", b"bytes!").unwrap();
         assert_eq!(std::fs::read(_d.path().join(&rel)).unwrap(), b"bytes!");
+    }
+
+    #[test]
+    fn rejects_path_traversal_ids() {
+        let (_d, s) = store();
+
+        // save_body should reject traversal ids
+        assert!(s.save_body("../evil", "body").is_err());
+        assert!(s.save_body("../../etc", "body").is_err());
+        assert!(s.save_body("a/b/c", "body").is_err());
+
+        // delete should reject traversal ids
+        assert!(s.delete("../evil").is_err());
+        assert!(s.delete("a/b").is_err());
+
+        // save_meta should reject traversal ids
+        let patch = MetaPatch {
+            color: Some("red".into()),
+            ..Default::default()
+        };
+        assert!(s.save_meta("../evil", &patch).is_err());
+
+        // save_asset should reject traversal note_ids
+        assert!(s.save_asset("../evil", "png", b"data").is_err());
+        assert!(s.save_asset("a/b", "png", b"data").is_err());
+
+        // load should return None for traversal ids (not error)
+        assert!(s.load("../evil").is_none());
+        assert!(s.load("a/b/c").is_none());
+
+        // Verify no files created outside store root
+        let root_entries: Vec<_> = fs::read_dir(_d.path()).unwrap().collect();
+        for entry in root_entries {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                assert!(path.file_name().unwrap() == "notes" || path.file_name().unwrap() == "assets");
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_bad_asset_ext() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+
+        // reject path traversal in ext
+        assert!(s.save_asset(&n.meta.id, "../x", b"data").is_err());
+        assert!(s.save_asset(&n.meta.id, "a/b", b"data").is_err());
+        assert!(s.save_asset(&n.meta.id, "..", b"data").is_err());
+        assert!(s.save_asset(&n.meta.id, ".", b"data").is_err());
+
+        // reject non-alphanumeric
+        assert!(s.save_asset(&n.meta.id, "p@ng", b"data").is_err());
+        assert!(s.save_asset(&n.meta.id, "p!g", b"data").is_err());
+        assert!(s.save_asset(&n.meta.id, "p-ng", b"data").is_err());
+
+        // reject too long or empty
+        assert!(s.save_asset(&n.meta.id, "", b"data").is_err());
+        assert!(s.save_asset(&n.meta.id, "verylongext", b"data").is_err());
+
+        // accept valid extensions
+        assert!(s.save_asset(&n.meta.id, "png", b"data").is_ok());
+        assert!(s.save_asset(&n.meta.id, "jpg", b"data").is_ok());
+        assert!(s.save_asset(&n.meta.id, "txt", b"data").is_ok());
+        assert!(s.save_asset(&n.meta.id, "a", b"data").is_ok());
+        assert!(s.save_asset(&n.meta.id, "abcde", b"data").is_ok());
     }
 }

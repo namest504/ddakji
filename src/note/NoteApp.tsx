@@ -34,6 +34,9 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     saveTimer.current = window.setTimeout(flushBody, 500);
   }, [flushBody]);
 
+  // Cleanup pending timers on unmount
+  useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+
   // 창 이동/리사이즈 → 위치 저장 (디바운스)
   useEffect(() => {
     const win = getCurrentWindow();
@@ -46,7 +49,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     };
     const un1 = win.onMoved(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
     const un2 = win.onResized(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
-    return () => { un1.then((f) => f()); un2.then((f) => f()); };
+    return () => { clearTimeout(t); un1.then((f) => f()); un2.then((f) => f()); };
   }, [noteId]);
 
   // Ctrl+휠 / Ctrl+± 글씨 크기
@@ -54,7 +57,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     setNote((n) => {
       if (!n) return n;
       const font_size = clampFontSize(n.meta.font_size + delta);
-      api.saveMeta(noteId, { font_size });
+      api.saveMeta(noteId, { font_size }).catch(() => setSaveError(true));
       return { ...n, meta: { ...n.meta, font_size } };
     });
   }, [noteId]);
@@ -81,8 +84,8 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   const m = note.meta;
 
   const patchMeta = (patch: api.MetaPatch) => {
-    api.saveMeta(noteId, patch);
-    setNote({ ...note, meta: { ...m, ...patch } });
+    api.saveMeta(noteId, patch).catch(() => setSaveError(true));
+    setNote((n) => (n ? { ...n, meta: { ...n.meta, ...patch } } : n));
   };
 
   return (
@@ -100,7 +103,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
         onNew={() => api.createNote()}
         onDelete={async () => {
           if (window.confirm("이 노트를 삭제할까요? 되돌릴 수 없습니다.")) {
-            await api.deleteNote(noteId);
+            await api.deleteNote(noteId).catch(() => setSaveError(true));
           }
         }}
         onOpenList={() => api.openList()}

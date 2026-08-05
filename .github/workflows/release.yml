@@ -23,4 +23,21 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "stickdown ${{ github.ref_name }}"
           releaseDraft: true
-          releaseBody: "See CHANGELOG below."
+          releaseBody: |
+            See CHANGELOG below.
+
+            **Portable (stickdown-*-portable-x64.zip)**
+            - 설치 없이 압축 해제 후 stickdown.exe 실행 (WebView2 런타임 필요 — Windows 11 내장)
+            - 노트 데이터는 %APPDATA%\com.stickdown.app 에 저장됩니다
+            - exe 위치를 옮겼다면 트레이 "부팅 시 시작"을 껐다 켜서 경로를 갱신하세요
+      - name: Package portable exe
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: Compress-Archive -Path src-tauri/target/release/stickdown.exe -DestinationPath "stickdown-$env:TAG-portable-x64.zip" -Force
+      - name: Upload portable zip to release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$env:TAG" "stickdown-$env:TAG-portable-x64.zip" --clobber

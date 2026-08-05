@@ -87,7 +87,8 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
     )
     .title("stickdown")
     .decorations(false)
-    .skip_taskbar(true)
+    // skip_taskbar 해제: 목록 창 없이 노트만 떠 있어도 작업 표시줄에 앱 아이콘이
+    // 보이게 한다 (같은 앱 창은 아이콘 하나로 그룹됨). Alt-Tab에도 노트가 노출된다.
     // 웹뷰가 그리기 전 흰 배경이 잠깐 노출되는 것을 막는다 — 프런트가 마운트 후 show()
     .visible(false)
     // Liquid Glass(#20): 투명 창 + OS 블러 위에 CSS 반투명 틴트를 얹는다

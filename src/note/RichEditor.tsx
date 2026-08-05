@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Markdown } from "tiptap-markdown";
 import { convertFileSrc } from "@tauri-apps/api/core";
 
@@ -29,7 +30,14 @@ export default function RichEditor({ body, base, onChange, onEditor, onPasteFile
   pasteRef.current = onPasteFile;
 
   const editor = useEditor({
-    extensions: [StarterKit, assetImage(base), Markdown.configure({ html: true })],
+    extensions: [
+      StarterKit,
+      // 체크박스: `- [ ] ` 입력으로 생성, 클릭 토글, GFM(- [x])으로 저장
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      assetImage(base),
+      Markdown.configure({ html: true }),
+    ],
     content: body,
     autofocus: "end",
     editorProps: {

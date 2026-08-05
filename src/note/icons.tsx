@@ -27,6 +27,13 @@ export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
 );
 
+export const CheckboxIcon = () => (
+  <svg {...base}>
+    <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
+    <path d="M5.2 8.2l2 2 3.6-4" />
+  </svg>
+);
+
 export const IndentIcon = () => (
   <svg {...base}><path d="M7 4h7M7 8h7M7 12h7M2 5.6L4.6 8 2 10.4" /></svg>
 );

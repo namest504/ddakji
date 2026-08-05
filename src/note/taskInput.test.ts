@@ -21,7 +21,9 @@ const makeEditor = () =>
 const typeText = (ed: Editor, text: string) => {
   for (const ch of text) {
     const { from, to } = ed.state.selection;
-    const handled = ed.view.someProp("handleTextInput", (f) => f(ed.view, from, to, ch));
+    const call = (f: unknown) =>
+      (f as (v: unknown, a: number, b: number, t: string) => boolean)(ed.view, from, to, ch);
+    const handled = ed.view.someProp("handleTextInput", call);
     if (!handled) {
       // 실제 에디터처럼: 텍스트 셀렉션이 아니면 입력이 버려진다 —
       // 룰이 셀렉션을 망가뜨리는 회귀(#39)를 가리지 않기 위한 엄격 모드

@@ -81,7 +81,11 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     };
     const un1 = win.onMoved(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
     const un2 = win.onResized(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
-    return () => { clearTimeout(t); un1.then((f) => f()); un2.then((f) => f()); };
+    // Alt-Tab 썸네일용 "최근 본 노트" 추적
+    const un3 = win.onFocusChanged(({ payload }) => {
+      if (payload) api.setLastViewed(noteId).catch(() => {});
+    });
+    return () => { clearTimeout(t); un1.then((f) => f()); un2.then((f) => f()); un3.then((f) => f()); };
   }, [noteId]);
 
   // Ctrl+휠 / Ctrl+± 글씨 크기

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import NoteApp from "./note/NoteApp";
 import ListApp from "./list/ListApp";
+import StubPreview from "./stub/StubPreview";
 import { initTheme } from "./lib/theme";
 import "./styles.css";
 
@@ -13,6 +14,9 @@ const view = params.get("view");
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {noteId ? <NoteApp noteId={noteId} /> : view === "list" ? <ListApp /> : <div>stickdown</div>}
+    {noteId ? <NoteApp noteId={noteId} />
+      : view === "list" ? <ListApp />
+      : view === "stub" ? <StubPreview />
+      : <div>stickdown</div>}
   </React.StrictMode>
 );

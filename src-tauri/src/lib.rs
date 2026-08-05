@@ -35,12 +35,15 @@ pub fn run() {
             commands::save_settings,
             commands::open_data_dir,
             commands::list_system_fonts,
+            commands::set_last_viewed,
+            commands::get_last_viewed,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;
             let store = Store::new(&root)?;
             let notes = store.list();
             app.manage(Mutex::new(store));
+            app.manage(commands::LastViewed(Mutex::new(None)));
             tray::create_tray(app.handle())?;
             // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)
             windows::ensure_main_stub(app.handle())?;
@@ -59,8 +62,12 @@ pub fn run() {
         .on_window_event(|window, event| {
             if window.label() == windows::STUB_LABEL {
                 match event {
-                    // Alt-Tab·작업표시줄에서 앱을 선택하면 모든 노트를 표시한다
+                    // Alt-Tab·작업표시줄에서 앱을 선택하면(복원·포커스) 스텁은 다시
+                    // 화면 밖·최소화로 되돌리고 모든 노트를 표시한다
                     tauri::WindowEvent::Focused(true) => {
+                        // 셸이 화면 안으로 끌어왔을 수 있으니 항상 화면 밖으로 되돌린다
+                        let _ = window
+                            .set_position(tauri::LogicalPosition::new(-30000.0, -30000.0));
                         let _ = crate::show_all_notes(&window.app_handle());
                     }
                     // 스텁이 닫히면 Alt-Tab 항목이 사라진다 — 닫기 무시

@@ -123,13 +123,20 @@ pub fn ensure_main_stub(app: &AppHandle) -> tauri::Result<()> {
     if app.get_webview_window(STUB_LABEL).is_some() {
         return Ok(());
     }
-    WebviewWindowBuilder::new(app, STUB_LABEL, WebviewUrl::App("index.html?view=stub".into()))
-        .title("stickdown")
-        .decorations(false)
-        .inner_size(180.0, 120.0)
-        .position(-30000.0, -30000.0)
-        .focused(false)
-        .build()?;
+    let w = WebviewWindowBuilder::new(
+        app,
+        STUB_LABEL,
+        WebviewUrl::App("index.html?view=stub".into()),
+    )
+    .title("stickdown")
+    .decorations(false)
+    .inner_size(260.0, 180.0)
+    .position(-30000.0, -30000.0)
+    .focused(false)
+    .build()?;
+    // 화면 밖에 있어도 DWM이 콘텐츠를 합성하므로 Alt-Tab 썸네일에는
+    // 이 창의 내용(최근 본 노트 미리보기)이 그대로 보인다.
+    let _ = w;
     Ok(())
 }
 

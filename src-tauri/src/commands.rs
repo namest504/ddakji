@@ -5,6 +5,9 @@ use tauri::{AppHandle, Manager, State};
 
 type StoreState<'a> = State<'a, Mutex<Store>>;
 
+/// 마지막으로 본(포커스한) 노트 id — Alt-Tab 썸네일 미리보기용 (세션 한정)
+pub struct LastViewed(pub Mutex<Option<String>>);
+
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
@@ -91,6 +94,21 @@ pub fn import_image(store: StoreState, id: String, path: String) -> Result<Strin
         .map_err(err)?
         .import_asset(&id, std::path::Path::new(&path))
         .map_err(err)
+}
+
+#[tauri::command]
+pub fn set_last_viewed(state: State<LastViewed>, id: String) {
+    if let Ok(mut g) = state.0.lock() {
+        *g = Some(id);
+    }
+}
+
+#[tauri::command]
+pub fn get_last_viewed(state: State<LastViewed>, store: StoreState) -> Result<Option<Note>, String> {
+    let id = state.0.lock().map_err(err)?.clone();
+    let s = store.lock().map_err(err)?;
+    // 아직 본 노트가 없으면 가장 최근 수정된 노트로
+    Ok(id.and_then(|i| s.load(&i)).or_else(|| s.list().into_iter().next()))
 }
 
 #[tauri::command]

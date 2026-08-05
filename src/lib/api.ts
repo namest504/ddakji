@@ -35,4 +35,6 @@ export const dataRoot = () => invoke<string>("data_root");
 export const getSettings = () => invoke<Settings>("get_settings");
 export const openDataDir = () => invoke<void>("open_data_dir");
 export const listSystemFonts = () => invoke<string[]>("list_system_fonts");
+export const setLastViewed = (id: string) => invoke<void>("set_last_viewed", { id });
+export const getLastViewed = () => invoke<Note | null>("get_last_viewed");
 export const saveSettings = (settings: Settings) => invoke<void>("save_settings", { settings });

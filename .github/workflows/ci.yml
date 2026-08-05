@@ -27,3 +27,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: src-tauri }
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  # 릴리스(태그) 빌드가 복원할 Windows 캐시를 기본 브랜치에 저장한다 —
+  # GitHub 캐시는 같은 ref 또는 기본 브랜치 것만 복원 가능해서, 이 잡이 없으면
+  # 태그 빌드는 매번 콜드 스타트로 의존성을 새로 받는다.
+  windows-release-cache:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: windows-release
+      # tauri build와 동일한 피처로 컴파일해 아티팩트가 그대로 재사용되게 한다
+      - run: cargo build --release --features custom-protocol --manifest-path src-tauri/Cargo.toml

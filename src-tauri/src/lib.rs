@@ -42,6 +42,8 @@ pub fn run() {
             let notes = store.list();
             app.manage(Mutex::new(store));
             tray::create_tray(app.handle())?;
+            // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)
+            windows::ensure_main_stub(app.handle())?;
             let visible: Vec<_> = notes.iter().filter(|n| !n.meta.hidden).collect();
             if notes.is_empty() {
                 let s = app.state::<Mutex<Store>>();
@@ -55,6 +57,20 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == windows::STUB_LABEL {
+                match event {
+                    // Alt-Tab·작업표시줄에서 앱을 선택하면 모든 노트를 표시한다
+                    tauri::WindowEvent::Focused(true) => {
+                        let _ = crate::show_all_notes(&window.app_handle());
+                    }
+                    // 스텁이 닫히면 Alt-Tab 항목이 사라진다 — 닫기 무시
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                    }
+                    _ => {}
+                }
+                return;
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if let Some(id) = window.label().strip_prefix("note-") {
                     // 닫기 = 숨김 (삭제 아님), 트레이 상주

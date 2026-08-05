@@ -90,8 +90,8 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
     // Tauri 드롭 핸들러가 웹뷰 드래그 이벤트를 가로채 에디터 내부 이미지 드래그가
     // 막힌다 — 끄고 파일 드롭도 에디터(HTML5)가 처리한다
     .disable_drag_drop_handler()
-    // skip_taskbar 해제: 목록 창 없이 노트만 떠 있어도 작업 표시줄에 앱 아이콘이
-    // 보이게 한다 (같은 앱 창은 아이콘 하나로 그룹됨). Alt-Tab에도 노트가 노출된다.
+    // 노트는 Alt-Tab/작업표시줄에서 제외 — 대표 스텁 창 하나가 앱을 대신한다
+    .skip_taskbar(true)
     // 웹뷰가 그리기 전 흰 배경이 잠깐 노출되는 것을 막는다 — 프런트가 마운트 후 show()
     .visible(false)
     // Liquid Glass(#20): 투명 창 + OS 블러 위에 CSS 반투명 틴트를 얹는다
@@ -112,6 +112,25 @@ fn apply_glass(win: &tauri::WebviewWindow) {
     let _ = window_vibrancy::apply_acrylic(win, Some((160, 160, 160, 60)));
     #[cfg(not(target_os = "windows"))]
     let _ = win;
+}
+
+/// Alt-Tab/작업표시줄용 대표 창. 화면 밖에 상주하며 앱 항목을 하나로 유지한다 —
+/// 사용자가 Alt-Tab이나 작업표시줄 아이콘으로 이 창을 활성화하면(Focused)
+/// lib.rs가 모든 노트를 표시한다. 노트 창이 여럿이어도 Alt-Tab엔 이 창 하나만 보인다.
+pub const STUB_LABEL: &str = "stickdown-main";
+
+pub fn ensure_main_stub(app: &AppHandle) -> tauri::Result<()> {
+    if app.get_webview_window(STUB_LABEL).is_some() {
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(app, STUB_LABEL, WebviewUrl::App("index.html?view=stub".into()))
+        .title("stickdown")
+        .decorations(false)
+        .inner_size(180.0, 120.0)
+        .position(-30000.0, -30000.0)
+        .focused(false)
+        .build()?;
+    Ok(())
 }
 
 pub fn open_list_window(app: &AppHandle) -> tauri::Result<()> {

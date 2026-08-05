@@ -18,7 +18,8 @@ html, body, #root { height: 100%; }
   background: var(--bar); opacity: 0; transition: opacity .15s; user-select: none;
   position: absolute; top: 0; left: 0; right: 0; z-index: 5;
 }
-.note:hover .toolbar { opacity: 1; }
+/* 노트 전체가 아니라 상단 스트립에 마우스를 올렸을 때만 표시 — 타이핑 중 첫 줄을 가리지 않는다 */
+.toolbar:hover, .toolbar:focus-within { opacity: 1; }
 .toolbar button {
   border: 0; background: transparent; cursor: pointer;
   min-width: 24px; height: 24px; padding: 0 3px; border-radius: 6px;

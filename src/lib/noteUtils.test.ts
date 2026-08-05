@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampFontSize, filterNotes, fontStack, hasMoreBelow, noteTitle, relativeTime } from "./noteUtils";
+import { clampFontSize, filterNotes, fontStack, hasMoreBelow, noteTitle, plainPreview, relativeTime } from "./noteUtils";
 import type { Note } from "./api";
 
 const note = (id: string, body: string): Note => ({
@@ -87,5 +87,17 @@ describe("fontStack custom", () => {
     const s = fontStack("JetBrains Mono");
     expect(s.startsWith('"JetBrains Mono"')).toBe(true);
     expect(s).toContain("Malgun Gothic");
+  });
+});
+
+describe("plainPreview", () => {
+  it("마크다운 기호를 걷어낸 플레인 텍스트", () => {
+    expect(plainPreview("# 제목\n**굵게** 본문")).toBe("제목\n굵게 본문");
+  });
+  it("체크박스는 ☐/☑로, 불렛은 •로", () => {
+    expect(plainPreview("- [ ] 할일\n- [x] 완료\n- 항목")).toBe("☐ 할일\n☑ 완료\n• 항목");
+  });
+  it("이미지는 제거, 링크는 텍스트만", () => {
+    expect(plainPreview("![](assets/a/b.png)\n[문서](https://x.y)")).toBe("문서");
   });
 });

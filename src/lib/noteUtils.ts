@@ -40,6 +40,21 @@ export function relativeTime(iso: string, now: Date = new Date()): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+// 썸네일 미리보기용: 마크다운 기호를 걷어낸 플레인 텍스트 (체크박스는 ☐/☑)
+export function plainPreview(body: string): string {
+  return body
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^(\s*)[-*+]\s+\[[xX]\]\s+/gm, "$1☑ ")
+    .replace(/^(\s*)[-*+]\s+\[ \]\s+/gm, "$1☐ ")
+    .replace(/^(\s*)[-*+]\s+/gm, "$1• ")
+    .replace(/^>\s?/gm, "")
+    .replace(/[*_~`]/g, "")
+    .replace(/^\s*\n/gm, "")
+    .trim();
+}
+
 export function noteTitle(note: Note): string {
   const line = note.body.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
   if (!line) return "(빈 노트)";

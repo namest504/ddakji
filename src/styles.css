@@ -51,7 +51,12 @@ html, body, #root { height: 100%; }
 .swatch[data-color="gray"]     { background: #ececec; }
 .swatch[data-color="charcoal"] { background: #4a4a4a; }
 
-.content { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.content {
+  position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0;
+  transition: padding-top .18s ease;
+}
+/* 툴바가 나타나면 본문이 부드럽게 아래로 밀리고, 사라지면 다시 올라온다 — 첫 줄이 가려지지 않게 */
+.toolbar:hover ~ .content, .toolbar:focus-within ~ .content { padding-top: 32px; }
 .editor {
   flex: 1; border: 0; background: transparent; resize: none; outline: none;
   padding: 10px 12px; font: inherit; color: inherit; line-height: 1.5;

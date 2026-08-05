@@ -38,6 +38,10 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       }
       loadedRef.current = true;
       setNote(n);
+    }).finally(() => {
+      // 창은 visible:false로 생성된다 — 내용을 그린 뒤 표시해 흰 화면 플래시 제거
+      const win = getCurrentWindow();
+      win.show().then(() => win.setFocus()).catch(() => {});
     });
   }, [noteId, setViewerMode]);
 

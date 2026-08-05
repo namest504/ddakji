@@ -13,6 +13,11 @@ export default function ListApp() {
   const reload = useCallback(() => { api.listNotes().then(setNotes); }, []);
   useEffect(() => {
     reload();
+    // 창은 visible:false로 생성된다 — 첫 렌더 후 표시 (흰 화면 플래시 제거)
+    import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+      const win = getCurrentWindow();
+      win.show().then(() => win.setFocus()).catch(() => {});
+    });
     const t = setInterval(reload, 2000); // 단순 폴링 (v1)
     return () => clearInterval(t);
   }, [reload]);

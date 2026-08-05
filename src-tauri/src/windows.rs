@@ -88,6 +88,8 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
     .title("stickdown")
     .decorations(false)
     .skip_taskbar(true)
+    // 웹뷰가 그리기 전 흰 배경이 잠깐 노출되는 것을 막는다 — 프런트가 마운트 후 show()
+    .visible(false)
     .always_on_top(m.always_on_top)
     .inner_size(m.window.w, m.window.h)
     .position(x, y)
@@ -106,6 +108,7 @@ pub fn open_list_window(app: &AppHandle) -> tauri::Result<()> {
         .title("stickdown — 노트 목록")
         .inner_size(360.0, 480.0)
         .min_inner_size(280.0, 320.0)
+        .visible(false)
         .build()?;
     Ok(())
 }

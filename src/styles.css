@@ -3,6 +3,9 @@
 html, body, #root { height: 100%; }
 /* Liquid Glass: 창은 투명 + OS Acrylic 블러, 색은 CSS 반투명 틴트가 결정 */
 html, body { background: transparent; }
+/* 글라스 미지원 플랫폼(비-Windows): 불투명 배경 폴백 */
+:root[data-glass="off"] body { background: #f4f2e9; }
+:root[data-glass="off"][data-theme="dark"] body { background: #1c1c1e; }
 
 .note { display: flex; flex-direction: column; height: 100%; position: relative; }
 .note[data-color="yellow"]   { --bg: rgba(255,247,177,.66); --bar: rgba(245,228,120,.88); }

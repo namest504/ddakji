@@ -204,14 +204,67 @@ pub struct Store {
 }
 
 fn validate_id(id: &str) -> io::Result<()> {
-    // Validate id as a valid UUID to prevent path traversal
-    if uuid::Uuid::parse_str(id).is_ok() {
+    // 경로 조작 방지: 영숫자와 '-'만 허용 (새 형식 20260805-134024-a1b2c3,
+    // 구형 UUID 모두 통과)
+    let ok = !id.is_empty()
+        && id.len() <= 64
+        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
+    if ok {
         Ok(())
     } else {
         Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "id must be a valid UUID",
+            "id must be alphanumeric/dash",
         ))
+    }
+}
+
+/// 새 노트/에셋 파일명: 사람이 읽는 생성시각 + 짧은 고유 접미사.
+/// 폴더에서 이름 정렬 = 생성 순서가 되고, 시각이 눈에 바로 보인다.
+fn new_file_id() -> String {
+    let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let suffix = &uuid::Uuid::new_v4().simple().to_string()[..6];
+    format!("{ts}-{suffix}")
+}
+
+/// 구형(UUID 파일명) 노트를 새 형식으로 개명한다 — 에셋 폴더와 본문의
+/// assets/<id>/ 참조까지 함께. 시각은 프론트매터 created_at을 사용한다.
+fn migrate_uuid_filenames(root: &Path) {
+    let notes_dir = root.join("notes");
+    let Ok(rd) = fs::read_dir(&notes_dir) else { return };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.extension().map(|x| x != "md").unwrap_or(true) {
+            continue;
+        }
+        let Some(stem) = p.file_stem().and_then(|s| s.to_str()).map(String::from) else {
+            continue;
+        };
+        if uuid::Uuid::parse_str(&stem).is_err() {
+            continue; // 이미 새 형식
+        }
+        let ts = fs::read_to_string(&p)
+            .ok()
+            .map(|c| Note::from_file_string(&stem, &c).0.meta.created_at)
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+            .map(|d| d.format("%Y%m%d-%H%M%S").to_string())
+            .unwrap_or_else(|| chrono::Local::now().format("%Y%m%d-%H%M%S").to_string());
+        let suffix = &uuid::Uuid::new_v4().simple().to_string()[..6];
+        let new_id = format!("{ts}-{suffix}");
+        let new_path = notes_dir.join(format!("{new_id}.md"));
+        if fs::rename(&p, &new_path).is_err() {
+            continue;
+        }
+        let assets_old = root.join("assets").join(&stem);
+        if assets_old.exists() {
+            let _ = fs::rename(assets_old, root.join("assets").join(&new_id));
+        }
+        if let Ok(c) = fs::read_to_string(&new_path) {
+            let c2 = c.replace(&format!("assets/{stem}/"), &format!("assets/{new_id}/"));
+            if c2 != c {
+                let _ = fs::write(&new_path, c2);
+            }
+        }
     }
 }
 
@@ -236,6 +289,7 @@ impl Store {
     pub fn new(root: &Path) -> io::Result<Store> {
         fs::create_dir_all(root.join("notes"))?;
         fs::create_dir_all(root.join("assets"))?;
+        migrate_uuid_filenames(root);
         // settings.json이 없거나 파손이면 기본값 — 노트 접근을 막지 않는다
         let settings = fs::read_to_string(root.join("settings.json"))
             .ok()
@@ -320,7 +374,7 @@ impl Store {
     }
 
     pub fn create(&self) -> io::Result<Note> {
-        let id = uuid::Uuid::now_v7().to_string();
+        let id = new_file_id();
         let mut meta = NoteMeta::new_default(id);
         meta.color = self.settings.default_color.clone();
         meta.font_family = self.settings.default_font_family.clone();
@@ -386,7 +440,7 @@ impl Store {
         validate_ext(ext)?;
         let dir = self.root.join("assets").join(note_id);
         fs::create_dir_all(&dir)?;
-        let name = format!("{}.{}", uuid::Uuid::now_v7(), ext);
+        let name = format!("{}.{}", new_file_id(), ext);
         fs::write(dir.join(&name), bytes)?;
         Ok(format!("assets/{note_id}/{name}"))
     }
@@ -510,13 +564,51 @@ mod tests {
     }
 
     #[test]
-    fn create_ids_are_time_sortable_uuidv7() {
+    fn create_ids_are_readable_timestamps() {
         let (_d, s) = store();
         let a = s.create().unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(3));
         let b = s.create().unwrap();
-        assert_eq!(uuid::Uuid::parse_str(&a.meta.id).unwrap().get_version_num(), 7);
-        assert!(a.meta.id < b.meta.id, "UUIDv7 파일명은 생성 시각순으로 정렬돼야 한다");
+        let re = regex_lite();
+        assert!(re(&a.meta.id), "가독 시각 형식이어야 한다: {}", a.meta.id);
+        assert_ne!(a.meta.id, b.meta.id, "같은 초에 만들어도 접미사로 구분");
+    }
+
+    // 의존성 없이 20260805-134024-a1b2c3 형식 검사
+    fn regex_lite() -> impl Fn(&str) -> bool {
+        |id: &str| {
+            let parts: Vec<&str> = id.split('-').collect();
+            parts.len() == 3
+                && parts[0].len() == 8
+                && parts[0].chars().all(|c| c.is_ascii_digit())
+                && parts[1].len() == 6
+                && parts[1].chars().all(|c| c.is_ascii_digit())
+                && parts[2].len() == 6
+                && parts[2].chars().all(|c| c.is_ascii_hexdigit())
+        }
+    }
+
+    #[test]
+    fn migrates_uuid_filenames_with_assets_and_body_refs() {
+        let d = TempDir::new().unwrap();
+        let notes = d.path().join("notes");
+        let assets = d.path().join("assets").join("0198aaaa-bbbb-4ccc-8ddd-eeeeffff0000");
+        fs::create_dir_all(&notes).unwrap();
+        fs::create_dir_all(&assets).unwrap();
+        fs::write(assets.join("img.png"), b"png").unwrap();
+        let old_id = "0198aaaa-bbbb-4ccc-8ddd-eeeeffff0000";
+        let content = format!(
+            "---\nid: {old_id}\ncreated_at: \"2026-08-01T09:30:00+09:00\"\n---\n![](assets/{old_id}/img.png)"
+        );
+        fs::write(notes.join(format!("{old_id}.md")), content).unwrap();
+
+        let s = Store::new(d.path()).unwrap();
+        let list = s.list();
+        assert_eq!(list.len(), 1);
+        let n = &list[0];
+        assert!(n.meta.id.starts_with("20260801-093000-"), "created_at 기반 개명: {}", n.meta.id);
+        assert!(n.body.contains(&format!("assets/{}/img.png", n.meta.id)), "본문 참조 갱신");
+        assert!(d.path().join("assets").join(&n.meta.id).join("img.png").exists(), "에셋 폴더 개명");
+        assert!(!notes.join(format!("{old_id}.md")).exists());
     }
 
     #[test]

@@ -32,6 +32,7 @@ pub fn run() {
             commands::data_root,
             commands::get_settings,
             commands::save_settings,
+            commands::open_data_dir,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;

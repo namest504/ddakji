@@ -37,6 +37,11 @@ html, body, #root { height: 100%; }
   border: 1.6px solid currentColor; display: inline-block;
 }
 .font-row button { min-width: auto; padding: 3px 10px; font-size: 12px; }
+.font-custom {
+  flex: 1; min-width: 90px; border: 0; border-radius: 6px; padding: 4px 8px;
+  font-size: 12px; outline: none; background: rgba(255,255,255,.65); color: #1c1c1e;
+}
+.settings .font-custom { background: var(--l-field); max-width: 170px; }
 .toolbar .spacer { flex: 1; height: 100%; }
 .color-row {
   position: absolute; top: 100%; left: 0; right: 0; display: flex; gap: 6px;

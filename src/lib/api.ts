@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export type NoteColor = "yellow" | "green" | "pink" | "purple" | "blue" | "gray" | "charcoal";
-export type FontFamily = "system" | "serif" | "mono";
+// 프리셋 3종 외의 문자열은 사용자 지정 폰트명 (커스텀 폰트)
+export type FontFamily = "system" | "serif" | "mono" | (string & {});
 export interface WindowBounds { x: number; y: number; w: number; h: number }
 export interface NoteMeta {
   id: string; created_at: string; updated_at: string;
@@ -30,4 +31,5 @@ export const importImage = (id: string, path: string) =>
   invoke<string>("import_image", { id, path });
 export const dataRoot = () => invoke<string>("data_root");
 export const getSettings = () => invoke<Settings>("get_settings");
+export const openDataDir = () => invoke<void>("open_data_dir");
 export const saveSettings = (settings: Settings) => invoke<void>("save_settings", { settings });

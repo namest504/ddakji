@@ -69,8 +69,8 @@ describe("fontStack", () => {
     expect(fontStack("serif")).toContain("Georgia");
     expect(fontStack("mono")).toContain("Consolas");
   });
-  it("알 수 없는 키는 시스템 스택으로", () => {
-    expect(fontStack("weird" as never)).toContain("Segoe UI");
+  it("프리셋 외 값은 커스텀 폰트로 (한글 폴백 포함)", () => {
+    expect(fontStack("weird")).toBe('"weird", "Malgun Gothic", sans-serif');
   });
 });
 
@@ -89,5 +89,13 @@ describe("relativeTime", () => {
   });
   it("파싱 불가면 빈 문자열", () => {
     expect(relativeTime("", now)).toBe("");
+  });
+});
+
+describe("fontStack custom", () => {
+  it("프리셋이 아닌 값은 설치 폰트명으로 취급해 스택 맨 앞에 둔다", () => {
+    const s = fontStack("JetBrains Mono");
+    expect(s.startsWith('"JetBrains Mono"')).toBe(true);
+    expect(s).toContain("Malgun Gothic");
   });
 });

@@ -41,10 +41,8 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
     setAutostart(await isEnabled());
   };
 
-  const openData = async () => {
-    const { openPath } = await import("@tauri-apps/plugin-opener");
-    await openPath(await api.dataRoot());
-  };
+  // opener의 openPath는 경로 스코프 권한이 별도로 필요해 프런트에서 실패한다 — Rust 커맨드로 연다
+  const openData = () => api.openDataDir();
 
   const openRepo = async () => {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
@@ -91,6 +89,17 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
                 </button>
               ))}
             </span>
+          </div>
+          <div className="settings-row">
+            <span>커스텀 폰트</span>
+            <input className="font-custom" placeholder="설치된 폰트명 입력 후 Enter"
+              defaultValue={FONTS.some((f) => f.key === settings.default_font_family) ? "" : settings.default_font_family}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const v = e.currentTarget.value.trim();
+                  if (v) patch({ default_font_family: v });
+                }
+              }} />
           </div>
           <div className="settings-row">
             <span>글씨 크기</span>

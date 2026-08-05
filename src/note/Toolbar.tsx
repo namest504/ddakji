@@ -63,6 +63,14 @@ export default function Toolbar(p: Props) {
               {f.label}
             </button>
           ))}
+          <input className="font-custom" placeholder="폰트명 직접 입력"
+            defaultValue={FONTS.some((f) => f.key === m.font_family) ? "" : m.font_family}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const v = e.currentTarget.value.trim();
+                if (v) { p.onFont(v); setPopover(null); }
+              }
+            }} />
         </div>
       )}
     </div>

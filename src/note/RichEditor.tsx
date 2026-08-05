@@ -1,9 +1,25 @@
 import { useEffect, useRef } from "react";
+import { markInputRule } from "@tiptap/core";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+import Strike from "@tiptap/extension-strike";
 import { Markdown } from "tiptap-markdown";
 import { convertFileSrc } from "@tauri-apps/api/core";
+
+// 기본 ~~취소선~~에 더해, 타이핑 편의를 위해 한 글자 ~취소선~도 인식한다.
+// 저장 시에는 표준 GFM(~~)으로 직렬화된다.
+const StrikeLoose = Strike.extend({
+  addInputRules() {
+    return [
+      ...(this.parent?.() ?? []),
+      markInputRule({
+        find: /(?:^|\s)(~(?!\s)([^~]+)(?<!\s)~)$/,
+        type: this.type,
+      }),
+    ];
+  },
+});
 
 // 문서(마크다운)에는 assets/ 상대경로를 그대로 두고, 화면에 그릴 때만 asset URL로 변환한다.
 // 직렬화는 node attrs(상대경로)를 읽으므로 저장 포맷이 오염되지 않는다.
@@ -29,7 +45,12 @@ export default function RichEditor({ body, base, onChange, onEditor, onPasteFile
   pasteRef.current = onPasteFile;
 
   const editor = useEditor({
-    extensions: [StarterKit, assetImage(base), Markdown.configure({ html: true })],
+    extensions: [
+      StarterKit.configure({ strike: false }),
+      StrikeLoose,
+      assetImage(base),
+      Markdown.configure({ html: true }),
+    ],
     content: body,
     autofocus: "end",
     editorProps: {

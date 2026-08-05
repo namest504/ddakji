@@ -89,6 +89,10 @@ html, body { background: transparent; }
 .tiptap h2 { font-size: 1.3em; margin: .3em 0 .15em; }
 .tiptap h3 { font-size: 1.15em; margin: .25em 0 .1em; }
 .tiptap ul, .tiptap ol { margin: 2px 0; padding-left: 22px; }
+/* 불렛 depth: 깊이별 마커 (Tab/Shift+Tab으로 들여쓰기·내어쓰기) */
+.tiptap ul { list-style: disc; }
+.tiptap ul ul { list-style: circle; }
+.tiptap ul ul ul { list-style: square; }
 .tiptap img { max-width: 100%; border-radius: 4px; }
 .tiptap img.ProseMirror-selectednode { outline: 2px solid #0a84ff; }
 .tiptap pre { background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; overflow-x: auto; }

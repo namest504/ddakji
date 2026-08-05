@@ -27,6 +27,14 @@ export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
 );
 
+export const IndentIcon = () => (
+  <svg {...base}><path d="M7 4h7M7 8h7M7 12h7M2 5.6L4.6 8 2 10.4" /></svg>
+);
+
+export const OutdentIcon = () => (
+  <svg {...base}><path d="M7 4h7M7 8h7M7 12h7M4.6 5.6L2 8l2.6 2.4" /></svg>
+);
+
 export const ImageIcon = () => (
   <svg {...base}>
     <rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.5" />

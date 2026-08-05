@@ -24,6 +24,42 @@ const roundtrip = (src: string): string => {
   return out;
 };
 
+const makeEditor = (content: string) =>
+  new Editor({
+    extensions: [
+      StarterKit,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Image,
+      Markdown.configure({ html: true }),
+    ],
+    content,
+  });
+
+const getMd = (ed: Editor) =>
+  (ed.storage as { markdown?: { getMarkdown: () => string } }).markdown?.getMarkdown() ?? "";
+
+describe("불렛→체크박스 변환 명령 (#39 회귀)", () => {
+  it("불렛 항목에서 toggleTaskList — 텍스트 보존 + 체크박스 생성", () => {
+    const ed = makeEditor("- 우유\n- 계란");
+    ed.commands.setTextSelection(4);
+    ed.commands.toggleTaskList();
+    const md = getMd(ed);
+    expect(md).toContain("우유");
+    expect(md).toContain("계란");
+    expect(md).toContain("[ ]");
+    ed.destroy();
+  });
+
+  it("문단에서 toggleTaskList — 체크박스 목록 생성", () => {
+    const ed = makeEditor("우유");
+    ed.commands.selectAll();
+    ed.commands.toggleTaskList();
+    expect(getMd(ed)).toContain("[ ] 우유");
+    ed.destroy();
+  });
+});
+
 describe("마크다운 왕복 보존", () => {
   it("제목·본문", () => {
     const out = roundtrip("# 검사 종류\n\n첫 설치 인수검사");

@@ -41,5 +41,8 @@ jobs:
         with:
           workspaces: src-tauri
           shared-key: windows-release
+      # generate_context!(custom-protocol)가 frontendDist 존재를 요구한다 —
+      # 의존성 캐시가 목적이므로 빈 dist로 충분 (앱 크레이트는 어차피 태그 빌드에서 재컴파일)
+      - run: New-Item -ItemType Directory -Force -Path dist | Out-Null
       # tauri build와 동일한 피처로 컴파일해 아티팩트가 그대로 재사용되게 한다
       - run: cargo build --release --features custom-protocol --manifest-path src-tauri/Cargo.toml

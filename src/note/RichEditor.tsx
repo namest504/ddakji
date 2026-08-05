@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { InputRule } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -10,7 +11,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 // `- [ ] `처럼 불렛 변환 직후 태스크 변환이 이어지면 기본 wrappingInputRule이
 // bulletList>taskItem(스키마 위반) 구조를 만들다 줄을 유실시킨다(#39, 간헐).
 // 명령 기반 변환(toggleTaskList)은 리스트 구조를 올바르게 바꿔준다.
-const TaskItemSafe = TaskItem.extend({
+export const TaskItemSafe = TaskItem.extend({
   addInputRules() {
     return [
       new InputRule({
@@ -22,6 +23,12 @@ const TaskItemSafe = TaskItem.extend({
           const c = chain().deleteRange(range);
           if (!alreadyTask) c.toggleTaskList();
           if (checked) c.updateAttributes("taskItem", { checked: true });
+          // 변환 뒤 커서를 항목의 텍스트 위치로 명시 정규화 — WebKitGTK에서
+          // 셀렉션이 붕 떠 이후 타이핑이 버려지는 것을 방지 (#39)
+          c.command(({ tr }) => {
+            tr.setSelection(TextSelection.near(tr.doc.resolve(tr.selection.from)));
+            return true;
+          });
           c.run();
         },
       }),

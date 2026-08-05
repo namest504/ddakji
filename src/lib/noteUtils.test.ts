@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { clampFontSize, filterNotes, hasMoreBelow, initialViewerMode, noteTitle } from "./noteUtils";
+import { clampFontSize, filterNotes, fontStack, hasMoreBelow, initialViewerMode, noteTitle } from "./noteUtils";
 import type { Note } from "./api";
 
 const note = (id: string, body: string): Note => ({
   meta: {
     id, created_at: "", updated_at: "", color: "yellow", font_size: 16,
-    viewer_mode: false, window: { x: 0, y: 0, w: 320, h: 340 },
+    font_family: "system", viewer_mode: false, window: { x: 0, y: 0, w: 320, h: 340 },
     always_on_top: false, hidden: false,
   },
   body,
@@ -60,5 +60,16 @@ describe("hasMoreBelow", () => {
   it("바닥 근처(임계값 이내)면 false", () => {
     expect(hasMoreBelow(500, 195, 300)).toBe(false);
     expect(hasMoreBelow(300, 0, 300)).toBe(false);
+  });
+});
+
+describe("fontStack", () => {
+  it("의미 키를 폰트 스택으로 매핑한다", () => {
+    expect(fontStack("system")).toContain("Segoe UI");
+    expect(fontStack("serif")).toContain("Georgia");
+    expect(fontStack("mono")).toContain("Consolas");
+  });
+  it("알 수 없는 키는 시스템 스택으로", () => {
+    expect(fontStack("weird" as never)).toContain("Segoe UI");
   });
 });

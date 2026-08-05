@@ -2,7 +2,7 @@
 * { box-sizing: border-box; margin: 0; }
 html, body, #root { height: 100%; }
 
-.note { display: flex; flex-direction: column; height: 100%; }
+.note { display: flex; flex-direction: column; height: 100%; position: relative; }
 .note[data-color="yellow"]   { --bg: #fff7b1; --bar: #f5e478; }
 .note[data-color="green"]    { --bg: #d9f7d1; --bar: #b9e8ab; }
 .note[data-color="pink"]     { --bg: #ffd9e8; --bar: #f7b8d2; }
@@ -12,10 +12,11 @@ html, body, #root { height: 100%; }
 .note[data-color="charcoal"] { --bg: #4a4a4a; --bar: #3a3a3a; color: #eee; }
 .note { background: var(--bg); }
 
+/* 오버레이 툴바: 숨김 상태에서 공간을 차지하지 않아 본문이 맨 위부터 시작한다 */
 .toolbar {
   display: flex; align-items: center; gap: 2px; padding: 4px 6px;
   background: var(--bar); opacity: 0; transition: opacity .15s; user-select: none;
-  position: relative;
+  position: absolute; top: 0; left: 0; right: 0; z-index: 5;
 }
 .note:hover .toolbar { opacity: 1; }
 .toolbar button {
@@ -34,6 +35,7 @@ html, body, #root { height: 100%; }
   width: 13px; height: 13px; border-radius: 50%; background: var(--bg);
   border: 1.6px solid currentColor; display: inline-block;
 }
+.font-row button { min-width: auto; padding: 3px 10px; font-size: 12px; }
 .toolbar .spacer { flex: 1; height: 100%; }
 .color-row {
   position: absolute; top: 100%; left: 0; right: 0; display: flex; gap: 6px;

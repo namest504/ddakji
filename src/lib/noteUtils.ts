@@ -1,4 +1,13 @@
-import type { Note } from "./api";
+import type { FontFamily, Note } from "./api";
+
+// 의미 키 → 플랫폼 폰트 스택. mac/iOS 이식 시 여기만 플랫폼별로 확장한다.
+const FONT_STACKS: Record<FontFamily, string> = {
+  system: '"Segoe UI", "Malgun Gothic", sans-serif',
+  serif: 'Georgia, "Batang", serif',
+  mono: 'Consolas, "Malgun Gothic", monospace',
+};
+
+export const fontStack = (f: FontFamily): string => FONT_STACKS[f] ?? FONT_STACKS.system;
 
 export const clampFontSize = (n: number) => Math.min(40, Math.max(10, Math.round(n)));
 

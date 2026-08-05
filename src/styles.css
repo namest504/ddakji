@@ -35,7 +35,8 @@ html, body { background: transparent; }
 .note[data-color="charcoal"] .toolbar button.active, .note[data-color="charcoal"] .format-bar button.active { background: rgba(255,255,255,.18); color: #fff; }
 .toolbar .font-btn { font-size: 11px; font-weight: 600; letter-spacing: -.3px; }
 .swatch-current {
-  width: 13px; height: 13px; border-radius: 50%; background: var(--bg);
+  /* 본체 배경(--bg)은 다크에서 색과 무관한 회색이 된다 — 색 정체성은 액센트 바(--bar)가 담는다 */
+  width: 13px; height: 13px; border-radius: 50%; background: var(--bar);
   border: 1.6px solid currentColor; display: inline-block;
 }
 .font-row button { min-width: auto; padding: 3px 10px; font-size: 12px; }

@@ -3214,6 +3214,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tempfile",
  "uuid",
+ "window-vibrancy",
  "winreg 0.55.0",
 ]
 

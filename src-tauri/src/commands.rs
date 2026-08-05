@@ -107,6 +107,10 @@ pub fn get_settings(store: StoreState) -> Result<Settings, String> {
 }
 
 #[tauri::command]
-pub fn save_settings(store: StoreState, settings: Settings) -> Result<(), String> {
-    store.lock().map_err(err)?.set_settings(&settings).map_err(err)
+pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> Result<(), String> {
+    store.lock().map_err(err)?.set_settings(&settings).map_err(err)?;
+    // 다른 창(노트들)이 테마·즐겨찾기 변경을 즉시 반영하도록 알린다
+    use tauri::Emitter;
+    let _ = app.emit("settings-changed", ());
+    Ok(())
 }

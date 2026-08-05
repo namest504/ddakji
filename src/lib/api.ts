@@ -17,6 +17,7 @@ export interface Settings {
   default_font_family: FontFamily;
   default_font_size: number;
   favorite_fonts: string[];
+  theme: "system" | "light" | "dark";
 }
 
 export const listNotes = () => invoke<Note[]>("list_notes");

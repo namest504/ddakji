@@ -90,12 +90,24 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
     .skip_taskbar(true)
     // 웹뷰가 그리기 전 흰 배경이 잠깐 노출되는 것을 막는다 — 프런트가 마운트 후 show()
     .visible(false)
+    // Liquid Glass(#20): 투명 창 + OS 블러 위에 CSS 반투명 틴트를 얹는다
+    .transparent(true)
     .always_on_top(m.always_on_top)
     .inner_size(m.window.w, m.window.h)
     .position(x, y)
     .min_inner_size(220.0, 160.0)
-    .build()?;
+    .build()
+    .map(|w| apply_glass(&w))?;
     Ok(())
+}
+
+/// Windows에서 Acrylic 블러 적용. 실패(Win10 구버전 등)해도 앱은 계속 —
+/// CSS 틴트만으로 동작한다. 틴트는 중립 회색: 라이트/다크 CSS가 위에서 색을 결정.
+fn apply_glass(win: &tauri::WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    let _ = window_vibrancy::apply_acrylic(win, Some((160, 160, 160, 60)));
+    #[cfg(not(target_os = "windows"))]
+    let _ = win;
 }
 
 pub fn open_list_window(app: &AppHandle) -> tauri::Result<()> {
@@ -109,7 +121,9 @@ pub fn open_list_window(app: &AppHandle) -> tauri::Result<()> {
         .inner_size(360.0, 480.0)
         .min_inner_size(280.0, 320.0)
         .visible(false)
-        .build()?;
+        .transparent(true)
+        .build()
+        .map(|w| apply_glass(&w))?;
     Ok(())
 }
 

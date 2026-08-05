@@ -88,6 +88,15 @@ html, body { background: transparent; }
   font: inherit; color: inherit; word-break: break-word;
 }
 .tiptap p { margin: 0 0 2px; }
+/* 링크: 기본 파랑은 노트 배경에서 너무 쨍하다 — 차분한 톤 + 얇은 밑줄 */
+.tiptap a {
+  color: #4a7096; text-decoration: underline; text-underline-offset: 2px;
+  text-decoration-thickness: 1px; text-decoration-color: rgba(74,112,150,.45);
+}
+.note[data-color="charcoal"] .tiptap a,
+:root[data-theme="dark"] .tiptap a {
+  color: #9dbfd8; text-decoration-color: rgba(157,191,216,.45);
+}
 .tiptap h1 { font-size: 1.5em; margin: .3em 0 .15em; }
 .tiptap h2 { font-size: 1.3em; margin: .3em 0 .15em; }
 .tiptap h3 { font-size: 1.15em; margin: .25em 0 .1em; }

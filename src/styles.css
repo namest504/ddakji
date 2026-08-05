@@ -97,11 +97,13 @@ html, body { background: transparent; }
 .tiptap blockquote { border-left: 3px solid rgba(0,0,0,.2); margin: 4px 0; padding-left: 8px; }
 .tiptap hr { border: 0; border-top: 1px solid rgba(0,0,0,.2); margin: 8px 0; }
 
-/* 하단 서식 바 (#18) */
+/* 하단 서식 바 (#18) — 색 띠 없이 노트 배경에 녹아들게, 옅은 경계선만 */
 .format-bar {
   display: flex; align-items: center; gap: 2px; padding: 4px 6px;
-  background: var(--bar); user-select: none;
+  background: transparent; border-top: 1px solid rgba(0,0,0,.08); user-select: none;
 }
+.note[data-color="charcoal"] .format-bar,
+:root[data-theme="dark"] .format-bar { border-top-color: rgba(255,255,255,.10); }
 .format-bar .spacer { flex: 1; }
 .format-bar button b, .format-bar button i, .format-bar button u, .format-bar button s {
   font-size: 12px; font-family: Georgia, serif;

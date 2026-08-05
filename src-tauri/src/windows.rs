@@ -87,6 +87,9 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
     )
     .title("stickdown")
     .decorations(false)
+    // Tauri 드롭 핸들러가 웹뷰 드래그 이벤트를 가로채 에디터 내부 이미지 드래그가
+    // 막힌다 — 끄고 파일 드롭도 에디터(HTML5)가 처리한다
+    .disable_drag_drop_handler()
     // skip_taskbar 해제: 목록 창 없이 노트만 떠 있어도 작업 표시줄에 앱 아이콘이
     // 보이게 한다 (같은 앱 창은 아이콘 하나로 그룹됨). Alt-Tab에도 노트가 노출된다.
     // 웹뷰가 그리기 전 흰 배경이 잠깐 노출되는 것을 막는다 — 프런트가 마운트 후 show()

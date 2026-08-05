@@ -115,55 +115,31 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     };
   }, [changeFont, flushBody]);
 
-  // 이미지 저장 → 에디터에 상대경로로 삽입 (붙여넣기·드롭·서식바 공용)
-  const insertImageRel = (rel: string) => {
-    editorRef.current?.chain().focus().setImage({ src: rel }).run();
+  // 이미지 저장 → 에디터에 상대경로로 삽입 (붙여넣기·드롭·서식바 공용).
+  // pos가 있으면 그 위치(드롭 지점)에, 없으면 현재 커서에 넣는다.
+  const insertImageRel = (rel: string, pos?: number) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    if (pos !== undefined) {
+      ed.chain().focus().insertContentAt(pos, { type: "image", attrs: { src: rel } }).run();
+    } else {
+      ed.chain().focus().setImage({ src: rel }).run();
+    }
   };
 
-  const savePastedImage = useCallback((file: File) => {
+  const savePastedImage = useCallback((file: File, pos?: number) => {
     const key = `image:${crypto.randomUUID()}`;
     const run = async () => {
       try {
         const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
         const bytes = new Uint8Array(await file.arrayBuffer());
-        insertImageRel(await api.saveImage(noteId, ext, bytes));
+        insertImageRel(await api.saveImage(noteId, ext, bytes), pos);
         clearIfFailed(key);
       } catch {
         failWith(key, run);
       }
     };
     run();
-  }, [noteId]);
-
-  // 파일 드롭으로 이미지 삽입
-  useEffect(() => {
-    let unlisten: (() => void) | null = null;
-    let cancelled = false;
-    (async () => {
-      const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-      const fn = await getCurrentWebview().onDragDropEvent((e) => {
-        if (e.payload.type !== "drop" || !loadedRef.current) return;
-        for (const path of e.payload.paths) {
-          if (!/\.(png|jpe?g|gif|webp)$/i.test(path)) continue;
-          const key = `image:${crypto.randomUUID()}`;
-          const run = async () => {
-            try {
-              insertImageRel(await api.importImage(noteId, path));
-              clearIfFailed(key);
-            } catch {
-              failWith(key, run);
-            }
-          };
-          run();
-        }
-      });
-      if (cancelled) fn();
-      else unlisten = fn;
-    })();
-    return () => {
-      cancelled = true;
-      if (unlisten) unlisten();
-    };
   }, [noteId]);
 
   // 서식 바의 이미지 버튼 → 파일 선택 다이얼로그

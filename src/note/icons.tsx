@@ -27,6 +27,13 @@ export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
 );
 
+export const EraserIcon = () => (
+  <svg {...base}>
+    <path d="M8.7 3.6l3.7 3.7-5.4 5.4H4.6l-2.1-2.1a1.2 1.2 0 0 1 0-1.7l6.2-5.3z" />
+    <path d="M5.9 6.6l3.6 3.6M8.6 12.7h5" />
+  </svg>
+);
+
 export const CheckboxIcon = () => (
   <svg {...base}>
     <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />

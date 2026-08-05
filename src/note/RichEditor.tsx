@@ -22,7 +22,7 @@ interface Props {
   base: string; // 데이터 루트 (asset URL 변환용)
   onChange: (md: string) => void;
   onEditor: (e: Editor | null) => void; // 서식 바·이미지 삽입·재시도용
-  onPasteFile: (file: File) => void; // 이미지 붙여넣기 → 저장·삽입은 NoteApp이 담당
+  onPasteFile: (file: File, pos?: number) => void; // 이미지 붙여넣기/드롭 → 저장·삽입은 NoteApp이 담당
 }
 
 export default function RichEditor({ body, base, onChange, onEditor, onPasteFile }: Props) {
@@ -49,6 +49,19 @@ export default function RichEditor({ body, base, onChange, onEditor, onPasteFile
         const file = item?.getAsFile();
         if (!file) return false;
         pasteRef.current(file);
+        return true;
+      },
+      // 파일 드롭은 놓은 위치에 삽입. 내부 노드 이동(moved)은 ProseMirror 기본
+      // 처리에 맡긴다 — 이미지 드래그 재배치가 이 경로다.
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const files = Array.from(event.dataTransfer?.files ?? []).filter((f) =>
+          f.type.startsWith("image/")
+        );
+        if (!files.length) return false;
+        event.preventDefault();
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        for (const f of files) pasteRef.current(f, pos);
         return true;
       },
     },

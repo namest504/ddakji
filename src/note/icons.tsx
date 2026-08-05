@@ -16,20 +16,6 @@ export const PlusIcon = () => (
   <svg {...base}><path d="M8 3v10M3 8h10" /></svg>
 );
 
-export const EyeIcon = () => (
-  <svg {...base}>
-    <path d="M1.8 8s2.3-3.9 6.2-3.9S14.2 8 14.2 8s-2.3 3.9-6.2 3.9S1.8 8 1.8 8z" />
-    <circle cx="8" cy="8" r="1.9" />
-  </svg>
-);
-
-export const PencilIcon = () => (
-  <svg {...base}>
-    <path d="M3 13.2v-2.8l7.6-7.6 2.8 2.8-7.6 7.6H3z" />
-    <path d="M9.4 4l2.8 2.8" />
-  </svg>
-);
-
 export const PinIcon = ({ filled }: { filled?: boolean }) => (
   <svg {...base}>
     <circle cx="8" cy="5.2" r="3" fill={filled ? "currentColor" : "none"} />
@@ -39,6 +25,14 @@ export const PinIcon = ({ filled }: { filled?: boolean }) => (
 
 export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
+);
+
+export const ImageIcon = () => (
+  <svg {...base}>
+    <rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.5" />
+    <circle cx="5.6" cy="6.4" r="1.1" />
+    <path d="M2.6 11.2l3.2-3 2.4 2.2 3-3 2.6 2.6" />
+  </svg>
 );
 
 export const GearIcon = () => (

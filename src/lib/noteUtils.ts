@@ -15,10 +15,6 @@ export const fontStack = (f: FontFamily): string =>
 
 export const clampFontSize = (n: number) => Math.min(40, Math.max(10, Math.round(n)));
 
-// 노트를 열 때의 표시 모드. 스티키 노트의 평상시 모습은 렌더된 뷰이므로 본문이
-// 있으면 저장된 모드와 무관하게 뷰어로 열고, 빈 노트만 편집 모드로 연다 (#9).
-export const initialViewerMode = (body: string) => body.trim().length > 0;
-
 // 스크롤 여지가 남았는지 (하단 "더 있음" 표시용). 임계값 8px 이내는 바닥으로 본다.
 export const hasMoreBelow = (scrollHeight: number, scrollTop: number, clientHeight: number) =>
   scrollHeight - scrollTop - clientHeight > 8;

@@ -34,6 +34,6 @@ Tauri 2 · React · TypeScript · TipTap
 
 ## 데모
 
-구버전(v0.1.0) 데모입니다 — 새 UI 반영 예정.
+라이브 마크다운 편집 · 체크박스 · 색상 변경:
 
-![stickdown 데모 (v0.1.0)](docs/assets/demo.gif)
+![stickdown 데모 — 헤딩·체크박스 자동 변환, 클릭 토글, 색상 변경](docs/assets/demo.gif)

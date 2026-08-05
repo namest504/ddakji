@@ -132,11 +132,15 @@ pub fn ensure_main_stub(app: &AppHandle) -> tauri::Result<()> {
     .decorations(false)
     .inner_size(260.0, 180.0)
     .position(-30000.0, -30000.0)
+    // 생성 시점에 잠깐 화면에 그려지는 플래시 방지: 숨김으로 만들고
+    // 화면 밖 위치를 확정한 뒤에 표시한다
+    .visible(false)
     .focused(false)
     .build()?;
+    let _ = w.set_position(tauri::LogicalPosition::new(-30000.0, -30000.0));
     // 화면 밖에 있어도 DWM이 콘텐츠를 합성하므로 Alt-Tab 썸네일에는
     // 이 창의 내용(최근 본 노트 미리보기)이 그대로 보인다.
-    let _ = w;
+    let _ = w.show();
     Ok(())
 }
 

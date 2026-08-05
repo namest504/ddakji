@@ -8,6 +8,9 @@ type StoreState<'a> = State<'a, Mutex<Store>>;
 /// 마지막으로 본(포커스한) 노트 id — Alt-Tab 썸네일 미리보기용 (세션 한정)
 pub struct LastViewed(pub Mutex<Option<String>>);
 
+/// 식별자 폴더(%APPDATA%/com.stickdown.app) — storage-path.txt 포인터 저장 위치
+pub struct IdDir(pub std::path::PathBuf);
+
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
@@ -94,6 +97,23 @@ pub fn import_image(store: StoreState, id: String, path: String) -> Result<Strin
         .map_err(err)?
         .import_asset(&id, std::path::Path::new(&path))
         .map_err(err)
+}
+
+#[tauri::command]
+pub fn set_storage_path(
+    app: AppHandle,
+    store: StoreState,
+    id_dir: State<IdDir>,
+    new_path: String,
+) -> Result<(), String> {
+    let new_root = std::path::PathBuf::from(new_path.trim());
+    if new_root.as_os_str().is_empty() {
+        return Err("경로가 비어 있습니다".into());
+    }
+    let current = store.lock().map_err(err)?.root().to_path_buf();
+    crate::store::move_storage(&id_dir.0, &current, &new_root).map_err(err)?;
+    // 새 경로로 깨끗하게 재기동
+    app.restart();
 }
 
 #[tauri::command]

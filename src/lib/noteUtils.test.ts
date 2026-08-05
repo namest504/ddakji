@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampFontSize, filterNotes, fontStack, hasMoreBelow, initialViewerMode, noteTitle } from "./noteUtils";
+import { clampFontSize, filterNotes, fontStack, hasMoreBelow, initialViewerMode, noteTitle, relativeTime } from "./noteUtils";
 import type { Note } from "./api";
 
 const note = (id: string, body: string): Note => ({
@@ -71,5 +71,23 @@ describe("fontStack", () => {
   });
   it("알 수 없는 키는 시스템 스택으로", () => {
     expect(fontStack("weird" as never)).toContain("Segoe UI");
+  });
+});
+
+describe("relativeTime", () => {
+  const now = new Date("2026-08-05T14:00:00+09:00");
+  it("오늘이면 시각으로", () => {
+    const t = "2026-08-05T14:10:00+09:00";
+    const expected = new Date(t).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+    expect(relativeTime(t, now)).toBe(expected);
+  });
+  it("어제면 '어제'", () => {
+    expect(relativeTime("2026-08-04T23:59:00+09:00", now)).toBe("어제");
+  });
+  it("그 이전이면 월/일", () => {
+    expect(relativeTime("2026-07-30T10:00:00+09:00", now)).toBe("7/30");
+  });
+  it("파싱 불가면 빈 문자열", () => {
+    expect(relativeTime("", now)).toBe("");
   });
 });

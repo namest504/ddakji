@@ -5,6 +5,9 @@
   "permissions": [
     "core:default",
     "dialog:default",
+    "autostart:default",
+    "opener:default",
+    "opener:allow-open-path",
     "core:window:allow-start-dragging",
     "core:window:allow-set-always-on-top",
     "core:window:allow-hide",

@@ -25,6 +25,21 @@ export function filterNotes(notes: Note[], query: string): Note[] {
   return notes.filter((n) => n.body.toLowerCase().includes(q));
 }
 
+// 목록의 수정시각 표시: 오늘 → "오후 2:10", 어제 → "어제", 그 외 → "M/D"
+export function relativeTime(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, now)) {
+    return d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (sameDay(d, yesterday)) return "어제";
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 export function noteTitle(note: Note): string {
   const line = note.body.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
   if (!line) return "(빈 노트)";

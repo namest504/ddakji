@@ -41,6 +41,17 @@ export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
 );
 
+export const GearIcon = () => (
+  <svg {...base}>
+    <circle cx="8" cy="8" r="2.4" />
+    <path d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M12.5 3.5l-1.4 1.4M4.9 11.1l-1.4 1.4" />
+  </svg>
+);
+
+export const BackIcon = () => (
+  <svg {...base}><path d="M10 3.2L5.2 8 10 12.8" /></svg>
+);
+
 export const TrashIcon = () => (
   <svg {...base}>
     <path d="M2.8 4.6h10.4" />

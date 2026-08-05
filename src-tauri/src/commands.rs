@@ -14,8 +14,11 @@ pub fn list_notes(store: StoreState) -> Result<Vec<Note>, String> {
     Ok(store.lock().map_err(err)?.list())
 }
 
+// 창을 만들거나 파괴하는 커맨드는 반드시 async여야 한다. sync 커맨드는 메인 스레드에서
+// 실행되는데, Windows에서 웹뷰 창 생성/파괴는 메인 스레드의 메시지 펌프를 기다리므로
+// 데드락된다 (#8). async 커맨드는 별도 태스크에서 돌아 이벤트 루프로 정상 디스패치된다.
 #[tauri::command]
-pub fn create_note(app: AppHandle, store: StoreState) -> Result<Note, String> {
+pub async fn create_note(app: AppHandle, store: StoreState<'_>) -> Result<Note, String> {
     let note = store.lock().map_err(err)?.create().map_err(err)?;
     windows::open_note_window(&app, &note).map_err(err)?;
     Ok(note)
@@ -32,7 +35,7 @@ pub fn save_meta(store: StoreState, id: String, patch: MetaPatch) -> Result<Note
 }
 
 #[tauri::command]
-pub fn delete_note(app: AppHandle, store: StoreState, id: String) -> Result<(), String> {
+pub async fn delete_note(app: AppHandle, store: StoreState<'_>, id: String) -> Result<(), String> {
     store.lock().map_err(err)?.delete(&id).map_err(err)?;
     if let Some(win) = app.get_webview_window(&format!("note-{id}")) {
         win.destroy().map_err(err)?;
@@ -41,7 +44,7 @@ pub fn delete_note(app: AppHandle, store: StoreState, id: String) -> Result<(), 
 }
 
 #[tauri::command]
-pub fn open_note(app: AppHandle, store: StoreState, id: String) -> Result<(), String> {
+pub async fn open_note(app: AppHandle, store: StoreState<'_>, id: String) -> Result<(), String> {
     let note = {
         let s = store.lock().map_err(err)?;
         s.save_meta(
@@ -57,7 +60,7 @@ pub fn open_note(app: AppHandle, store: StoreState, id: String) -> Result<(), St
 }
 
 #[tauri::command]
-pub fn open_list(app: AppHandle) -> Result<(), String> {
+pub async fn open_list(app: AppHandle) -> Result<(), String> {
     windows::open_list_window(&app).map_err(err)
 }
 

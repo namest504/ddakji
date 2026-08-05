@@ -11,6 +11,9 @@ pub struct LastViewed(pub Mutex<Option<String>>);
 /// 식별자 폴더(%APPDATA%/com.stickdown.app) — storage-path.txt 포인터 저장 위치
 pub struct IdDir(pub std::path::PathBuf);
 
+/// 창 label → 표시 중인 노트 id (#25 그룹 넘기기로 창-노트가 동적이 됨)
+pub struct WindowNotes(pub Mutex<std::collections::HashMap<String, String>>);
+
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
@@ -51,10 +54,24 @@ pub fn save_meta(store: StoreState, id: String, patch: MetaPatch) -> Result<Note
 }
 
 #[tauri::command]
-pub async fn delete_note(app: AppHandle, store: StoreState<'_>, id: String) -> Result<(), String> {
+pub async fn delete_note(
+    app: AppHandle,
+    store: StoreState<'_>,
+    wn: State<'_, WindowNotes>,
+    id: String,
+) -> Result<(), String> {
     store.lock().map_err(err)?.delete(&id).map_err(err)?;
-    if let Some(win) = app.get_webview_window(&format!("note-{id}")) {
-        win.destroy().map_err(err)?;
+    let label = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .iter()
+        .find(|(_, nid)| **nid == id)
+        .map(|(l, _)| l.clone());
+    if let Some(l) = label {
+        if let Some(win) = app.get_webview_window(&l) {
+            win.destroy().map_err(err)?;
+        }
     }
     Ok(())
 }
@@ -147,6 +164,60 @@ mod tests {
         let other = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
         assert_ne!(err_io(other), "NOTE_NOT_FOUND");
     }
+}
+
+#[tauri::command]
+pub fn list_groups(store: StoreState) -> Result<Vec<String>, String> {
+    Ok(store.lock().map_err(err)?.group_names())
+}
+
+/// 그룹 내 이전/다음 노트로 이동. 대상이 이미 다른 창에 열려 있으면 그 창을
+/// 포커스하고 None, 아니면 현재 창의 매핑을 바꾸고 대상 노트를 반환한다.
+#[tauri::command]
+pub async fn nav_group(
+    window: tauri::WebviewWindow,
+    store: StoreState<'_>,
+    wn: State<'_, WindowNotes>,
+    dir: i32,
+) -> Result<Option<Note>, String> {
+    let label = window.label().to_string();
+    let current_id = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .get(&label)
+        .cloned()
+        .ok_or("window not mapped")?;
+    let notes = {
+        let s = store.lock().map_err(err)?;
+        let cur = s.load(&current_id).ok_or("note gone")?;
+        let Some(g) = cur.meta.group.clone() else {
+            return Ok(None);
+        };
+        s.group_notes(&g)
+    };
+    if notes.len() < 2 {
+        return Ok(None);
+    }
+    let idx = notes.iter().position(|n| n.meta.id == current_id).unwrap_or(0) as i32;
+    let len = notes.len() as i32;
+    let target = notes[(((idx + dir) % len + len) % len) as usize].clone();
+    let other = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .iter()
+        .find(|(l, id)| **id == target.meta.id && **l != label)
+        .map(|(l, _)| l.clone());
+    if let Some(l) = other {
+        if let Some(w) = window.app_handle().get_webview_window(&l) {
+            let _ = w.show();
+            let _ = w.set_focus();
+            return Ok(None);
+        }
+    }
+    wn.0.lock().map_err(err)?.insert(label, target.meta.id.clone());
+    Ok(Some(target))
 }
 
 #[tauri::command]

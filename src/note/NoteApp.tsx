@@ -8,7 +8,9 @@ import Toolbar from "./Toolbar";
 import FormatBar from "./FormatBar";
 import RichEditor from "./RichEditor";
 
-export default function NoteApp({ noteId }: { noteId: string }) {
+export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
+  // 그룹 넘기기(#25)로 창이 표시하는 노트가 바뀔 수 있다 — 상태로 승격
+  const [noteId, setNoteId] = useState(initialNoteId);
   const [note, setNote] = useState<Note | null>(null);
   const [base, setBase] = useState<string | null>(null); // 데이터 루트 (asset URL용)
   const [saveError, setSaveError] = useState(false);
@@ -108,6 +110,14 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && (e.key === "+" || e.key === "=")) { e.preventDefault(); changeFont(1); }
       if (e.ctrlKey && e.key === "-") { e.preventDefault(); changeFont(-1); }
+      // 그룹 내 이전/다음 노트 (#25) — 이미 열린 노트면 그 창으로 포커스 이동
+      if (e.altKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+        e.preventDefault();
+        flushBody();
+        api.navGroup(e.key === "ArrowRight" ? 1 : -1)
+          .then((n) => { if (n) setNoteId(n.meta.id); })
+          .catch(() => {});
+      }
     };
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("keydown", onKey);
@@ -207,6 +217,12 @@ export default function NoteApp({ noteId }: { noteId: string }) {
         note={note}
         onColor={(color) => patchMeta({ color })}
         onFont={(font_family) => patchMeta({ font_family })}
+        onGroup={(name) => {
+          const run = () => api.saveMeta(noteId, { group: name ?? "" })
+            .then((n) => { setNote(n); clearIfFailed("meta"); })
+            .catch((e) => { if (!closeIfGone(e)) failWith("meta", run); });
+          run();
+        }}
         onPin={async () => {
           const v = !m.always_on_top;
           await getCurrentWindow().setAlwaysOnTop(v);

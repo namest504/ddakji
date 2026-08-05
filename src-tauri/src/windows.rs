@@ -71,12 +71,23 @@ fn logical_monitor_rects(app: &AppHandle) -> Vec<(f64, f64, f64, f64)> {
 }
 
 pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
-    let label = format!("note-{}", note.meta.id);
-    if let Some(win) = app.get_webview_window(&label) {
-        win.show()?;
-        win.set_focus()?;
-        return Ok(());
+    // 이 노트를 이미 표시 중인 창이 있으면(매핑 기준) 그 창을 앞으로 (#25)
+    if let Some(wn) = app.try_state::<crate::commands::WindowNotes>() {
+        let existing = wn.0.lock().ok().and_then(|m| {
+            m.iter()
+                .find(|(_, id)| **id == note.meta.id)
+                .map(|(l, _)| l.clone())
+        });
+        if let Some(l) = existing {
+            if let Some(win) = app.get_webview_window(&l) {
+                win.show()?;
+                win.set_focus()?;
+                return Ok(());
+            }
+        }
     }
+    // 그룹 넘기기로 창-노트가 동적이라 label은 무작위 — 진실은 WindowNotes 매핑
+    let label = format!("note-{}", uuid::Uuid::new_v4().simple());
     let m = &note.meta;
     let monitors = logical_monitor_rects(app);
     let (x, y) = visible_position(&m.window, &monitors);
@@ -103,6 +114,11 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
     .min_inner_size(220.0, 160.0)
     .build()
     .map(|w| apply_glass(&w))?;
+    if let Some(wn) = app.try_state::<crate::commands::WindowNotes>() {
+        if let Ok(mut m) = wn.0.lock() {
+            m.insert(label, note.meta.id.clone());
+        }
+    }
     Ok(())
 }
 

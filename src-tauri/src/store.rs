@@ -22,6 +22,8 @@ pub struct NoteMeta {
     pub color: String,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
+    #[serde(default = "default_font_family")]
+    pub font_family: String,
     #[serde(default)]
     pub viewer_mode: bool,
     #[serde(default = "default_window")]
@@ -38,6 +40,11 @@ fn default_color() -> String {
 
 fn default_font_size() -> u32 {
     16
+}
+
+fn default_font_family() -> String {
+    // 의미 키("system" | "serif" | "mono") — 실제 폰트 스택 매핑은 프런트가 담당
+    "system".into()
 }
 
 fn default_window() -> WindowBounds {
@@ -58,6 +65,7 @@ impl NoteMeta {
             updated_at: now,
             color: default_color(),
             font_size: default_font_size(),
+            font_family: default_font_family(),
             viewer_mode: false,
             window: default_window(),
             always_on_top: false,
@@ -70,10 +78,36 @@ impl NoteMeta {
 pub struct MetaPatch {
     pub color: Option<String>,
     pub font_size: Option<u32>,
+    pub font_family: Option<String>,
     pub viewer_mode: Option<bool>,
     pub always_on_top: Option<bool>,
     pub hidden: Option<bool>,
     pub window: Option<WindowBounds>,
+}
+
+/// 새 노트에 적용될 기본값. `settings.json`(데이터 루트)에 저장된다.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Settings {
+    #[serde(default = "default_color")]
+    pub default_color: String,
+    #[serde(default = "default_font_family")]
+    pub default_font_family: String,
+    #[serde(default = "default_font_size")]
+    pub default_font_size: u32,
+    /// 자주 쓰는 폰트 (노트 툴바 팝오버에 프리셋과 함께 노출)
+    #[serde(default)]
+    pub favorite_fonts: Vec<String>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            default_color: default_color(),
+            default_font_family: default_font_family(),
+            default_font_size: default_font_size(),
+            favorite_fonts: Vec::new(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -158,6 +192,7 @@ impl Note {
 
 pub struct Store {
     root: PathBuf,
+    settings: Settings,
 }
 
 fn validate_id(id: &str) -> io::Result<()> {
@@ -193,9 +228,28 @@ impl Store {
     pub fn new(root: &Path) -> io::Result<Store> {
         fs::create_dir_all(root.join("notes"))?;
         fs::create_dir_all(root.join("assets"))?;
+        // settings.json이 없거나 파손이면 기본값 — 노트 접근을 막지 않는다
+        let settings = fs::read_to_string(root.join("settings.json"))
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
         Ok(Store {
             root: root.to_path_buf(),
+            settings,
         })
+    }
+
+    pub fn settings(&self) -> Settings {
+        self.settings.clone()
+    }
+
+    pub fn set_settings(&mut self, s: &Settings) -> io::Result<()> {
+        let path = self.root.join("settings.json");
+        let tmp = self.root.join(format!("settings.json.{}.tmp", uuid::Uuid::now_v7()));
+        fs::write(&tmp, serde_json::to_string_pretty(s).expect("settings serialize"))?;
+        fs::rename(&tmp, &path)?;
+        self.settings = s.clone();
+        Ok(())
     }
 
     pub fn root(&self) -> &Path {
@@ -213,7 +267,7 @@ impl Store {
     fn write_atomic(&self, note: &Note) -> io::Result<()> {
         let path = self.note_path(&note.meta.id);
         // Use unique tmp name to avoid concurrent write conflicts
-        let tmp_id = uuid::Uuid::new_v4().to_string();
+        let tmp_id = uuid::Uuid::now_v7().to_string();
         let tmp = path.with_extension(format!("md.{}.tmp", tmp_id));
         fs::write(&tmp, note.to_file_string())?;
         fs::rename(&tmp, &path)
@@ -258,9 +312,13 @@ impl Store {
     }
 
     pub fn create(&self) -> io::Result<Note> {
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = uuid::Uuid::now_v7().to_string();
+        let mut meta = NoteMeta::new_default(id);
+        meta.color = self.settings.default_color.clone();
+        meta.font_family = self.settings.default_font_family.clone();
+        meta.font_size = self.settings.default_font_size;
         let note = Note {
-            meta: NoteMeta::new_default(id),
+            meta,
             body: String::new(),
         };
         self.write_atomic(&note)?;
@@ -285,6 +343,9 @@ impl Store {
         }
         if let Some(v) = patch.font_size {
             m.font_size = v;
+        }
+        if let Some(v) = &patch.font_family {
+            m.font_family = v.clone();
         }
         if let Some(v) = patch.viewer_mode {
             m.viewer_mode = v;
@@ -317,7 +378,7 @@ impl Store {
         validate_ext(ext)?;
         let dir = self.root.join("assets").join(note_id);
         fs::create_dir_all(&dir)?;
-        let name = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+        let name = format!("{}.{}", uuid::Uuid::now_v7(), ext);
         fs::write(dir.join(&name), bytes)?;
         Ok(format!("assets/{note_id}/{name}"))
     }
@@ -399,6 +460,72 @@ mod tests {
         assert_eq!(parsed.meta.color, "yellow");
         assert_eq!(parsed.body, "");
         assert!(recovered);
+    }
+
+    #[test]
+    fn meta_without_font_family_defaults_to_system() {
+        // v0.1 노트에는 font_family가 없다 — 하위호환 확인
+        let content = "---\nid: abc\ncolor: blue\n---\n본문";
+        let (parsed, recovered) = Note::from_file_string("abc", content);
+        assert_eq!(parsed.meta.font_family, "system");
+        assert!(!recovered);
+    }
+
+    #[test]
+    fn settings_default_when_file_missing() {
+        let (_d, s) = store();
+        let st = s.settings();
+        assert_eq!(st.default_color, "yellow");
+        assert_eq!(st.default_font_family, "system");
+        assert_eq!(st.default_font_size, 16);
+    }
+
+    #[test]
+    fn set_settings_persists_and_applies_to_create() {
+        let (d, s) = store();
+        let mut s = s;
+        s.set_settings(&Settings {
+            default_color: "blue".into(),
+            default_font_family: "mono".into(),
+            default_font_size: 20,
+            favorite_fonts: vec!["D2Coding".into()],
+        })
+        .unwrap();
+        let n = s.create().unwrap();
+        assert_eq!(n.meta.color, "blue");
+        assert_eq!(n.meta.font_family, "mono");
+        assert_eq!(n.meta.font_size, 20);
+        // 새 Store 인스턴스로 재로드해도 유지
+        let s2 = Store::new(d.path()).unwrap();
+        assert_eq!(s2.settings().default_font_family, "mono");
+    }
+
+    #[test]
+    fn create_ids_are_time_sortable_uuidv7() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(3));
+        let b = s.create().unwrap();
+        assert_eq!(uuid::Uuid::parse_str(&a.meta.id).unwrap().get_version_num(), 7);
+        assert!(a.meta.id < b.meta.id, "UUIDv7 파일명은 생성 시각순으로 정렬돼야 한다");
+    }
+
+    #[test]
+    fn settings_without_favorite_fonts_defaults_empty() {
+        // 기존 settings.json(구 버전)에 favorite_fonts가 없어도 로드된다
+        let d = TempDir::new().unwrap();
+        fs::write(d.path().join("settings.json"), r#"{"default_color":"pink"}"#).unwrap();
+        let s = Store::new(d.path()).unwrap();
+        assert_eq!(s.settings().default_color, "pink");
+        assert!(s.settings().favorite_fonts.is_empty());
+    }
+
+    #[test]
+    fn corrupt_settings_file_falls_back_to_defaults() {
+        let d = TempDir::new().unwrap();
+        fs::write(d.path().join("settings.json"), "{broken").unwrap();
+        let s = Store::new(d.path()).unwrap();
+        assert_eq!(s.settings().default_color, "yellow");
     }
 
     #[test]
@@ -555,7 +682,7 @@ mod tests {
     #[test]
     fn load_persists_recovered_frontmatter_across_reads() {
         let (_d, s) = store();
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = uuid::Uuid::now_v7().to_string();
         let path = s.notes_dir().join(format!("{id}.md"));
         fs::write(&path, "---\ncolor: [broken yaml\n---\n본문 유지").unwrap();
 
@@ -581,7 +708,7 @@ mod tests {
     #[test]
     fn list_persists_recovered_frontmatter_stable_across_polls() {
         let (_d, s) = store();
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = uuid::Uuid::now_v7().to_string();
         let path = s.notes_dir().join(format!("{id}.md"));
         // No frontmatter at all — also triggers recovery.
         fs::write(&path, "프론트매터 없는 파일").unwrap();

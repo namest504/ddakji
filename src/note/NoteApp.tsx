@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as api from "../lib/api";
 import type { Note } from "../lib/api";
-import { clampFontSize, hasMoreBelow, initialViewerMode } from "../lib/noteUtils";
+import { clampFontSize, fontStack, hasMoreBelow, initialViewerMode } from "../lib/noteUtils";
 import Toolbar from "./Toolbar";
 import Editor from "./Editor";
 import Viewer from "./Viewer";
@@ -38,6 +38,10 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       }
       loadedRef.current = true;
       setNote(n);
+    }).finally(() => {
+      // 창은 visible:false로 생성된다 — 내용을 그린 뒤 표시해 흰 화면 플래시 제거
+      const win = getCurrentWindow();
+      win.show().then(() => win.setFocus()).catch(() => {});
     });
   }, [noteId, setViewerMode]);
 
@@ -204,11 +208,13 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   };
 
   return (
-    <div className="note" data-color={m.color} style={{ fontSize: m.font_size }}>
+    <div className="note" data-color={m.color}
+      style={{ fontSize: m.font_size, fontFamily: fontStack(m.font_family) }}>
       <Toolbar
         note={note}
         viewerMode={viewerMode}
         onColor={(color) => patchMeta({ color })}
+        onFont={(font_family) => patchMeta({ font_family })}
         onToggleViewer={() => setViewerMode(!viewerMode)}
         onPin={async () => {
           const v = !m.always_on_top;

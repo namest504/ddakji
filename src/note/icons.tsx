@@ -41,6 +41,19 @@ export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
 );
 
+export const GearIcon = () => (
+  // 외곽 링 + 톱니 + 허브 — 링이 없으면 태양(밝기 토글)으로 읽힌다
+  <svg {...base}>
+    <circle cx="8" cy="8" r="4.2" />
+    <circle cx="8" cy="8" r="1.5" />
+    <path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M12.4 3.6l-1.3 1.3M3.6 3.6l1.3 1.3M12.4 12.4l-1.3-1.3M3.6 12.4l1.3-1.3" />
+  </svg>
+);
+
+export const BackIcon = () => (
+  <svg {...base}><path d="M10 3.2L5.2 8 10 12.8" /></svg>
+);
+
 export const TrashIcon = () => (
   <svg {...base}>
     <path d="M2.8 4.6h10.4" />

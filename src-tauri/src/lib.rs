@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod fonts;
 pub mod store;
 pub mod tray;
 pub mod windows;
@@ -18,6 +19,7 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::list_notes,
             commands::create_note,
@@ -29,6 +31,10 @@ pub fn run() {
             commands::save_image,
             commands::import_image,
             commands::data_root,
+            commands::get_settings,
+            commands::save_settings,
+            commands::open_data_dir,
+            commands::list_system_fonts,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;

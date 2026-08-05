@@ -1,4 +1,4 @@
-use crate::store::{MetaPatch, Note, Store};
+use crate::store::{MetaPatch, Note, Settings, Store};
 use crate::windows;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
@@ -86,4 +86,27 @@ pub fn import_image(store: StoreState, id: String, path: String) -> Result<Strin
 #[tauri::command]
 pub fn data_root(store: StoreState) -> Result<String, String> {
     Ok(store.lock().map_err(err)?.root().to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn list_system_fonts() -> Vec<String> {
+    crate::fonts::list_system_fonts()
+}
+
+#[tauri::command]
+pub fn open_data_dir(store: StoreState) -> Result<(), String> {
+    // 프런트의 opener open_path는 경로 스코프 권한이 따로 필요해 실패한다(#15 QA) —
+    // Rust API로 직접 연다
+    let root = store.lock().map_err(err)?.root().to_path_buf();
+    tauri_plugin_opener::open_path(root, None::<&str>).map_err(err)
+}
+
+#[tauri::command]
+pub fn get_settings(store: StoreState) -> Result<Settings, String> {
+    Ok(store.lock().map_err(err)?.settings())
+}
+
+#[tauri::command]
+pub fn save_settings(store: StoreState, settings: Settings) -> Result<(), String> {
+    store.lock().map_err(err)?.set_settings(&settings).map_err(err)
 }

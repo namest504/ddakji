@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { clampFontSize, filterNotes, hasMoreBelow, initialViewerMode, noteTitle } from "./noteUtils";
+import { clampFontSize, filterNotes, fontStack, hasMoreBelow, initialViewerMode, noteTitle, relativeTime } from "./noteUtils";
 import type { Note } from "./api";
 
 const note = (id: string, body: string): Note => ({
   meta: {
     id, created_at: "", updated_at: "", color: "yellow", font_size: 16,
-    viewer_mode: false, window: { x: 0, y: 0, w: 320, h: 340 },
+    font_family: "system", viewer_mode: false, window: { x: 0, y: 0, w: 320, h: 340 },
     always_on_top: false, hidden: false,
   },
   body,
@@ -60,5 +60,42 @@ describe("hasMoreBelow", () => {
   it("바닥 근처(임계값 이내)면 false", () => {
     expect(hasMoreBelow(500, 195, 300)).toBe(false);
     expect(hasMoreBelow(300, 0, 300)).toBe(false);
+  });
+});
+
+describe("fontStack", () => {
+  it("의미 키를 폰트 스택으로 매핑한다", () => {
+    expect(fontStack("system")).toContain("Segoe UI");
+    expect(fontStack("serif")).toContain("Georgia");
+    expect(fontStack("mono")).toContain("Consolas");
+  });
+  it("프리셋 외 값은 커스텀 폰트로 (한글 폴백 포함)", () => {
+    expect(fontStack("weird")).toBe('"weird", "Malgun Gothic", sans-serif');
+  });
+});
+
+describe("relativeTime", () => {
+  const now = new Date("2026-08-05T14:00:00+09:00");
+  it("오늘이면 시각으로", () => {
+    const t = "2026-08-05T14:10:00+09:00";
+    const expected = new Date(t).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+    expect(relativeTime(t, now)).toBe(expected);
+  });
+  it("어제면 '어제'", () => {
+    expect(relativeTime("2026-08-04T23:59:00+09:00", now)).toBe("어제");
+  });
+  it("그 이전이면 월/일", () => {
+    expect(relativeTime("2026-07-30T10:00:00+09:00", now)).toBe("7/30");
+  });
+  it("파싱 불가면 빈 문자열", () => {
+    expect(relativeTime("", now)).toBe("");
+  });
+});
+
+describe("fontStack custom", () => {
+  it("프리셋이 아닌 값은 설치 폰트명으로 취급해 스택 맨 앞에 둔다", () => {
+    const s = fontStack("JetBrains Mono");
+    expect(s.startsWith('"JetBrains Mono"')).toBe(true);
+    expect(s).toContain("Malgun Gothic");
   });
 });

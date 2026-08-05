@@ -38,6 +38,8 @@ pub fn run() {
             commands::set_last_viewed,
             commands::get_last_viewed,
             commands::set_storage_path,
+            commands::nav_group,
+            commands::list_groups,
         ])
         .setup(|app| {
             let id_dir = app.path().app_data_dir()?;
@@ -50,6 +52,7 @@ pub fn run() {
             app.manage(Mutex::new(store));
             app.manage(commands::IdDir(id_dir));
             app.manage(commands::LastViewed(Mutex::new(None)));
+            app.manage(commands::WindowNotes(Mutex::new(std::collections::HashMap::new())));
             tray::create_tray(app.handle())?;
             // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)
             windows::ensure_main_stub(app.handle())?;
@@ -84,21 +87,35 @@ pub fn run() {
                 }
                 return;
             }
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if let Some(id) = window.label().strip_prefix("note-") {
-                    // 닫기 = 숨김 (삭제 아님), 트레이 상주
-                    api.prevent_close();
-                    let _ = window.hide();
-                    let app = window.app_handle();
-                    let s = app.state::<Mutex<Store>>();
-                    let _ = s.lock().unwrap().save_meta(
-                        id,
-                        &MetaPatch {
-                            hidden: Some(true),
-                            ..Default::default()
-                        },
-                    );
+            let app = window.app_handle();
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    // 창이 표시 중인 노트는 매핑이 진실 (#25 — label은 불변, 노트는 동적)
+                    let id = app.try_state::<commands::WindowNotes>().and_then(|wn| {
+                        wn.0.lock().ok().and_then(|m| m.get(window.label()).cloned())
+                    });
+                    if let Some(id) = id {
+                        // 닫기 = 숨김 (삭제 아님), 트레이 상주
+                        api.prevent_close();
+                        let _ = window.hide();
+                        let s = app.state::<Mutex<Store>>();
+                        let _ = s.lock().unwrap().save_meta(
+                            &id,
+                            &MetaPatch {
+                                hidden: Some(true),
+                                ..Default::default()
+                            },
+                        );
+                    }
                 }
+                tauri::WindowEvent::Destroyed => {
+                    if let Some(wn) = app.try_state::<commands::WindowNotes>() {
+                        if let Ok(mut m) = wn.0.lock() {
+                            m.remove(window.label());
+                        }
+                    }
+                }
+                _ => {}
             }
         })
         .build(tauri::generate_context!())

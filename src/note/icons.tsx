@@ -27,6 +27,14 @@ export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
 );
 
+export const GroupIcon = () => (
+  // 겹친 카드 두 장 — 모음집
+  <svg {...base}>
+    <rect x="2.5" y="5.2" width="9.6" height="8.2" rx="1.6" />
+    <path d="M5.2 5.2V4a1.4 1.4 0 0 1 1.4-1.4h5.5A1.4 1.4 0 0 1 13.5 4v6.2" />
+  </svg>
+);
+
 export const EraserIcon = () => (
   <svg {...base}>
     <path d="M8.7 3.6l3.7 3.7-5.4 5.4H4.6l-2.1-2.1a1.2 1.2 0 0 1 0-1.7l6.2-5.3z" />

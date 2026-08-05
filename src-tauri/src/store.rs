@@ -32,6 +32,12 @@ pub struct NoteMeta {
     pub always_on_top: bool,
     #[serde(default)]
     pub hidden: bool,
+    /// 모음집(그룹) 이름 — None이면 무소속 (#25)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
+    /// 그룹 내 순서 (오름차순)
+    #[serde(default)]
+    pub group_order: u32,
 }
 
 fn default_color() -> String {
@@ -70,6 +76,8 @@ impl NoteMeta {
             window: default_window(),
             always_on_top: false,
             hidden: false,
+            group: None,
+            group_order: 0,
         }
     }
 }
@@ -83,6 +91,9 @@ pub struct MetaPatch {
     pub always_on_top: Option<bool>,
     pub hidden: Option<bool>,
     pub window: Option<WindowBounds>,
+    /// 빈 문자열 = 그룹 해제
+    pub group: Option<String>,
+    pub group_order: Option<u32>,
 }
 
 /// 새 노트에 적용될 기본값. `settings.json`(데이터 루트)에 저장된다.
@@ -476,6 +487,12 @@ impl Store {
 
     pub fn save_meta(&self, id: &str, patch: &MetaPatch) -> io::Result<Note> {
         validate_id(id)?;
+        let next_order = patch
+            .group
+            .as_deref()
+            .filter(|g| !g.is_empty())
+            .map(|g| self.next_group_order(g))
+            .unwrap_or(0);
         let mut note = self.load(id).ok_or(io::ErrorKind::NotFound)?;
         let m = &mut note.meta;
         if let Some(v) = &patch.color {
@@ -499,8 +516,54 @@ impl Store {
         if let Some(v) = &patch.window {
             m.window = v.clone();
         }
+        if let Some(v) = &patch.group {
+            if v.is_empty() {
+                m.group = None;
+            } else {
+                if m.group.as_deref() != Some(v.as_str()) {
+                    m.group_order = next_order;
+                }
+                m.group = Some(v.clone());
+            }
+        }
+        if let Some(v) = patch.group_order {
+            m.group_order = v;
+        }
         self.write_atomic(&note)?;
         Ok(note)
+    }
+
+    fn next_group_order(&self, group: &str) -> u32 {
+        self.list()
+            .iter()
+            .filter(|n| n.meta.group.as_deref() == Some(group))
+            .map(|n| n.meta.group_order)
+            .max()
+            .map(|m| m + 1)
+            .unwrap_or(0)
+    }
+
+    /// 그룹 노트를 (group_order, created_at) 오름차순으로
+    pub fn group_notes(&self, group: &str) -> Vec<Note> {
+        let mut v: Vec<Note> = self
+            .list()
+            .into_iter()
+            .filter(|n| n.meta.group.as_deref() == Some(group))
+            .collect();
+        v.sort_by(|a, b| {
+            a.meta
+                .group_order
+                .cmp(&b.meta.group_order)
+                .then_with(|| a.meta.created_at.cmp(&b.meta.created_at))
+        });
+        v
+    }
+
+    pub fn group_names(&self) -> Vec<String> {
+        let mut v: Vec<String> = self.list().into_iter().filter_map(|n| n.meta.group).collect();
+        v.sort();
+        v.dedup();
+        v
     }
 
     pub fn delete(&self, id: &str) -> io::Result<()> {
@@ -714,6 +777,40 @@ mod tests {
             fs::read_to_string(id_dir.join("storage-path.txt")).unwrap().trim(),
             newp.to_string_lossy()
         );
+    }
+
+    #[test]
+    fn group_fields_default_and_backcompat() {
+        let (parsed, _) = Note::from_file_string("abc", "---\nid: abc\n---\n본문");
+        assert_eq!(parsed.meta.group, None);
+        assert_eq!(parsed.meta.group_order, 0);
+    }
+
+    #[test]
+    fn empty_group_patch_clears_group() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        s.save_meta(&n.meta.id, &MetaPatch { group: Some("업무".into()), ..Default::default() }).unwrap();
+        assert_eq!(s.load(&n.meta.id).unwrap().meta.group.as_deref(), Some("업무"));
+        s.save_meta(&n.meta.id, &MetaPatch { group: Some(String::new()), ..Default::default() }).unwrap();
+        assert_eq!(s.load(&n.meta.id).unwrap().meta.group, None);
+    }
+
+    #[test]
+    fn assigning_group_auto_appends_order() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        let b = s.create().unwrap();
+        let c = s.create().unwrap();
+        for id in [&a.meta.id, &b.meta.id, &c.meta.id] {
+            s.save_meta(id, &MetaPatch { group: Some("모음".into()), ..Default::default() }).unwrap();
+        }
+        let g = s.group_notes("모음");
+        assert_eq!(g.len(), 3);
+        let orders: Vec<u32> = g.iter().map(|n| n.meta.group_order).collect();
+        assert!(orders[0] < orders[1] && orders[1] < orders[2], "부여 순서대로 정렬: {:?}", orders);
+        assert_eq!(g[0].meta.id, a.meta.id);
+        assert_eq!(s.group_names(), vec!["모음".to_string()]);
     }
 
     #[test]

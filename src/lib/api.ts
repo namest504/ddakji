@@ -8,10 +8,14 @@ export interface NoteMeta {
   id: string; created_at: string; updated_at: string;
   color: NoteColor; font_size: number; font_family: FontFamily; viewer_mode: boolean;
   window: WindowBounds; always_on_top: boolean; hidden: boolean;
+  group?: string | null; group_order: number;
 }
 export interface Note { meta: NoteMeta; body: string }
 export type MetaPatch = Partial<Pick<NoteMeta,
-  "color" | "font_size" | "font_family" | "viewer_mode" | "always_on_top" | "hidden" | "window">>;
+  "color" | "font_size" | "font_family" | "viewer_mode" | "always_on_top" | "hidden" | "window" | "group_order">> & {
+  /** 빈 문자열 = 그룹 해제 */
+  group?: string;
+};
 export interface Settings {
   default_color: NoteColor;
   default_font_family: FontFamily;
@@ -37,5 +41,7 @@ export const openDataDir = () => invoke<void>("open_data_dir");
 export const listSystemFonts = () => invoke<string[]>("list_system_fonts");
 export const setLastViewed = (id: string) => invoke<void>("set_last_viewed", { id });
 export const setStoragePath = (newPath: string) => invoke<void>("set_storage_path", { newPath });
+export const navGroup = (dir: 1 | -1) => invoke<Note | null>("nav_group", { dir });
+export const listGroups = () => invoke<string[]>("list_groups");
 export const getLastViewed = () => invoke<Note | null>("get_last_viewed");
 export const saveSettings = (settings: Settings) => invoke<void>("save_settings", { settings });

@@ -6,7 +6,7 @@ const note = (id: string, body: string): Note => ({
   meta: {
     id, created_at: "", updated_at: "", color: "yellow", font_size: 16,
     font_family: "system", viewer_mode: false, window: { x: 0, y: 0, w: 320, h: 340 },
-    always_on_top: false, hidden: false,
+    always_on_top: false, hidden: false, group_order: 0,
   },
   body,
 });

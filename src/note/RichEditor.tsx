@@ -1,10 +1,33 @@
 import { useEffect, useRef } from "react";
+import { InputRule } from "@tiptap/core";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Markdown } from "tiptap-markdown";
 import { convertFileSrc } from "@tauri-apps/api/core";
+
+// `- [ ] `처럼 불렛 변환 직후 태스크 변환이 이어지면 기본 wrappingInputRule이
+// bulletList>taskItem(스키마 위반) 구조를 만들다 줄을 유실시킨다(#39, 간헐).
+// 명령 기반 변환(toggleTaskList)은 리스트 구조를 올바르게 바꿔준다.
+const TaskItemSafe = TaskItem.extend({
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\s*(\[([ xX]?)\])\s$/,
+        handler: ({ state, range, match, chain }) => {
+          const checked = (match[2] || "").toLowerCase() === "x";
+          const parent = state.doc.resolve(range.from).node(-1);
+          const alreadyTask = parent?.type.name === "taskItem";
+          const c = chain().deleteRange(range);
+          if (!alreadyTask) c.toggleTaskList();
+          if (checked) c.updateAttributes("taskItem", { checked: true });
+          c.run();
+        },
+      }),
+    ];
+  },
+});
 
 // 문서(마크다운)에는 assets/ 상대경로를 그대로 두고, 화면에 그릴 때만 asset URL로 변환한다.
 // 직렬화는 node attrs(상대경로)를 읽으므로 저장 포맷이 오염되지 않는다.
@@ -32,9 +55,9 @@ export default function RichEditor({ body, base, onChange, onEditor, onPasteFile
   const editor = useEditor({
     extensions: [
       StarterKit,
-      // 체크박스: `- [ ] ` 입력으로 생성, 클릭 토글, GFM(- [x])으로 저장
+      // 체크박스: `- [ ] `/`[ ] ` 입력으로 생성, 클릭 토글, GFM(- [x])으로 저장
       TaskList,
-      TaskItem.configure({ nested: true }),
+      TaskItemSafe.configure({ nested: true }),
       assetImage(base),
       Markdown.configure({ html: true }),
     ],

@@ -29,6 +29,8 @@ pub fn run() {
             commands::save_image,
             commands::import_image,
             commands::data_root,
+            commands::get_settings,
+            commands::save_settings,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;

@@ -22,6 +22,8 @@ pub struct NoteMeta {
     pub color: String,
     #[serde(default = "default_font_size")]
     pub font_size: u32,
+    #[serde(default = "default_font_family")]
+    pub font_family: String,
     #[serde(default)]
     pub viewer_mode: bool,
     #[serde(default = "default_window")]
@@ -38,6 +40,11 @@ fn default_color() -> String {
 
 fn default_font_size() -> u32 {
     16
+}
+
+fn default_font_family() -> String {
+    // 의미 키("system" | "serif" | "mono") — 실제 폰트 스택 매핑은 프런트가 담당
+    "system".into()
 }
 
 fn default_window() -> WindowBounds {
@@ -58,6 +65,7 @@ impl NoteMeta {
             updated_at: now,
             color: default_color(),
             font_size: default_font_size(),
+            font_family: default_font_family(),
             viewer_mode: false,
             window: default_window(),
             always_on_top: false,
@@ -70,10 +78,32 @@ impl NoteMeta {
 pub struct MetaPatch {
     pub color: Option<String>,
     pub font_size: Option<u32>,
+    pub font_family: Option<String>,
     pub viewer_mode: Option<bool>,
     pub always_on_top: Option<bool>,
     pub hidden: Option<bool>,
     pub window: Option<WindowBounds>,
+}
+
+/// 새 노트에 적용될 기본값. `settings.json`(데이터 루트)에 저장된다.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Settings {
+    #[serde(default = "default_color")]
+    pub default_color: String,
+    #[serde(default = "default_font_family")]
+    pub default_font_family: String,
+    #[serde(default = "default_font_size")]
+    pub default_font_size: u32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            default_color: default_color(),
+            default_font_family: default_font_family(),
+            default_font_size: default_font_size(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -158,6 +188,7 @@ impl Note {
 
 pub struct Store {
     root: PathBuf,
+    settings: Settings,
 }
 
 fn validate_id(id: &str) -> io::Result<()> {
@@ -193,9 +224,28 @@ impl Store {
     pub fn new(root: &Path) -> io::Result<Store> {
         fs::create_dir_all(root.join("notes"))?;
         fs::create_dir_all(root.join("assets"))?;
+        // settings.json이 없거나 파손이면 기본값 — 노트 접근을 막지 않는다
+        let settings = fs::read_to_string(root.join("settings.json"))
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
         Ok(Store {
             root: root.to_path_buf(),
+            settings,
         })
+    }
+
+    pub fn settings(&self) -> Settings {
+        self.settings.clone()
+    }
+
+    pub fn set_settings(&mut self, s: &Settings) -> io::Result<()> {
+        let path = self.root.join("settings.json");
+        let tmp = self.root.join(format!("settings.json.{}.tmp", uuid::Uuid::new_v4()));
+        fs::write(&tmp, serde_json::to_string_pretty(s).expect("settings serialize"))?;
+        fs::rename(&tmp, &path)?;
+        self.settings = s.clone();
+        Ok(())
     }
 
     pub fn root(&self) -> &Path {
@@ -259,8 +309,12 @@ impl Store {
 
     pub fn create(&self) -> io::Result<Note> {
         let id = uuid::Uuid::new_v4().to_string();
+        let mut meta = NoteMeta::new_default(id);
+        meta.color = self.settings.default_color.clone();
+        meta.font_family = self.settings.default_font_family.clone();
+        meta.font_size = self.settings.default_font_size;
         let note = Note {
-            meta: NoteMeta::new_default(id),
+            meta,
             body: String::new(),
         };
         self.write_atomic(&note)?;
@@ -285,6 +339,9 @@ impl Store {
         }
         if let Some(v) = patch.font_size {
             m.font_size = v;
+        }
+        if let Some(v) = &patch.font_family {
+            m.font_family = v.clone();
         }
         if let Some(v) = patch.viewer_mode {
             m.viewer_mode = v;
@@ -399,6 +456,51 @@ mod tests {
         assert_eq!(parsed.meta.color, "yellow");
         assert_eq!(parsed.body, "");
         assert!(recovered);
+    }
+
+    #[test]
+    fn meta_without_font_family_defaults_to_system() {
+        // v0.1 노트에는 font_family가 없다 — 하위호환 확인
+        let content = "---\nid: abc\ncolor: blue\n---\n본문";
+        let (parsed, recovered) = Note::from_file_string("abc", content);
+        assert_eq!(parsed.meta.font_family, "system");
+        assert!(!recovered);
+    }
+
+    #[test]
+    fn settings_default_when_file_missing() {
+        let (_d, s) = store();
+        let st = s.settings();
+        assert_eq!(st.default_color, "yellow");
+        assert_eq!(st.default_font_family, "system");
+        assert_eq!(st.default_font_size, 16);
+    }
+
+    #[test]
+    fn set_settings_persists_and_applies_to_create() {
+        let (d, s) = store();
+        let mut s = s;
+        s.set_settings(&Settings {
+            default_color: "blue".into(),
+            default_font_family: "mono".into(),
+            default_font_size: 20,
+        })
+        .unwrap();
+        let n = s.create().unwrap();
+        assert_eq!(n.meta.color, "blue");
+        assert_eq!(n.meta.font_family, "mono");
+        assert_eq!(n.meta.font_size, 20);
+        // 새 Store 인스턴스로 재로드해도 유지
+        let s2 = Store::new(d.path()).unwrap();
+        assert_eq!(s2.settings().default_font_family, "mono");
+    }
+
+    #[test]
+    fn corrupt_settings_file_falls_back_to_defaults() {
+        let d = TempDir::new().unwrap();
+        fs::write(d.path().join("settings.json"), "{broken").unwrap();
+        let s = Store::new(d.path()).unwrap();
+        assert_eq!(s.settings().default_color, "yellow");
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::store::{MetaPatch, Note, Store};
+use crate::store::{MetaPatch, Note, Settings, Store};
 use crate::windows;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
@@ -86,4 +86,14 @@ pub fn import_image(store: StoreState, id: String, path: String) -> Result<Strin
 #[tauri::command]
 pub fn data_root(store: StoreState) -> Result<String, String> {
     Ok(store.lock().map_err(err)?.root().to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn get_settings(store: StoreState) -> Result<Settings, String> {
+    Ok(store.lock().map_err(err)?.settings())
+}
+
+#[tauri::command]
+pub fn save_settings(store: StoreState, settings: Settings) -> Result<(), String> {
+    store.lock().map_err(err)?.set_settings(&settings).map_err(err)
 }

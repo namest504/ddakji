@@ -37,12 +37,18 @@ pub fn run() {
             commands::list_system_fonts,
             commands::set_last_viewed,
             commands::get_last_viewed,
+            commands::set_storage_path,
         ])
         .setup(|app| {
-            let root = app.path().app_data_dir()?;
+            let id_dir = app.path().app_data_dir()?;
+            // 기본 %APPDATA%/StickDown (충돌 시 식별자 폴더), 설정으로 변경 가능
+            let root = store::resolve_data_root(&id_dir);
             let store = Store::new(&root)?;
             let notes = store.list();
+            // 커스텀 저장 경로에서도 이미지(asset)가 로드되도록 스코프 허용
+            let _ = app.asset_protocol_scope().allow_directory(root.join("assets"), true);
             app.manage(Mutex::new(store));
+            app.manage(commands::IdDir(id_dir));
             app.manage(commands::LastViewed(Mutex::new(None)));
             tray::create_tray(app.handle())?;
             // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)

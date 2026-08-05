@@ -227,6 +227,84 @@ fn new_file_id() -> String {
     format!("{ts}-{suffix}")
 }
 
+/// 데이터 루트 결정 (#저장 위치):
+/// 1) `<식별자 폴더>/storage-path.txt`에 사용자 지정 경로가 있으면 그것
+/// 2) 기본: `%APPDATA%/StickDown` — 없으면 만들고 기존 식별자 폴더의 데이터를 이사
+/// 3) StickDown 폴더가 존재하는데 우리 데이터(notes/)가 아니면 충돌 — 기존 식별자 폴더 유지
+pub fn resolve_data_root(id_dir: &Path) -> PathBuf {
+    let ptr = id_dir.join("storage-path.txt");
+    if let Ok(p) = fs::read_to_string(&ptr) {
+        let p = PathBuf::from(p.trim());
+        if !p.as_os_str().is_empty() && fs::create_dir_all(p.join("notes")).is_ok() {
+            return p;
+        }
+    }
+    let Some(roaming) = id_dir.parent() else {
+        return id_dir.to_path_buf();
+    };
+    let std_dir = roaming.join("StickDown");
+    if std_dir.join("notes").is_dir() {
+        return std_dir; // 우리가 쓰던 폴더
+    }
+    if !std_dir.exists() {
+        if fs::create_dir_all(&std_dir).is_ok() {
+            for name in ["notes", "assets", "settings.json"] {
+                let from = id_dir.join(name);
+                if from.exists() {
+                    let _ = move_entry(&from, &std_dir.join(name));
+                }
+            }
+            return std_dir;
+        }
+        return id_dir.to_path_buf();
+    }
+    // StickDown이 있지만 다른 용도의 폴더 — 건드리지 않는다
+    id_dir.to_path_buf()
+}
+
+/// 저장 위치 변경: 현재 루트의 데이터를 새 경로로 옮긴다 (같은 볼륨이면 rename,
+/// 아니면 복사 후 삭제). 성공 시 포인터 파일에 새 경로를 기록한다.
+pub fn move_storage(id_dir: &Path, current: &Path, new_root: &Path) -> io::Result<()> {
+    fs::create_dir_all(new_root)?;
+    if new_root != current {
+        for name in ["notes", "assets", "settings.json"] {
+            let from = current.join(name);
+            let to = new_root.join(name);
+            if from.exists() && !to.exists() {
+                move_entry(&from, &to)?;
+            }
+        }
+    }
+    fs::write(id_dir.join("storage-path.txt"), new_root.to_string_lossy().as_bytes())
+}
+
+fn move_entry(from: &Path, to: &Path) -> io::Result<()> {
+    if fs::rename(from, to).is_ok() {
+        return Ok(());
+    }
+    // 볼륨이 다르면 rename이 실패한다 — 복사 후 원본 삭제
+    if from.is_dir() {
+        copy_dir(from, to)?;
+        fs::remove_dir_all(from)
+    } else {
+        fs::copy(from, to)?;
+        fs::remove_file(from)
+    }
+}
+
+fn copy_dir(from: &Path, to: &Path) -> io::Result<()> {
+    fs::create_dir_all(to)?;
+    for e in fs::read_dir(from)?.flatten() {
+        let dst = to.join(e.file_name());
+        if e.path().is_dir() {
+            copy_dir(&e.path(), &dst)?;
+        } else {
+            fs::copy(e.path(), &dst)?;
+        }
+    }
+    Ok(())
+}
+
 /// 구형(UUID 파일명) 노트를 새 형식으로 개명한다 — 에셋 폴더와 본문의
 /// assets/<id>/ 참조까지 함께. 시각은 프론트매터 created_at을 사용한다.
 fn migrate_uuid_filenames(root: &Path) {
@@ -585,6 +663,57 @@ mod tests {
                 && parts[2].len() == 6
                 && parts[2].chars().all(|c| c.is_ascii_hexdigit())
         }
+    }
+
+    #[test]
+    fn resolves_default_stickdown_dir_and_migrates() {
+        let base = TempDir::new().unwrap();
+        let id_dir = base.path().join("com.stickdown.app");
+        fs::create_dir_all(id_dir.join("notes")).unwrap();
+        fs::write(id_dir.join("notes").join("a.md"), "x").unwrap();
+        fs::write(id_dir.join("settings.json"), "{}").unwrap();
+        let root = resolve_data_root(&id_dir);
+        assert_eq!(root, base.path().join("StickDown"));
+        assert!(root.join("notes").join("a.md").exists(), "데이터 이사");
+        assert!(!id_dir.join("notes").exists(), "원본 정리");
+    }
+
+    #[test]
+    fn conflicting_stickdown_dir_falls_back_to_id_dir() {
+        let base = TempDir::new().unwrap();
+        let id_dir = base.path().join("com.stickdown.app");
+        fs::create_dir_all(&id_dir).unwrap();
+        // notes/ 없는 남의 StickDown 폴더
+        fs::create_dir_all(base.path().join("StickDown").join("other")).unwrap();
+        assert_eq!(resolve_data_root(&id_dir), id_dir);
+    }
+
+    #[test]
+    fn storage_pointer_file_overrides_default() {
+        let base = TempDir::new().unwrap();
+        let id_dir = base.path().join("com.stickdown.app");
+        fs::create_dir_all(&id_dir).unwrap();
+        let custom = base.path().join("custom");
+        fs::write(id_dir.join("storage-path.txt"), custom.to_string_lossy().as_bytes()).unwrap();
+        assert_eq!(resolve_data_root(&id_dir), custom);
+        assert!(custom.join("notes").is_dir());
+    }
+
+    #[test]
+    fn move_storage_relocates_and_writes_pointer() {
+        let base = TempDir::new().unwrap();
+        let id_dir = base.path().join("com.stickdown.app");
+        let cur = base.path().join("StickDown");
+        fs::create_dir_all(cur.join("notes")).unwrap();
+        fs::write(cur.join("notes").join("a.md"), "x").unwrap();
+        fs::create_dir_all(&id_dir).unwrap();
+        let newp = base.path().join("elsewhere");
+        move_storage(&id_dir, &cur, &newp).unwrap();
+        assert!(newp.join("notes").join("a.md").exists());
+        assert_eq!(
+            fs::read_to_string(id_dir.join("storage-path.txt")).unwrap().trim(),
+            newp.to_string_lossy()
+        );
     }
 
     #[test]

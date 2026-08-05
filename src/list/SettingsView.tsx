@@ -17,12 +17,14 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [autostart, setAutostart] = useState(false);
   const [version, setVersion] = useState("");
+  const [rootPath, setRootPath] = useState("");
   const [sysFonts, setSysFonts] = useState<string[] | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [fontQuery, setFontQuery] = useState("");
 
   useEffect(() => {
     api.getSettings().then(setSettings);
+    api.dataRoot().then(setRootPath).catch(() => {});
     getVersion().then(setVersion).catch(() => {});
     import("@tauri-apps/plugin-autostart")
       .then(({ isEnabled }) => isEnabled().then(setAutostart))
@@ -173,8 +175,21 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
+        <div className="group-label">저장 위치</div>
         <div className="inset-group">
+          <div className="settings-row">
+            <span className="row-dim path-text">{rootPath}</span>
+          </div>
           <div className="settings-row link" onClick={openData}>데이터 폴더 열기</div>
+          <div className="settings-row link" onClick={async () => {
+            const { open, ask } = await import("@tauri-apps/plugin-dialog");
+            const dir = await open({ directory: true, title: "새 저장 폴더 선택" });
+            if (typeof dir !== "string") return;
+            const ok = await ask(`데이터를 다음 위치로 이동하고 앱을 다시 시작합니다:\n${dir}`, {
+              title: "저장 위치 변경", kind: "warning", okLabel: "이동", cancelLabel: "취소",
+            });
+            if (ok) await api.setStoragePath(dir);
+          }}>저장 위치 변경…</div>
         </div>
 
         <div className="inset-group">

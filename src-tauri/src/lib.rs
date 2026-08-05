@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod fonts;
 pub mod store;
 pub mod tray;
 pub mod windows;
@@ -33,6 +34,7 @@ pub fn run() {
             commands::get_settings,
             commands::save_settings,
             commands::open_data_dir,
+            commands::list_system_fonts,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;

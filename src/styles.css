@@ -41,7 +41,17 @@ html, body, #root { height: 100%; }
   flex: 1; min-width: 90px; border: 0; border-radius: 6px; padding: 4px 8px;
   font-size: 12px; outline: none; background: rgba(255,255,255,.65); color: #1c1c1e;
 }
-.settings .font-custom { background: var(--l-field); max-width: 170px; }
+.settings .font-custom { background: var(--l-field); max-width: none; width: 100%; }
+.font-picker { padding: 8px 14px 12px; border-top: 1px solid var(--l-sep); }
+.font-list {
+  margin-top: 6px; max-height: 180px; overflow-y: auto;
+  border: 1px solid var(--l-sep); border-radius: 8px;
+}
+.font-item { padding: 7px 12px; cursor: pointer; font-size: 13px; }
+.font-item + .font-item { border-top: 1px solid var(--l-sep); }
+.font-item:hover { background: var(--l-hover); }
+.font-item.added { color: var(--l-dim); }
+.font-item.added::after { content: " ✓"; }
 .toolbar .spacer { flex: 1; height: 100%; }
 .color-row {
   position: absolute; top: 100%; left: 0; right: 0; display: flex; gap: 6px;
@@ -158,6 +168,7 @@ html, body, #root { height: 100%; }
 .swatch-row .swatch { width: 18px; height: 18px; }
 .swatch.selected { outline: 2px solid #0a84ff; outline-offset: 1px; }
 .seg { display: flex; gap: 4px; }
+.seg.wrap { flex-wrap: wrap; justify-content: flex-end; max-width: 65%; }
 .seg button {
   border: 0; background: var(--l-field); color: inherit; cursor: pointer;
   padding: 4px 10px; border-radius: 7px; font-size: 12px;

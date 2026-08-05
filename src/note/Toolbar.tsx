@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as api from "../lib/api";
 import type { FontFamily, Note, NoteColor } from "../lib/api";
 import { fontStack } from "../lib/noteUtils";
 import { EyeIcon, ListIcon, PencilIcon, PinIcon, PlusIcon, TrashIcon } from "./icons";
@@ -25,7 +26,14 @@ interface Props {
 
 export default function Toolbar(p: Props) {
   const [popover, setPopover] = useState<"colors" | "fonts" | null>(null);
-  const toggle = (v: "colors" | "fonts") => setPopover(popover === v ? null : v);
+  const [favFonts, setFavFonts] = useState<string[]>([]);
+  const toggle = (v: "colors" | "fonts") => {
+    // 즐겨찾기는 설정 화면에서 바뀔 수 있으니 팝오버를 열 때마다 새로 읽는다
+    if (v === "fonts" && popover !== "fonts") {
+      api.getSettings().then((s) => setFavFonts(s.favorite_fonts)).catch(() => {});
+    }
+    setPopover(popover === v ? null : v);
+  };
   const m = p.note.meta;
   return (
     <div className="toolbar" data-tauri-drag-region>
@@ -63,14 +71,13 @@ export default function Toolbar(p: Props) {
               {f.label}
             </button>
           ))}
-          <input className="font-custom" placeholder="폰트명 직접 입력"
-            defaultValue={FONTS.some((f) => f.key === m.font_family) ? "" : m.font_family}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const v = e.currentTarget.value.trim();
-                if (v) { p.onFont(v); setPopover(null); }
-              }
-            }} />
+          {favFonts.map((f) => (
+            <button key={f} className={m.font_family === f ? "active" : ""}
+              style={{ fontFamily: fontStack(f) }}
+              onClick={() => { p.onFont(f); setPopover(null); }}>
+              {f}
+            </button>
+          ))}
         </div>
       )}
     </div>

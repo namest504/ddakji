@@ -16,6 +16,7 @@ export interface Settings {
   default_color: NoteColor;
   default_font_family: FontFamily;
   default_font_size: number;
+  favorite_fonts: string[];
 }
 
 export const listNotes = () => invoke<Note[]>("list_notes");
@@ -32,4 +33,5 @@ export const importImage = (id: string, path: string) =>
 export const dataRoot = () => invoke<string>("data_root");
 export const getSettings = () => invoke<Settings>("get_settings");
 export const openDataDir = () => invoke<void>("open_data_dir");
+export const listSystemFonts = () => invoke<string[]>("list_system_fonts");
 export const saveSettings = (settings: Settings) => invoke<void>("save_settings", { settings });

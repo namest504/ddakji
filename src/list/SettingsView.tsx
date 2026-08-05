@@ -17,6 +17,9 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [autostart, setAutostart] = useState(false);
   const [version, setVersion] = useState("");
+  const [sysFonts, setSysFonts] = useState<string[] | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [fontQuery, setFontQuery] = useState("");
 
   useEffect(() => {
     api.getSettings().then(setSettings);
@@ -43,6 +46,21 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
 
   // opener의 openPath는 경로 스코프 권한이 별도로 필요해 프런트에서 실패한다 — Rust 커맨드로 연다
   const openData = () => api.openDataDir();
+
+  const togglePicker = () => {
+    if (!showPicker && sysFonts === null) {
+      api.listSystemFonts().then(setSysFonts).catch(() => setSysFonts([]));
+    }
+    setShowPicker(!showPicker);
+  };
+  const addFavorite = (f: string) => {
+    if (!settings || settings.favorite_fonts.includes(f)) return;
+    patch({ favorite_fonts: [...settings.favorite_fonts, f] });
+  };
+  const removeFavorite = (f: string) => {
+    if (!settings) return;
+    patch({ favorite_fonts: settings.favorite_fonts.filter((x) => x !== f) });
+  };
 
   const openRepo = async () => {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
@@ -80,7 +98,7 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           </div>
           <div className="settings-row">
             <span>폰트</span>
-            <span className="seg">
+            <span className="seg wrap">
               {FONTS.map((f) => (
                 <button key={f.key} style={{ fontFamily: fontStack(f.key) }}
                   className={settings.default_font_family === f.key ? "active" : ""}
@@ -88,18 +106,14 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
                   {f.label}
                 </button>
               ))}
+              {settings.favorite_fonts.map((f) => (
+                <button key={f} style={{ fontFamily: fontStack(f) }}
+                  className={settings.default_font_family === f ? "active" : ""}
+                  onClick={() => patch({ default_font_family: f })}>
+                  {f}
+                </button>
+              ))}
             </span>
-          </div>
-          <div className="settings-row">
-            <span>커스텀 폰트</span>
-            <input className="font-custom" placeholder="설치된 폰트명 입력 후 Enter"
-              defaultValue={FONTS.some((f) => f.key === settings.default_font_family) ? "" : settings.default_font_family}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const v = e.currentTarget.value.trim();
-                  if (v) patch({ default_font_family: v });
-                }
-              }} />
           </div>
           <div className="settings-row">
             <span>글씨 크기</span>
@@ -109,6 +123,40 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
               <button onClick={() => patch({ default_font_size: clampFontSize(settings.default_font_size + 1) })}>＋</button>
             </span>
           </div>
+        </div>
+
+        <div className="group-label">자주 쓰는 폰트</div>
+        <div className="inset-group">
+          {settings.favorite_fonts.map((f) => (
+            <div key={f} className="settings-row">
+              <span style={{ fontFamily: fontStack(f) }}>{f}</span>
+              <button className="icon-btn" title="제거" onClick={() => removeFavorite(f)}>−</button>
+            </div>
+          ))}
+          <div className="settings-row link" onClick={togglePicker}>
+            {showPicker ? "닫기" : "＋ 폰트 추가 (설치된 폰트 조회)"}
+          </div>
+          {showPicker && (
+            <div className="font-picker">
+              <input className="font-custom" placeholder="폰트 검색…" value={fontQuery}
+                onChange={(e) => setFontQuery(e.target.value)} autoFocus />
+              <div className="font-list">
+                {sysFonts === null && <div className="font-item">불러오는 중…</div>}
+                {sysFonts?.filter((f) => f.toLowerCase().includes(fontQuery.trim().toLowerCase()))
+                  .map((f) => (
+                    <div key={f}
+                      className={"font-item" + (settings.favorite_fonts.includes(f) ? " added" : "")}
+                      style={{ fontFamily: fontStack(f) }}
+                      onClick={() => addFavorite(f)}>
+                      {f}
+                    </div>
+                  ))}
+                {sysFonts !== null && sysFonts.length === 0 && (
+                  <div className="font-item">폰트 목록을 가져오지 못했습니다</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="inset-group">

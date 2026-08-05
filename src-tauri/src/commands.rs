@@ -89,6 +89,11 @@ pub fn data_root(store: StoreState) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn list_system_fonts() -> Vec<String> {
+    crate::fonts::list_system_fonts()
+}
+
+#[tauri::command]
 pub fn open_data_dir(store: StoreState) -> Result<(), String> {
     // 프런트의 opener open_path는 경로 스코프 권한이 따로 필요해 실패한다(#15 QA) —
     // Rust API로 직접 연다

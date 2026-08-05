@@ -94,6 +94,9 @@ pub struct Settings {
     pub default_font_family: String,
     #[serde(default = "default_font_size")]
     pub default_font_size: u32,
+    /// 자주 쓰는 폰트 (노트 툴바 팝오버에 프리셋과 함께 노출)
+    #[serde(default)]
+    pub favorite_fonts: Vec<String>,
 }
 
 impl Default for Settings {
@@ -102,6 +105,7 @@ impl Default for Settings {
             default_color: default_color(),
             default_font_family: default_font_family(),
             default_font_size: default_font_size(),
+            favorite_fonts: Vec::new(),
         }
     }
 }
@@ -241,7 +245,7 @@ impl Store {
 
     pub fn set_settings(&mut self, s: &Settings) -> io::Result<()> {
         let path = self.root.join("settings.json");
-        let tmp = self.root.join(format!("settings.json.{}.tmp", uuid::Uuid::new_v4()));
+        let tmp = self.root.join(format!("settings.json.{}.tmp", uuid::Uuid::now_v7()));
         fs::write(&tmp, serde_json::to_string_pretty(s).expect("settings serialize"))?;
         fs::rename(&tmp, &path)?;
         self.settings = s.clone();
@@ -263,7 +267,7 @@ impl Store {
     fn write_atomic(&self, note: &Note) -> io::Result<()> {
         let path = self.note_path(&note.meta.id);
         // Use unique tmp name to avoid concurrent write conflicts
-        let tmp_id = uuid::Uuid::new_v4().to_string();
+        let tmp_id = uuid::Uuid::now_v7().to_string();
         let tmp = path.with_extension(format!("md.{}.tmp", tmp_id));
         fs::write(&tmp, note.to_file_string())?;
         fs::rename(&tmp, &path)
@@ -308,7 +312,7 @@ impl Store {
     }
 
     pub fn create(&self) -> io::Result<Note> {
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = uuid::Uuid::now_v7().to_string();
         let mut meta = NoteMeta::new_default(id);
         meta.color = self.settings.default_color.clone();
         meta.font_family = self.settings.default_font_family.clone();
@@ -374,7 +378,7 @@ impl Store {
         validate_ext(ext)?;
         let dir = self.root.join("assets").join(note_id);
         fs::create_dir_all(&dir)?;
-        let name = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+        let name = format!("{}.{}", uuid::Uuid::now_v7(), ext);
         fs::write(dir.join(&name), bytes)?;
         Ok(format!("assets/{note_id}/{name}"))
     }
@@ -484,6 +488,7 @@ mod tests {
             default_color: "blue".into(),
             default_font_family: "mono".into(),
             default_font_size: 20,
+            favorite_fonts: vec!["D2Coding".into()],
         })
         .unwrap();
         let n = s.create().unwrap();
@@ -493,6 +498,26 @@ mod tests {
         // 새 Store 인스턴스로 재로드해도 유지
         let s2 = Store::new(d.path()).unwrap();
         assert_eq!(s2.settings().default_font_family, "mono");
+    }
+
+    #[test]
+    fn create_ids_are_time_sortable_uuidv7() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(3));
+        let b = s.create().unwrap();
+        assert_eq!(uuid::Uuid::parse_str(&a.meta.id).unwrap().get_version_num(), 7);
+        assert!(a.meta.id < b.meta.id, "UUIDv7 파일명은 생성 시각순으로 정렬돼야 한다");
+    }
+
+    #[test]
+    fn settings_without_favorite_fonts_defaults_empty() {
+        // 기존 settings.json(구 버전)에 favorite_fonts가 없어도 로드된다
+        let d = TempDir::new().unwrap();
+        fs::write(d.path().join("settings.json"), r#"{"default_color":"pink"}"#).unwrap();
+        let s = Store::new(d.path()).unwrap();
+        assert_eq!(s.settings().default_color, "pink");
+        assert!(s.settings().favorite_fonts.is_empty());
     }
 
     #[test]
@@ -657,7 +682,7 @@ mod tests {
     #[test]
     fn load_persists_recovered_frontmatter_across_reads() {
         let (_d, s) = store();
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = uuid::Uuid::now_v7().to_string();
         let path = s.notes_dir().join(format!("{id}.md"));
         fs::write(&path, "---\ncolor: [broken yaml\n---\n본문 유지").unwrap();
 
@@ -683,7 +708,7 @@ mod tests {
     #[test]
     fn list_persists_recovered_frontmatter_stable_across_polls() {
         let (_d, s) = store();
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = uuid::Uuid::now_v7().to_string();
         let path = s.notes_dir().join(format!("{id}.md"));
         // No frontmatter at all — also triggers recovery.
         fs::write(&path, "프론트매터 없는 파일").unwrap();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampFontSize, filterNotes, noteTitle } from "./noteUtils";
+import { clampFontSize, filterNotes, hasMoreBelow, initialViewerMode, noteTitle } from "./noteUtils";
 import type { Note } from "./api";
 
 const note = (id: string, body: string): Note => ({
@@ -40,5 +40,25 @@ describe("noteTitle", () => {
   });
   it("strips numbered list markers", () => {
     expect(noteTitle(note("a", "1. 항목"))).toBe("항목");
+  });
+});
+
+describe("initialViewerMode", () => {
+  it("본문이 있으면 뷰어로 연다", () => {
+    expect(initialViewerMode("내용")).toBe(true);
+  });
+  it("본문이 비어 있으면 편집 모드로 연다 (뷰어는 보여줄 게 없음)", () => {
+    expect(initialViewerMode("")).toBe(false);
+    expect(initialViewerMode("  \n ")).toBe(false);
+  });
+});
+
+describe("hasMoreBelow", () => {
+  it("스크롤 여지가 임계값보다 크면 true", () => {
+    expect(hasMoreBelow(500, 0, 300)).toBe(true);
+  });
+  it("바닥 근처(임계값 이내)면 false", () => {
+    expect(hasMoreBelow(500, 195, 300)).toBe(false);
+    expect(hasMoreBelow(300, 0, 300)).toBe(false);
   });
 });

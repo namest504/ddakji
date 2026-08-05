@@ -3,15 +3,17 @@ interface Props {
   value: string;
   onChange: (v: string) => void;
   onPasteImage?: (file: File, selStart: number, selEnd: number) => void;
+  onScroll?: () => void;
 }
 
-export default function Editor({ value, onChange, onPasteImage }: Props) {
+export default function Editor({ value, onChange, onPasteImage, onScroll }: Props) {
   return (
     <textarea
       className="editor"
       value={value}
       placeholder="메모를 입력하세요… (마크다운 지원)"
       onChange={(e) => onChange(e.target.value)}
+      onScroll={onScroll}
       onPaste={(e) => {
         const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
         const file = item?.getAsFile();

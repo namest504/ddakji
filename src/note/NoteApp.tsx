@@ -27,6 +27,14 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   const clearIfFailed = (key: string) => {
     if (failedOp.current?.key === key) { failedOp.current = null; setSaveError(false); }
   };
+  // 노트 파일이 밖에서 삭제됐다(NOTE_NOT_FOUND) — 좀비 창을 남기지 않고 닫는다
+  const closeIfGone = (e: unknown) => {
+    if (e === "NOTE_NOT_FOUND") {
+      getCurrentWindow().destroy().catch(() => {});
+      return true;
+    }
+    return false;
+  };
 
   useEffect(() => {
     loadedRef.current = false;
@@ -47,7 +55,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     window.clearTimeout(saveTimer.current);
     const run = () => api.saveBody(noteId, bodyRef.current)
       .then(() => clearIfFailed("body"))
-      .catch(() => failWith("body", run));
+      .catch((e) => { if (!closeIfGone(e)) failWith("body", run); });
     run();
   }, [noteId]);
 
@@ -68,7 +76,8 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       const factor = await win.scaleFactor();
       const pos = (await win.outerPosition()).toLogical(factor);
       const size = (await win.innerSize()).toLogical(factor);
-      api.saveMeta(noteId, { window: { x: pos.x, y: pos.y, w: size.width, h: size.height } });
+      api.saveMeta(noteId, { window: { x: pos.x, y: pos.y, w: size.width, h: size.height } })
+        .catch((e) => { closeIfGone(e); });
     };
     const un1 = win.onMoved(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
     const un2 = win.onResized(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
@@ -82,7 +91,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       const font_size = clampFontSize(n.meta.font_size + delta);
       const run = () => api.saveMeta(noteId, { font_size })
         .then(() => clearIfFailed("meta"))
-        .catch(() => failWith("meta", run));
+        .catch((e) => { if (!closeIfGone(e)) failWith("meta", run); });
       run();
       return { ...n, meta: { ...n.meta, font_size } };
     });
@@ -106,55 +115,31 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     };
   }, [changeFont, flushBody]);
 
-  // 이미지 저장 → 에디터에 상대경로로 삽입 (붙여넣기·드롭·서식바 공용)
-  const insertImageRel = (rel: string) => {
-    editorRef.current?.chain().focus().setImage({ src: rel }).run();
+  // 이미지 저장 → 에디터에 상대경로로 삽입 (붙여넣기·드롭·서식바 공용).
+  // pos가 있으면 그 위치(드롭 지점)에, 없으면 현재 커서에 넣는다.
+  const insertImageRel = (rel: string, pos?: number) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    if (pos !== undefined) {
+      ed.chain().focus().insertContentAt(pos, { type: "image", attrs: { src: rel } }).run();
+    } else {
+      ed.chain().focus().setImage({ src: rel }).run();
+    }
   };
 
-  const savePastedImage = useCallback((file: File) => {
+  const savePastedImage = useCallback((file: File, pos?: number) => {
     const key = `image:${crypto.randomUUID()}`;
     const run = async () => {
       try {
         const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
         const bytes = new Uint8Array(await file.arrayBuffer());
-        insertImageRel(await api.saveImage(noteId, ext, bytes));
+        insertImageRel(await api.saveImage(noteId, ext, bytes), pos);
         clearIfFailed(key);
       } catch {
         failWith(key, run);
       }
     };
     run();
-  }, [noteId]);
-
-  // 파일 드롭으로 이미지 삽입
-  useEffect(() => {
-    let unlisten: (() => void) | null = null;
-    let cancelled = false;
-    (async () => {
-      const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-      const fn = await getCurrentWebview().onDragDropEvent((e) => {
-        if (e.payload.type !== "drop" || !loadedRef.current) return;
-        for (const path of e.payload.paths) {
-          if (!/\.(png|jpe?g|gif|webp)$/i.test(path)) continue;
-          const key = `image:${crypto.randomUUID()}`;
-          const run = async () => {
-            try {
-              insertImageRel(await api.importImage(noteId, path));
-              clearIfFailed(key);
-            } catch {
-              failWith(key, run);
-            }
-          };
-          run();
-        }
-      });
-      if (cancelled) fn();
-      else unlisten = fn;
-    })();
-    return () => {
-      cancelled = true;
-      if (unlisten) unlisten();
-    };
   }, [noteId]);
 
   // 서식 바의 이미지 버튼 → 파일 선택 다이얼로그
@@ -206,7 +191,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
   const patchMeta = (patch: api.MetaPatch) => {
     const run = () => api.saveMeta(noteId, patch)
       .then(() => clearIfFailed("meta"))
-      .catch(() => failWith("meta", run));
+      .catch((e) => { if (!closeIfGone(e)) failWith("meta", run); });
     run();
     setNote((n) => (n ? { ...n, meta: { ...n.meta, ...patch } } : n));
   };

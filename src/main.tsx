@@ -2,7 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import NoteApp from "./note/NoteApp";
 import ListApp from "./list/ListApp";
+import { initTheme } from "./lib/theme";
 import "./styles.css";
+
+initTheme();
 
 const params = new URLSearchParams(location.search);
 const noteId = params.get("note");

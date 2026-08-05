@@ -84,6 +84,20 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
+        <div className="inset-group">
+          <div className="settings-row">
+            <span>테마</span>
+            <span className="seg">
+              {([["system", "시스템"], ["light", "라이트"], ["dark", "다크"]] as const).map(([k, label]) => (
+                <button key={k} className={settings.theme === k ? "active" : ""}
+                  onClick={() => patch({ theme: k })}>
+                  {label}
+                </button>
+              ))}
+            </span>
+          </div>
+        </div>
+
         <div className="group-label">새 노트 기본값</div>
         <div className="inset-group">
           <div className="settings-row">
@@ -168,6 +182,10 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
             <span>버전</span>
             <span className="row-dim">{version}</span>
           </div>
+          <div className="settings-row link" onClick={async () => {
+            const { openUrl } = await import("@tauri-apps/plugin-opener");
+            await openUrl(`${REPO_URL}/blob/develop/docs/usage.md`);
+          }}>사용법 보기</div>
           <div className="settings-row link" onClick={openRepo}>GitHub</div>
         </div>
       </div>

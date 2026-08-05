@@ -1,0 +1,74 @@
+import { describe, expect, it } from "vitest";
+import { Editor } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
+import { Markdown } from "tiptap-markdown";
+
+// 에디터가 마크다운을 읽고 다시 직렬화했을 때 의미가 보존되는지 (QA #2 대체).
+// 표기 정규화(예: * → **)는 허용하되, 구조·내용·경로가 살아야 한다.
+const roundtrip = (src: string): string => {
+  const ed = new Editor({
+    extensions: [
+      StarterKit,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Image,
+      Markdown.configure({ html: true }),
+    ],
+    content: src,
+  });
+  const out = (ed.storage as { markdown?: { getMarkdown: () => string } })
+    .markdown?.getMarkdown() ?? "";
+  ed.destroy();
+  return out;
+};
+
+describe("마크다운 왕복 보존", () => {
+  it("제목·본문", () => {
+    const out = roundtrip("# 검사 종류\n\n첫 설치 인수검사");
+    expect(out).toContain("# 검사 종류");
+    expect(out).toContain("첫 설치 인수검사");
+  });
+
+  it("불렛 목록과 중첩", () => {
+    const out = roundtrip("- 상위\n  - 하위\n- 다음");
+    expect(out).toMatch(/- 상위/);
+    expect(out).toMatch(/\n\s+- 하위/);
+  });
+
+  it("체크박스 상태", () => {
+    const out = roundtrip("- [ ] 할 일\n- [x] 끝난 일");
+    expect(out).toContain("[ ] 할 일");
+    expect(out).toContain("[x] 끝난 일");
+  });
+
+  it("이미지 상대경로", () => {
+    const out = roundtrip("![](assets/abc/img.png)");
+    expect(out).toContain("assets/abc/img.png");
+  });
+
+  it("굵게·기울임·취소선", () => {
+    const out = roundtrip("**굵게** *기울임* ~~취소~~");
+    expect(out).toContain("**굵게**");
+    expect(out).toMatch(/[*_]기울임[*_]/);
+    expect(out).toContain("~~취소~~");
+  });
+
+  it("밑줄(<u> 인라인 HTML)", () => {
+    const out = roundtrip("<u>밑줄</u> 텍스트");
+    expect(out).toContain("<u>밑줄</u>");
+  });
+
+  it("코드 블록·인라인 코드", () => {
+    const out = roundtrip("`인라인`\n\n```\n코드 블록\n```");
+    expect(out).toContain("`인라인`");
+    expect(out).toContain("코드 블록");
+  });
+
+  it("인용·구분선", () => {
+    const out = roundtrip("> 인용문\n\n---");
+    expect(out).toContain("> 인용문");
+    expect(out).toMatch(/---|\*\*\*/);
+  });
+});

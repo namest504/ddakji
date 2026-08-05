@@ -87,15 +87,31 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
     )
     .title("stickdown")
     .decorations(false)
-    .skip_taskbar(true)
+    // Tauri 드롭 핸들러가 웹뷰 드래그 이벤트를 가로채 에디터 내부 이미지 드래그가
+    // 막힌다 — 끄고 파일 드롭도 에디터(HTML5)가 처리한다
+    .disable_drag_drop_handler()
+    // skip_taskbar 해제: 목록 창 없이 노트만 떠 있어도 작업 표시줄에 앱 아이콘이
+    // 보이게 한다 (같은 앱 창은 아이콘 하나로 그룹됨). Alt-Tab에도 노트가 노출된다.
     // 웹뷰가 그리기 전 흰 배경이 잠깐 노출되는 것을 막는다 — 프런트가 마운트 후 show()
     .visible(false)
+    // Liquid Glass(#20): 투명 창 + OS 블러 위에 CSS 반투명 틴트를 얹는다
+    .transparent(true)
     .always_on_top(m.always_on_top)
     .inner_size(m.window.w, m.window.h)
     .position(x, y)
     .min_inner_size(220.0, 160.0)
-    .build()?;
+    .build()
+    .map(|w| apply_glass(&w))?;
     Ok(())
+}
+
+/// Windows에서 Acrylic 블러 적용. 실패(Win10 구버전 등)해도 앱은 계속 —
+/// CSS 틴트만으로 동작한다. 틴트는 중립 회색: 라이트/다크 CSS가 위에서 색을 결정.
+fn apply_glass(win: &tauri::WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    let _ = window_vibrancy::apply_acrylic(win, Some((160, 160, 160, 60)));
+    #[cfg(not(target_os = "windows"))]
+    let _ = win;
 }
 
 pub fn open_list_window(app: &AppHandle) -> tauri::Result<()> {
@@ -109,7 +125,9 @@ pub fn open_list_window(app: &AppHandle) -> tauri::Result<()> {
         .inner_size(360.0, 480.0)
         .min_inner_size(280.0, 320.0)
         .visible(false)
-        .build()?;
+        .transparent(true)
+        .build()
+        .map(|w| apply_glass(&w))?;
     Ok(())
 }
 

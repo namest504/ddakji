@@ -97,6 +97,13 @@ pub struct Settings {
     /// 자주 쓰는 폰트 (노트 툴바 팝오버에 프리셋과 함께 노출)
     #[serde(default)]
     pub favorite_fonts: Vec<String>,
+    /// "system" | "light" | "dark" — system은 OS 설정 추종
+    #[serde(default = "default_theme")]
+    pub theme: String,
+}
+
+fn default_theme() -> String {
+    "system".into()
 }
 
 impl Default for Settings {
@@ -106,6 +113,7 @@ impl Default for Settings {
             default_font_family: default_font_family(),
             default_font_size: default_font_size(),
             favorite_fonts: Vec::new(),
+            theme: default_theme(),
         }
     }
 }
@@ -489,6 +497,7 @@ mod tests {
             default_font_family: "mono".into(),
             default_font_size: 20,
             favorite_fonts: vec!["D2Coding".into()],
+            theme: "dark".into(),
         })
         .unwrap();
         let n = s.create().unwrap();
@@ -518,6 +527,7 @@ mod tests {
         let s = Store::new(d.path()).unwrap();
         assert_eq!(s.settings().default_color, "pink");
         assert!(s.settings().favorite_fonts.is_empty());
+        assert_eq!(s.settings().theme, "system");
     }
 
     #[test]

@@ -1,15 +1,17 @@
 :root { font-family: "Segoe UI", "Malgun Gothic", sans-serif; }
 * { box-sizing: border-box; margin: 0; }
 html, body, #root { height: 100%; }
+/* Liquid Glass: 창은 투명 + OS Acrylic 블러, 색은 CSS 반투명 틴트가 결정 */
+html, body { background: transparent; }
 
 .note { display: flex; flex-direction: column; height: 100%; position: relative; }
-.note[data-color="yellow"]   { --bg: #fff7b1; --bar: #f5e478; }
-.note[data-color="green"]    { --bg: #d9f7d1; --bar: #b9e8ab; }
-.note[data-color="pink"]     { --bg: #ffd9e8; --bar: #f7b8d2; }
-.note[data-color="purple"]   { --bg: #e6d9f7; --bar: #cdb8ee; }
-.note[data-color="blue"]     { --bg: #d3ecf7; --bar: #aed9ec; }
-.note[data-color="gray"]     { --bg: #ececec; --bar: #d4d4d4; }
-.note[data-color="charcoal"] { --bg: #4a4a4a; --bar: #3a3a3a; color: #eee; }
+.note[data-color="yellow"]   { --bg: rgba(255,247,177,.66); --bar: rgba(245,228,120,.88); }
+.note[data-color="green"]    { --bg: rgba(217,247,209,.66); --bar: rgba(185,232,171,.88); }
+.note[data-color="pink"]     { --bg: rgba(255,217,232,.66); --bar: rgba(247,184,210,.88); }
+.note[data-color="purple"]   { --bg: rgba(230,217,247,.66); --bar: rgba(205,184,238,.88); }
+.note[data-color="blue"]     { --bg: rgba(211,236,247,.66); --bar: rgba(174,217,236,.88); }
+.note[data-color="gray"]     { --bg: rgba(236,236,236,.66); --bar: rgba(212,212,212,.88); }
+.note[data-color="charcoal"] { --bg: rgba(74,74,74,.72); --bar: rgba(58,58,58,.9); color: #eee; }
 .note { background: var(--bg); }
 
 /* 오버레이 툴바: 숨김 상태에서 공간을 차지하지 않아 본문이 맨 위부터 시작한다 */
@@ -33,7 +35,8 @@ html, body, #root { height: 100%; }
 .note[data-color="charcoal"] .toolbar button.active, .note[data-color="charcoal"] .format-bar button.active { background: rgba(255,255,255,.18); color: #fff; }
 .toolbar .font-btn { font-size: 11px; font-weight: 600; letter-spacing: -.3px; }
 .swatch-current {
-  width: 13px; height: 13px; border-radius: 50%; background: var(--bg);
+  /* 본체 배경(--bg)은 다크에서 색과 무관한 회색이 된다 — 색 정체성은 액센트 바(--bar)가 담는다 */
+  width: 13px; height: 13px; border-radius: 50%; background: var(--bar);
   border: 1.6px solid currentColor; display: inline-block;
 }
 .font-row button { min-width: auto; padding: 3px 10px; font-size: 12px; }
@@ -68,10 +71,13 @@ html, body, #root { height: 100%; }
 
 .content {
   position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0;
-  transition: padding-top .18s ease;
+  transition: padding-bottom .18s ease;
 }
-/* 툴바가 나타나면 본문이 부드럽게 아래로 밀리고, 사라지면 다시 올라온다 — 첫 줄이 가려지지 않게 */
-.toolbar:hover ~ .content, .toolbar:focus-within ~ .content { padding-top: 32px; }
+/* 툴바가 나타나면 본문 전체(이미지 포함)가 transform으로 함께 내려간다 —
+   padding 방식은 최상단 이미지가 밀리지 않는 문제가 있었다 */
+.editor.tiptap { transition: transform .18s ease; }
+.toolbar:hover ~ .content .editor.tiptap,
+.toolbar:focus-within ~ .content .editor.tiptap { transform: translateY(32px); }
 
 /* TipTap 라이브 에디터 — .content-editor가 스크롤 컨테이너, .tiptap이 문서 */
 .content-editor { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; }
@@ -82,10 +88,46 @@ html, body, #root { height: 100%; }
   font: inherit; color: inherit; word-break: break-word;
 }
 .tiptap p { margin: 0 0 2px; }
+/* 링크: 기본 파랑은 노트 배경에서 너무 쨍하다 — 차분한 톤 + 얇은 밑줄 */
+.tiptap a {
+  color: #4a7096; text-decoration: underline; text-underline-offset: 2px;
+  text-decoration-thickness: 1px; text-decoration-color: rgba(74,112,150,.45);
+}
+.note[data-color="charcoal"] .tiptap a,
+:root[data-theme="dark"] .tiptap a {
+  color: #9dbfd8; text-decoration-color: rgba(157,191,216,.45);
+}
 .tiptap h1 { font-size: 1.5em; margin: .3em 0 .15em; }
 .tiptap h2 { font-size: 1.3em; margin: .3em 0 .15em; }
 .tiptap h3 { font-size: 1.15em; margin: .25em 0 .1em; }
 .tiptap ul, .tiptap ol { margin: 2px 0; padding-left: 22px; }
+/* 불렛 depth: 깊이별 마커 (Tab/Shift+Tab으로 들여쓰기·내어쓰기) */
+.tiptap ul { list-style: disc; }
+.tiptap ul ul { list-style: circle; }
+.tiptap ul ul ul { list-style: square; }
+/* 체크박스 목록 — 클릭으로 토글, 체크되면 취소선 */
+.tiptap ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+.tiptap ul[data-type="taskList"] li { display: flex; gap: 7px; align-items: flex-start; }
+.tiptap ul[data-type="taskList"] li > label { margin-top: 3px; flex-shrink: 0; }
+.tiptap ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+/* 네이티브 체크박스는 숨기고, 아이콘 세트와 같은 스트로크 글리프를 직접 그린다.
+   currentColor 기반이라 노트 색·테마를 자동으로 따라간다. */
+.tiptap ul[data-type="taskList"] input[type="checkbox"] { display: none; }
+.tiptap ul[data-type="taskList"] li > label { cursor: pointer; }
+.tiptap ul[data-type="taskList"] li > label > span {
+  position: relative; display: inline-block; width: 16px; height: 16px;
+  border: 2px solid currentColor; border-radius: 5px;
+  opacity: .5; transition: opacity .12s;
+}
+.tiptap ul[data-type="taskList"] li > label:hover > span { opacity: .8; }
+.tiptap ul[data-type="taskList"] li[data-checked="true"] > label > span { opacity: .95; }
+/* 체크는 마스크로 그려 박스 정중앙 정렬 + currentColor 유지 */
+.tiptap ul[data-type="taskList"] li[data-checked="true"] > label > span::after {
+  content: ""; position: absolute; inset: 0; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 8.5l3 3 6.2-6.6' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 11px 11px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 8.5l3 3 6.2-6.6' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 11px 11px;
+}
+.tiptap ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; opacity: .55; }
 .tiptap img { max-width: 100%; border-radius: 4px; }
 .tiptap img.ProseMirror-selectednode { outline: 2px solid #0a84ff; }
 .tiptap pre { background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; overflow-x: auto; }
@@ -94,11 +136,19 @@ html, body, #root { height: 100%; }
 .tiptap blockquote { border-left: 3px solid rgba(0,0,0,.2); margin: 4px 0; padding-left: 8px; }
 .tiptap hr { border: 0; border-top: 1px solid rgba(0,0,0,.2); margin: 8px 0; }
 
-/* 하단 서식 바 (#18) */
+/* 하단 서식 바 (#18) — 상단 툴바처럼 평소엔 숨고, 하단 스트립 호버 시 나타난다 */
 .format-bar {
   display: flex; align-items: center; gap: 2px; padding: 4px 6px;
-  background: var(--bar); user-select: none;
+  background: var(--bg); border-top: 1px solid rgba(0,0,0,.08); user-select: none;
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+  opacity: 0; transition: opacity .15s;
 }
+.format-bar:hover, .format-bar:focus-within { opacity: 1; }
+/* 서식 바가 나타나면 본문이 위로 밀려 마지막 줄이 가려지지 않는다 */
+.note:has(.format-bar:hover) .content,
+.note:has(.format-bar:focus-within) .content { padding-bottom: 32px; }
+.note[data-color="charcoal"] .format-bar,
+:root[data-theme="dark"] .format-bar { border-top-color: rgba(255,255,255,.10); }
 .format-bar .spacer { flex: 1; }
 .format-bar button b, .format-bar button i, .format-bar button u, .format-bar button s {
   font-size: 12px; font-family: Georgia, serif;
@@ -113,9 +163,6 @@ html, body, #root { height: 100%; }
   background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.45));
   color: rgba(255,255,255,.6);
 }
-.viewer img { max-width: 100%; }
-.viewer pre { overflow-x: auto; background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; }
-
 .save-error {
   background: #c0392b; color: white; padding: 4px 8px; font-size: 12px;
 }
@@ -123,7 +170,7 @@ html, body, #root { height: 100%; }
 
 /* ── 목록/설정: iOS 인셋 리스트 (테마 토큰 — 다크/글라스는 토큰 교체로 확장) ── */
 .list {
-  --l-bg: #f2f2f7; --l-card: #ffffff; --l-sep: rgba(60,60,67,.12);
+  --l-bg: rgba(242,242,247,.6); --l-card: rgba(255,255,255,.72); --l-sep: rgba(60,60,67,.12);
   --l-text: #1c1c1e; --l-dim: rgba(60,60,67,.6); --l-field: #e3e3e8;
   --l-accent: #f5c518; --l-hover: rgba(0,0,0,.035);
   display: flex; flex-direction: column; height: 100%;
@@ -205,3 +252,40 @@ html, body, #root { height: 100%; }
   border-radius: 7px; font-size: 14px; line-height: 1;
 }
 .stepper button:hover { background: var(--l-hover); }
+
+/* ── 다크 테마 (#19): 어두운 본체 + 노트 색 액센트 바 (MS Sticky Notes 방식) ── */
+:root[data-theme="dark"] .note { color: #ececec; --bg: rgba(40,40,42,.68); }
+:root[data-theme="dark"] .note[data-color="yellow"]   { --bar: rgba(245,197,24,.82); }
+:root[data-theme="dark"] .note[data-color="green"]    { --bar: rgba(94,190,90,.8); }
+:root[data-theme="dark"] .note[data-color="pink"]     { --bar: rgba(240,113,160,.8); }
+:root[data-theme="dark"] .note[data-color="purple"]   { --bar: rgba(160,120,220,.8); }
+:root[data-theme="dark"] .note[data-color="blue"]     { --bar: rgba(80,160,220,.8); }
+:root[data-theme="dark"] .note[data-color="gray"]     { --bar: rgba(150,150,150,.7); }
+:root[data-theme="dark"] .note[data-color="charcoal"] { --bg: rgba(30,30,32,.72); --bar: rgba(58,58,58,.9); }
+
+:root[data-theme="dark"] .toolbar button,
+:root[data-theme="dark"] .format-bar button { color: rgba(255,255,255,.65); }
+:root[data-theme="dark"] .toolbar button:hover,
+:root[data-theme="dark"] .format-bar button:hover { background: rgba(255,255,255,.12); color: rgba(255,255,255,.9); }
+:root[data-theme="dark"] .toolbar button.active,
+:root[data-theme="dark"] .format-bar button.active { background: rgba(255,255,255,.18); color: #fff; }
+
+:root[data-theme="dark"] .tiptap pre,
+:root[data-theme="dark"] .tiptap code { background: rgba(255,255,255,.10); }
+:root[data-theme="dark"] .tiptap pre code { background: none; }
+:root[data-theme="dark"] .tiptap blockquote { border-left-color: rgba(255,255,255,.25); }
+:root[data-theme="dark"] .tiptap hr { border-top-color: rgba(255,255,255,.25); }
+:root[data-theme="dark"] .scroll-more {
+  background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.45));
+  color: rgba(255,255,255,.6);
+}
+:root[data-theme="dark"] .font-custom { background: rgba(255,255,255,.12); color: #eee; }
+
+:root[data-theme="dark"] .list {
+  --l-bg: rgba(28,28,30,.55); --l-card: rgba(44,44,46,.78); --l-sep: rgba(84,84,88,.65);
+  --l-text: #f2f2f7; --l-dim: rgba(235,235,245,.6); --l-field: rgba(118,118,128,.24);
+  --l-hover: rgba(255,255,255,.06);
+}
+:root[data-theme="dark"] .settings-row.link { color: #409cff; }
+:root[data-theme="dark"] .row-delete:hover { background: rgba(255,255,255,.1); }
+:root[data-theme="dark"] .dot { border-color: rgba(255,255,255,.15); }

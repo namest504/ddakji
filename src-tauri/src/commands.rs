@@ -9,6 +9,16 @@ fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
+// 노트 파일이 밖에서 삭제된 경우를 프런트가 구분할 수 있게 하는 마커.
+// 프런트는 이 에러를 받으면 좀비 창을 만들지 않고 창을 닫는다.
+fn err_io(e: std::io::Error) -> String {
+    if e.kind() == std::io::ErrorKind::NotFound {
+        "NOTE_NOT_FOUND".into()
+    } else {
+        e.to_string()
+    }
+}
+
 #[tauri::command]
 pub fn list_notes(store: StoreState) -> Result<Vec<Note>, String> {
     Ok(store.lock().map_err(err)?.list())
@@ -26,12 +36,12 @@ pub async fn create_note(app: AppHandle, store: StoreState<'_>) -> Result<Note, 
 
 #[tauri::command]
 pub fn save_body(store: StoreState, id: String, body: String) -> Result<Note, String> {
-    store.lock().map_err(err)?.save_body(&id, &body).map_err(err)
+    store.lock().map_err(err)?.save_body(&id, &body).map_err(err_io)
 }
 
 #[tauri::command]
 pub fn save_meta(store: StoreState, id: String, patch: MetaPatch) -> Result<Note, String> {
-    store.lock().map_err(err)?.save_meta(&id, &patch).map_err(err)
+    store.lock().map_err(err)?.save_meta(&id, &patch).map_err(err_io)
 }
 
 #[tauri::command]
@@ -88,6 +98,19 @@ pub fn data_root(store: StoreState) -> Result<String, String> {
     Ok(store.lock().map_err(err)?.root().to_string_lossy().into_owned())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::err_io;
+
+    #[test]
+    fn not_found_maps_to_marker() {
+        let nf = std::io::Error::new(std::io::ErrorKind::NotFound, "x");
+        assert_eq!(err_io(nf), "NOTE_NOT_FOUND");
+        let other = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        assert_ne!(err_io(other), "NOTE_NOT_FOUND");
+    }
+}
+
 #[tauri::command]
 pub fn list_system_fonts() -> Vec<String> {
     crate::fonts::list_system_fonts()
@@ -107,6 +130,10 @@ pub fn get_settings(store: StoreState) -> Result<Settings, String> {
 }
 
 #[tauri::command]
-pub fn save_settings(store: StoreState, settings: Settings) -> Result<(), String> {
-    store.lock().map_err(err)?.set_settings(&settings).map_err(err)
+pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> Result<(), String> {
+    store.lock().map_err(err)?.set_settings(&settings).map_err(err)?;
+    // 다른 창(노트들)이 테마·즐겨찾기 변경을 즉시 반영하도록 알린다
+    use tauri::Emitter;
+    let _ = app.emit("settings-changed", ());
+    Ok(())
 }

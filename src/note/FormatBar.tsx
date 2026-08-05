@@ -1,6 +1,6 @@
 import { useEffect, useReducer } from "react";
 import type { Editor } from "@tiptap/react";
-import { ImageIcon, ListIcon } from "./icons";
+import { CheckboxIcon, EraserIcon, ImageIcon, IndentIcon, ListIcon, OutdentIcon } from "./icons";
 
 // 하단 서식 바 (#18) — MS Sticky Notes의 하단 바 참고: B/I/U/취소선/목록/이미지.
 // 단축키는 TipTap 내장: Ctrl+B/I/U, Ctrl+Shift+S(취소선)
@@ -41,6 +41,18 @@ export default function FormatBar({ editor, onAddImage }: {
         () => editor?.chain().focus().toggleStrike().run(), <s>ab</s>)}
       {btn("글머리 목록", editor?.isActive("bulletList"),
         () => editor?.chain().focus().toggleBulletList().run(), <ListIcon />)}
+      {btn("체크박스", editor?.isActive("taskList"),
+        () => editor?.chain().focus().toggleTaskList().run(), <CheckboxIcon />)}
+      {editor?.can().sinkListItem("listItem") || editor?.can().liftListItem("listItem") ? (
+        <>
+          {btn("내어쓰기 (Shift+Tab)", false,
+            () => editor?.chain().focus().liftListItem("listItem").run(), <OutdentIcon />)}
+          {btn("들여쓰기 (Tab)", false,
+            () => editor?.chain().focus().sinkListItem("listItem").run(), <IndentIcon />)}
+        </>
+      ) : null}
+      {btn("서식 지우기 (본문으로)", false,
+        () => editor?.chain().focus().clearNodes().unsetAllMarks().run(), <EraserIcon />)}
       <span className="spacer" />
       {btn("이미지 삽입", false, onAddImage, <ImageIcon />)}
     </div>

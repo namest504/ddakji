@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampFontSize, filterNotes, fontStack, hasMoreBelow, initialViewerMode, noteTitle, relativeTime } from "./noteUtils";
+import { clampFontSize, filterNotes, fontStack, hasMoreBelow, noteTitle, relativeTime } from "./noteUtils";
 import type { Note } from "./api";
 
 const note = (id: string, body: string): Note => ({
@@ -40,16 +40,6 @@ describe("noteTitle", () => {
   });
   it("strips numbered list markers", () => {
     expect(noteTitle(note("a", "1. 항목"))).toBe("항목");
-  });
-});
-
-describe("initialViewerMode", () => {
-  it("본문이 있으면 뷰어로 연다", () => {
-    expect(initialViewerMode("내용")).toBe(true);
-  });
-  it("본문이 비어 있으면 편집 모드로 연다 (뷰어는 보여줄 게 없음)", () => {
-    expect(initialViewerMode("")).toBe(false);
-    expect(initialViewerMode("  \n ")).toBe(false);
   });
 });
 

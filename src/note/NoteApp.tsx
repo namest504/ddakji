@@ -1,27 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { Editor } from "@tiptap/react";
 import * as api from "../lib/api";
 import type { Note } from "../lib/api";
-import { clampFontSize, fontStack, hasMoreBelow, initialViewerMode } from "../lib/noteUtils";
+import { clampFontSize, fontStack, hasMoreBelow } from "../lib/noteUtils";
 import Toolbar from "./Toolbar";
-import Editor from "./Editor";
-import Viewer from "./Viewer";
+import FormatBar from "./FormatBar";
+import RichEditor from "./RichEditor";
 
 export default function NoteApp({ noteId }: { noteId: string }) {
   const [note, setNote] = useState<Note | null>(null);
+  const [base, setBase] = useState<string | null>(null); // 데이터 루트 (asset URL용)
   const [saveError, setSaveError] = useState(false);
-  // 표시 모드는 세션 상태다. 본문이 있으면 뷰어(렌더된 마크다운)가 평상시 모습이고,
-  // 편집은 더블클릭으로 진입해 포커스를 잃으면 뷰어로 돌아온다 (#9).
-  const [viewerMode, setViewerModeState] = useState(false);
-  const viewerModeRef = useRef(false);
-  const setViewerMode = useCallback((v: boolean) => {
-    viewerModeRef.current = v;
-    setViewerModeState(v);
-  }, []);
   const bodyRef = useRef("");
   const loadedRef = useRef(false);
   const saveTimer = useRef<number>();
   const failedOp = useRef<{ key: string; run: () => void } | null>(null);
+  const editorRef = useRef<Editor | null>(null);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const onEditor = useCallback((e: Editor | null) => {
+    editorRef.current = e;
+    setEditor(e);
+  }, []);
 
   const failWith = (key: string, run: () => void) => { failedOp.current = { key, run }; setSaveError(true); };
   const clearIfFailed = (key: string) => {
@@ -30,12 +30,10 @@ export default function NoteApp({ noteId }: { noteId: string }) {
 
   useEffect(() => {
     loadedRef.current = false;
+    api.dataRoot().then((r) => setBase(r.replace(/\\/g, "/"))).catch(() => setBase(""));
     api.listNotes().then((all) => {
       const n = all.find((n) => n.meta.id === noteId) ?? null;
-      if (n) {
-        bodyRef.current = n.body;
-        setViewerMode(initialViewerMode(n.body));
-      }
+      if (n) bodyRef.current = n.body;
       loadedRef.current = true;
       setNote(n);
     }).finally(() => {
@@ -43,7 +41,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       const win = getCurrentWindow();
       win.show().then(() => win.setFocus()).catch(() => {});
     });
-  }, [noteId, setViewerMode]);
+  }, [noteId]);
 
   const flushBody = useCallback(() => {
     window.clearTimeout(saveTimer.current);
@@ -55,7 +53,6 @@ export default function NoteApp({ noteId }: { noteId: string }) {
 
   const onBodyChange = useCallback((body: string) => {
     bodyRef.current = body;
-    setNote((n) => (n ? { ...n, body } : n));
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(flushBody, 500);
   }, [flushBody]);
@@ -99,47 +96,35 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       if (e.ctrlKey && (e.key === "+" || e.key === "=")) { e.preventDefault(); changeFont(1); }
       if (e.ctrlKey && e.key === "-") { e.preventDefault(); changeFont(-1); }
     };
-    const onBlur = () => {
-      flushBody();
-      // 다른 곳을 보다가 돌아왔을 때 스티키 노트는 렌더된 모습이어야 한다 (#9)
-      if (!viewerModeRef.current && bodyRef.current.trim()) setViewerMode(true);
-    };
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("keydown", onKey);
-    window.addEventListener("blur", onBlur);
+    window.addEventListener("blur", flushBody);
     return () => {
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("blur", flushBody);
     };
-  }, [changeFont, flushBody, setViewerMode]);
+  }, [changeFont, flushBody]);
 
-  // 이미지 붙여넣기: 저장은 비동기이므로, 완료 시점의 "현재" 본문(bodyRef.current)에
-  // 삽입한다. 붙여넣기 시점의 본문 스냅샷을 캡처해두고, 저장이 끝난 시점에 본문이
-  // 그때와 완전히 동일할 때만 캡처해둔 오프셋에 끼워 넣는다 — 그 사이 본문이 조금이라도
-  // 바뀌었다면(오프셋 앞쪽 편집 포함) 위치가 더 이상 유효하지 않으므로 끝에 덧붙인다.
-  // 실패 키는 동시 붙여넣기/드롭이 서로의 배너를 지우지 않도록 매 작업마다 고유하게 발급한다.
-  const pasteImage = useCallback((file: File, selStart: number, selEnd: number) => {
-    const snapshot = bodyRef.current;
+  // 이미지 저장 → 에디터에 상대경로로 삽입 (붙여넣기·드롭·서식바 공용)
+  const insertImageRel = (rel: string) => {
+    editorRef.current?.chain().focus().setImage({ src: rel }).run();
+  };
+
+  const savePastedImage = useCallback((file: File) => {
     const key = `image:${crypto.randomUUID()}`;
     const run = async () => {
       try {
         const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
         const bytes = new Uint8Array(await file.arrayBuffer());
-        const rel = await api.saveImage(noteId, ext, bytes);
-        const md = `![](${rel})`;
-        const body = bodyRef.current;
-        const next = body === snapshot
-          ? body.slice(0, selStart) + md + body.slice(selEnd)
-          : body + `\n${md}`;
-        onBodyChange(next);
+        insertImageRel(await api.saveImage(noteId, ext, bytes));
         clearIfFailed(key);
       } catch {
         failWith(key, run);
       }
     };
     run();
-  }, [noteId, onBodyChange]);
+  }, [noteId]);
 
   // 파일 드롭으로 이미지 삽입
   useEffect(() => {
@@ -148,16 +133,13 @@ export default function NoteApp({ noteId }: { noteId: string }) {
     (async () => {
       const { getCurrentWebview } = await import("@tauri-apps/api/webview");
       const fn = await getCurrentWebview().onDragDropEvent((e) => {
-        // 초기 노트 로드가 끝나기 전 드롭이 들어오면 bodyRef.current가 아직 ""이라
-        // 그대로 삽입/저장 경로를 타면 실제 본문을 덮어쓸 수 있다 — 로드 완료까지 무시.
         if (e.payload.type !== "drop" || !loadedRef.current) return;
         for (const path of e.payload.paths) {
           if (!/\.(png|jpe?g|gif|webp)$/i.test(path)) continue;
           const key = `image:${crypto.randomUUID()}`;
           const run = async () => {
             try {
-              const rel = await api.importImage(noteId, path);
-              onBodyChange(bodyRef.current + `\n![](${rel})`);
+              insertImageRel(await api.importImage(noteId, path));
               clearIfFailed(key);
             } catch {
               failWith(key, run);
@@ -173,30 +155,52 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       cancelled = true;
       if (unlisten) unlisten();
     };
-  }, [noteId, onBodyChange]);
+  }, [noteId]);
 
-  // 스크롤 여지 표시(#스크롤바 숨김): 스크롤·내용·크기 변화 시 하단 "더 있음" 힌트 갱신
+  // 서식 바의 이미지 버튼 → 파일 선택 다이얼로그
+  const pickImage = useCallback(async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const sel = await open({
+      multiple: false,
+      filters: [{ name: "이미지", extensions: ["png", "jpg", "jpeg", "gif", "webp"] }],
+    });
+    if (typeof sel !== "string") return;
+    const key = `image:${crypto.randomUUID()}`;
+    const run = async () => {
+      try {
+        insertImageRel(await api.importImage(noteId, sel));
+        clearIfFailed(key);
+      } catch {
+        failWith(key, run);
+      }
+    };
+    run();
+  }, [noteId]);
+
+  // 스크롤 여지 표시: 스크롤·내용·크기 변화 시 하단 "더 있음" 힌트 갱신
   const contentRef = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState(false);
   const updateMore = useCallback(() => {
-    const el = contentRef.current?.querySelector<HTMLElement>(".editor, .viewer");
+    const el = contentRef.current?.querySelector<HTMLElement>(".content-editor");
     setMore(el ? hasMoreBelow(el.scrollHeight, el.scrollTop, el.clientHeight) : false);
   }, []);
   useEffect(() => {
-    const el = contentRef.current?.querySelector<HTMLElement>(".editor, .viewer");
+    const el = contentRef.current?.querySelector<HTMLElement>(".content-editor");
     if (!el) return;
     updateMore();
+    el.addEventListener("scroll", updateMore);
     // 이미지 로드로 뒤늦게 길어지는 경우까지 잡는다 (load는 버블링하지 않으므로 캡처)
     el.addEventListener("load", updateMore, true);
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateMore) : null;
-    ro?.observe(el);
+    if (el.firstElementChild) ro?.observe(el.firstElementChild);
     return () => {
+      el.removeEventListener("scroll", updateMore);
       el.removeEventListener("load", updateMore, true);
       ro?.disconnect();
     };
-  }, [viewerMode, note?.body, note?.meta.font_size, updateMore]);
+  }, [editor, note?.meta.font_size, updateMore]);
 
-  if (!note) return null;
+  if (!note || base === null) return null;
   const m = note.meta;
 
   const patchMeta = (patch: api.MetaPatch) => {
@@ -212,10 +216,8 @@ export default function NoteApp({ noteId }: { noteId: string }) {
       style={{ fontSize: m.font_size, fontFamily: fontStack(m.font_family) }}>
       <Toolbar
         note={note}
-        viewerMode={viewerMode}
         onColor={(color) => patchMeta({ color })}
         onFont={(font_family) => patchMeta({ font_family })}
-        onToggleViewer={() => setViewerMode(!viewerMode)}
         onPin={async () => {
           const v = !m.always_on_top;
           await getCurrentWindow().setAlwaysOnTop(v);
@@ -246,9 +248,8 @@ export default function NoteApp({ noteId }: { noteId: string }) {
         </div>
       )}
       <div className="content" ref={contentRef}>
-        {viewerMode
-          ? <Viewer body={note.body} onEdit={() => setViewerMode(false)} onScroll={updateMore} />
-          : <Editor noteId={noteId} value={note.body} onChange={onBodyChange} onPasteImage={pasteImage} onScroll={updateMore} />}
+        <RichEditor key={noteId} body={note.body} base={base}
+          onChange={onBodyChange} onEditor={onEditor} onPasteFile={savePastedImage} />
         {more && (
           <div className="scroll-more" aria-hidden>
             <svg width="14" height="14" viewBox="0 0 16 16">
@@ -258,6 +259,7 @@ export default function NoteApp({ noteId }: { noteId: string }) {
           </div>
         )}
       </div>
+      <FormatBar editor={editor} onAddImage={pickImage} />
     </div>
   );
 }

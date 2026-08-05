@@ -2,7 +2,7 @@ import { useState } from "react";
 import * as api from "../lib/api";
 import type { FontFamily, Note, NoteColor } from "../lib/api";
 import { fontStack } from "../lib/noteUtils";
-import { EyeIcon, ListIcon, PencilIcon, PinIcon, PlusIcon, TrashIcon } from "./icons";
+import { ListIcon, PinIcon, PlusIcon, TrashIcon } from "./icons";
 
 const COLORS: NoteColor[] = ["yellow", "green", "pink", "purple", "blue", "gray", "charcoal"];
 const FONTS: { key: FontFamily; label: string }[] = [
@@ -13,10 +13,8 @@ const FONTS: { key: FontFamily; label: string }[] = [
 
 interface Props {
   note: Note;
-  viewerMode: boolean;
   onColor: (c: NoteColor) => void;
   onFont: (f: FontFamily) => void;
-  onToggleViewer: () => void;
   onPin: () => void;
   onFontDelta: (d: number) => void;
   onNew: () => void;
@@ -43,9 +41,6 @@ export default function Toolbar(p: Props) {
         <span className="swatch-current" />
       </button>
       <button title="폰트" className="font-btn" onClick={() => toggle("fonts")}>Aa</button>
-      <button title={p.viewerMode ? "편집" : "미리보기"} onClick={p.onToggleViewer}>
-        {p.viewerMode ? <PencilIcon /> : <EyeIcon />}
-      </button>
       <button title="항상 위" className={m.always_on_top ? "active" : ""} onClick={p.onPin}>
         <PinIcon filled={m.always_on_top} />
       </button>

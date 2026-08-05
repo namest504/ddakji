@@ -20,17 +20,17 @@ html, body, #root { height: 100%; }
 }
 /* 노트 전체가 아니라 상단 스트립에 마우스를 올렸을 때만 표시 — 타이핑 중 첫 줄을 가리지 않는다 */
 .toolbar:hover, .toolbar:focus-within { opacity: 1; }
-.toolbar button {
+.toolbar button, .format-bar button {
   border: 0; background: transparent; cursor: pointer;
   min-width: 24px; height: 24px; padding: 0 3px; border-radius: 6px;
   display: inline-flex; align-items: center; justify-content: center;
   color: rgba(0,0,0,.55);
 }
-.toolbar button:hover { background: rgba(0,0,0,.10); color: rgba(0,0,0,.8); }
-.toolbar button.active { background: rgba(0,0,0,.16); color: rgba(0,0,0,.85); }
-.note[data-color="charcoal"] .toolbar button { color: rgba(255,255,255,.65); }
-.note[data-color="charcoal"] .toolbar button:hover { background: rgba(255,255,255,.12); color: rgba(255,255,255,.9); }
-.note[data-color="charcoal"] .toolbar button.active { background: rgba(255,255,255,.18); color: #fff; }
+.toolbar button:hover, .format-bar button:hover { background: rgba(0,0,0,.10); color: rgba(0,0,0,.8); }
+.toolbar button.active, .format-bar button.active { background: rgba(0,0,0,.16); color: rgba(0,0,0,.85); }
+.note[data-color="charcoal"] .toolbar button, .note[data-color="charcoal"] .format-bar button { color: rgba(255,255,255,.65); }
+.note[data-color="charcoal"] .toolbar button:hover, .note[data-color="charcoal"] .format-bar button:hover { background: rgba(255,255,255,.12); color: rgba(255,255,255,.9); }
+.note[data-color="charcoal"] .toolbar button.active, .note[data-color="charcoal"] .format-bar button.active { background: rgba(255,255,255,.18); color: #fff; }
 .toolbar .font-btn { font-size: 11px; font-weight: 600; letter-spacing: -.3px; }
 .swatch-current {
   width: 13px; height: 13px; border-radius: 50%; background: var(--bg);
@@ -72,13 +72,37 @@ html, body, #root { height: 100%; }
 }
 /* 툴바가 나타나면 본문이 부드럽게 아래로 밀리고, 사라지면 다시 올라온다 — 첫 줄이 가려지지 않게 */
 .toolbar:hover ~ .content, .toolbar:focus-within ~ .content { padding-top: 32px; }
-.editor {
-  flex: 1; border: 0; background: transparent; resize: none; outline: none;
-  padding: 10px 12px; font: inherit; color: inherit; line-height: 1.5;
-}
-.viewer { flex: 1; overflow-y: auto; padding: 10px 12px; line-height: 1.55; font: inherit; color: inherit; }
+
+/* TipTap 라이브 에디터 — .content-editor가 스크롤 컨테이너, .tiptap이 문서 */
+.content-editor { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; }
 /* 스크롤바 대신 하단 그라데이션+화살표로 "더 있음"을 표시한다 */
-.editor::-webkit-scrollbar, .viewer::-webkit-scrollbar { display: none; }
+.content-editor::-webkit-scrollbar { display: none; }
+.editor.tiptap {
+  flex: 1; outline: none; padding: 10px 12px; line-height: 1.55;
+  font: inherit; color: inherit; word-break: break-word;
+}
+.tiptap p { margin: 0 0 2px; }
+.tiptap h1 { font-size: 1.5em; margin: .3em 0 .15em; }
+.tiptap h2 { font-size: 1.3em; margin: .3em 0 .15em; }
+.tiptap h3 { font-size: 1.15em; margin: .25em 0 .1em; }
+.tiptap ul, .tiptap ol { margin: 2px 0; padding-left: 22px; }
+.tiptap img { max-width: 100%; border-radius: 4px; }
+.tiptap img.ProseMirror-selectednode { outline: 2px solid #0a84ff; }
+.tiptap pre { background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; overflow-x: auto; }
+.tiptap code { background: rgba(0,0,0,.08); border-radius: 3px; padding: 1px 4px; }
+.tiptap pre code { background: none; padding: 0; }
+.tiptap blockquote { border-left: 3px solid rgba(0,0,0,.2); margin: 4px 0; padding-left: 8px; }
+.tiptap hr { border: 0; border-top: 1px solid rgba(0,0,0,.2); margin: 8px 0; }
+
+/* 하단 서식 바 (#18) */
+.format-bar {
+  display: flex; align-items: center; gap: 2px; padding: 4px 6px;
+  background: var(--bar); user-select: none;
+}
+.format-bar .spacer { flex: 1; }
+.format-bar button b, .format-bar button i, .format-bar button u, .format-bar button s {
+  font-size: 12px; font-family: Georgia, serif;
+}
 .scroll-more {
   position: absolute; left: 0; right: 0; bottom: 0; height: 34px; pointer-events: none;
   display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px;

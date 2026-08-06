@@ -143,9 +143,16 @@ html, body { background: transparent; overflow: hidden; }
 .tiptap ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; opacity: .55; }
 .tiptap img { max-width: 100%; border-radius: 4px; }
 .tiptap img.ProseMirror-selectednode { outline: 2px solid #0a84ff; }
+.editor.tiptap pre, .editor.tiptap pre code {
+  /* ProseMirror가 주입하는 pre-wrap과 본문에서 상속되는 anywhere를 모두 무효화 —
+     코드는 한 줄 유지(복사 무결성), 블록 안에서만 가로 스크롤 */
+  white-space: pre !important;
+  overflow-wrap: normal;
+  word-break: normal;
+}
 .tiptap pre {
   background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; max-width: 100%;
-  overflow-x: auto; /* 한 줄 유지 — 복사·붙여넣기 무결성, 블록 안에서만 가로 스크롤 */
+  overflow-x: auto;
 }
 .tiptap pre::-webkit-scrollbar { height: 6px; }
 .tiptap pre::-webkit-scrollbar-thumb { background: rgba(0,0,0,.25); border-radius: 3px; }

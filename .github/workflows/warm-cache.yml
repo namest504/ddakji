@@ -5,7 +5,7 @@
 name: warm-cache
 on:
   push:
-    branches: [develop]
+    branches: [main, develop]
     paths:
       - "src-tauri/**"
       - ".github/workflows/warm-cache.yml"

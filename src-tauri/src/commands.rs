@@ -49,8 +49,14 @@ pub fn save_body(store: StoreState, id: String, body: String) -> Result<Note, St
 }
 
 #[tauri::command]
-pub fn save_meta(store: StoreState, id: String, patch: MetaPatch) -> Result<Note, String> {
-    store.lock().map_err(err)?.save_meta(&id, &patch).map_err(err_io)
+pub fn save_meta(app: AppHandle, store: StoreState, id: String, patch: MetaPatch) -> Result<Note, String> {
+    let group_changed = patch.group.is_some() || patch.group_order.is_some();
+    let n = store.lock().map_err(err)?.save_meta(&id, &patch).map_err(err_io)?;
+    if group_changed {
+        use tauri::Emitter;
+        let _ = app.emit("groups-changed", ());
+    }
+    Ok(n)
 }
 
 #[tauri::command]
@@ -166,6 +172,46 @@ mod tests {
     }
 }
 
+/// 이동한 창(a)이 대상 창(b)과 겹치는 비율 — a 면적 기준 0.0~1.0
+pub fn overlap_ratio(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> f64 {
+    let (ax, ay, aw, ah) = a;
+    let (bx, by, bw, bh) = b;
+    let iw = (ax + aw).min(bx + bw) - ax.max(bx);
+    let ih = (ay + ah).min(by + bh) - ay.max(by);
+    if iw <= 0.0 || ih <= 0.0 || aw <= 0.0 || ah <= 0.0 {
+        return 0.0;
+    }
+    (iw * ih) / (aw * ah)
+}
+
+/// 드래그 합치기 시 새 그룹 이름 — 대상 노트의 제목(지정 제목 → 본문 첫 줄) 기반
+pub fn derive_group_name(note: &Note) -> String {
+    if let Some(t) = note.meta.title.as_deref() {
+        let t = t.trim();
+        if !t.is_empty() {
+            return t.chars().take(12).collect();
+        }
+    }
+    let line = note
+        .body
+        .lines()
+        .map(|l| l.trim())
+        .find(|l| !l.is_empty())
+        .unwrap_or("");
+    let cleaned: String = line
+        .trim_start_matches(|c: char| c == '#' || c == '-' || c == '*' || c == '>' || c == ' ')
+        .chars()
+        .take(12)
+        .collect::<String>()
+        .trim()
+        .to_string();
+    if cleaned.is_empty() {
+        "모음집".into()
+    } else {
+        cleaned
+    }
+}
+
 #[tauri::command]
 pub fn list_groups(store: StoreState) -> Result<Vec<String>, String> {
     Ok(store.lock().map_err(err)?.group_names())
@@ -221,6 +267,116 @@ pub async fn nav_group(
 }
 
 #[tauri::command]
+pub fn group_members(store: StoreState, id: String) -> Result<Vec<String>, String> {
+    let s = store.lock().map_err(err)?;
+    let Some(n) = s.load(&id) else { return Ok(vec![]) };
+    let Some(g) = n.meta.group else { return Ok(vec![]) };
+    Ok(s.group_notes(&g).into_iter().map(|n| n.meta.id).collect())
+}
+
+/// 그룹 내 특정 노트로 점프 — nav_group과 동일한 "열려 있으면 그 창 포커스" 정책
+#[tauri::command]
+pub async fn nav_to(
+    window: tauri::WebviewWindow,
+    store: StoreState<'_>,
+    wn: State<'_, WindowNotes>,
+    id: String,
+) -> Result<Option<Note>, String> {
+    let label = window.label().to_string();
+    let target = {
+        let s = store.lock().map_err(err)?;
+        s.load(&id).ok_or("note gone")?
+    };
+    let other = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .iter()
+        .find(|(l, nid)| **nid == id && **l != label)
+        .map(|(l, _)| l.clone());
+    if let Some(l) = other {
+        if let Some(w) = window.app_handle().get_webview_window(&l) {
+            let _ = w.show();
+            let _ = w.set_focus();
+            return Ok(None);
+        }
+    }
+    wn.0.lock().map_err(err)?.insert(label, target.meta.id.clone());
+    Ok(Some(target))
+}
+
+/// 드래그 종료 후 호출 — 다른 노트 창과 충분히 겹치면(60%+) 그 노트와 같은
+/// 모음집으로 묶고, 끌던 창은 닫는다 (#25 G4)
+#[tauri::command]
+pub async fn check_merge(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    store: StoreState<'_>,
+    wn: State<'_, WindowNotes>,
+) -> Result<bool, String> {
+    use tauri::Emitter;
+    let label = window.label().to_string();
+    let moved_id = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .get(&label)
+        .cloned()
+        .ok_or("window not mapped")?;
+    let ap = window.outer_position().map_err(err)?;
+    let asz = window.outer_size().map_err(err)?;
+    let a = (ap.x as f64, ap.y as f64, asz.width as f64, asz.height as f64);
+    let entries: Vec<(String, String)> = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .iter()
+        .filter(|(l, _)| **l != label)
+        .map(|(l, id)| (l.clone(), id.clone()))
+        .collect();
+    let mut best: Option<(String, String, f64)> = None;
+    for (l, id) in entries {
+        let Some(w) = app.get_webview_window(&l) else { continue };
+        if !w.is_visible().unwrap_or(false) {
+            continue;
+        }
+        let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else { continue };
+        let r = overlap_ratio(a, (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64));
+        if r > best.as_ref().map(|b| b.2).unwrap_or(0.0) {
+            best = Some((l, id, r));
+        }
+    }
+    let Some((target_label, target_id, ratio)) = best else { return Ok(false) };
+    if ratio < 0.6 || target_id == moved_id {
+        return Ok(false);
+    }
+    {
+        let s = store.lock().map_err(err)?;
+        let target = s.load(&target_id).ok_or("target gone")?;
+        let group = match target.meta.group.clone() {
+            Some(g) => g,
+            None => {
+                let name = derive_group_name(&target);
+                s.save_meta(
+                    &target_id,
+                    &MetaPatch { group: Some(name.clone()), ..Default::default() },
+                )
+                .map_err(err)?;
+                name
+            }
+        };
+        s.save_meta(&moved_id, &MetaPatch { group: Some(group), ..Default::default() })
+            .map_err(err)?;
+    }
+    if let Some(w) = app.get_webview_window(&target_label) {
+        let _ = w.set_focus();
+    }
+    let _ = app.emit("groups-changed", ());
+    let _ = window.destroy();
+    Ok(true)
+}
+
+#[tauri::command]
 pub fn list_system_fonts() -> Vec<String> {
     crate::fonts::list_system_fonts()
 }
@@ -245,4 +401,29 @@ pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> R
     use tauri::Emitter;
     let _ = app.emit("settings-changed", ());
     Ok(())
+}
+
+#[cfg(test)]
+mod geom_tests {
+    use super::{derive_group_name, overlap_ratio};
+    use crate::store::{Note, NoteMeta};
+
+    #[test]
+    fn overlap_full_partial_none() {
+        let a = (0.0, 0.0, 100.0, 100.0);
+        assert!((overlap_ratio(a, (0.0, 0.0, 100.0, 100.0)) - 1.0).abs() < 1e-9);
+        assert!((overlap_ratio(a, (50.0, 0.0, 100.0, 100.0)) - 0.5).abs() < 1e-9);
+        assert_eq!(overlap_ratio(a, (200.0, 200.0, 100.0, 100.0)), 0.0);
+    }
+
+    #[test]
+    fn group_name_from_title_or_body() {
+        let mut n = Note { meta: NoteMeta::new_default("x".into()), body: "# 회의 기록입니다 아주 길어요\n내용".into() };
+        assert_eq!(derive_group_name(&n), "회의 기록입니다 아주");
+        n.meta.title = Some("업무".into());
+        assert_eq!(derive_group_name(&n), "업무");
+        n.meta.title = None;
+        n.body = "".into();
+        assert_eq!(derive_group_name(&n), "모음집");
+    }
 }

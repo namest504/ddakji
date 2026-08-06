@@ -39,6 +39,9 @@ pub fn run() {
             commands::get_last_viewed,
             commands::set_storage_path,
             commands::nav_group,
+            commands::nav_to,
+            commands::group_members,
+            commands::check_merge,
             commands::list_groups,
         ])
         .setup(|app| {

@@ -44,8 +44,9 @@ html, body { background: transparent; }
 }
 .font-row button { min-width: auto; padding: 3px 10px; font-size: 12px; }
 .font-custom {
-  flex: 1; min-width: 90px; border: 0; border-radius: 6px; padding: 4px 8px;
-  font-size: 12px; outline: none; background: rgba(255,255,255,.65); color: #1c1c1e;
+  flex: 1; min-width: 90px; border-radius: 6px; padding: 4px 8px;
+  font-size: 12px; outline: none; background: #ffffff; color: #1c1c1e;
+  border: 1px solid rgba(0,0,0,.18);
 }
 .font-custom::placeholder { color: currentColor; opacity: .55; }
 .settings .font-custom { background: var(--l-field); max-width: none; width: 100%; }
@@ -299,7 +300,7 @@ html, body { background: transparent; }
   color: rgba(255,255,255,.6);
 }
 :root[data-theme="dark"] .font-custom {
-  background: rgba(255,255,255,.18); color: #eee; border: 1px solid rgba(255,255,255,.22);
+  background: #3a3a3c; color: #eee; border: 1px solid rgba(255,255,255,.28);
 }
 
 :root[data-theme="dark"] .list {

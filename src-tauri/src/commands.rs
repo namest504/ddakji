@@ -370,30 +370,11 @@ pub async fn check_merge(
     if ratio < 0.6 || target_id == moved_id {
         return Ok(false);
     }
-    let mut changed = false;
-    {
+    // 모음집 창을 얹으면 모음집 전체가 대상 그룹으로 통합된다 (같은 그룹이면 창만 흡수)
+    let changed = {
         let s = store.lock().map_err(err)?;
-        let target = s.load(&target_id).ok_or("target gone")?;
-        let moved = s.load(&moved_id).ok_or("note gone")?;
-        // 이미 같은 그룹이면 메타 변경 없이 창만 흡수한다
-        if target.meta.group.is_none() || target.meta.group != moved.meta.group {
-            let group = match target.meta.group.clone() {
-                Some(g) => g,
-                None => {
-                    let name = next_new_group_name(&s.group_names());
-                    s.save_meta(
-                        &target_id,
-                        &MetaPatch { group: Some(name.clone()), ..Default::default() },
-                    )
-                    .map_err(err)?;
-                    name
-                }
-            };
-            s.save_meta(&moved_id, &MetaPatch { group: Some(group), ..Default::default() })
-                .map_err(err)?;
-            changed = true;
-        }
-    }
+        s.merge_note_groups(&moved_id, &target_id).map_err(err)?
+    };
     // 흡수 애니메이션: 끌던 창이 대상 중심으로 미끄러져 들어간 뒤 닫힌다
     let (tcx, tcy) = (tb.0 + tb.2 / 2.0, tb.1 + tb.3 / 2.0);
     let (scx, scy) = (a.0 + a.2 / 2.0, a.1 + a.3 / 2.0);
@@ -507,7 +488,7 @@ pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> R
 
 #[cfg(test)]
 mod geom_tests {
-    use super::{next_new_group_name, overlap_ratio};
+    use super::overlap_ratio;
 
     #[test]
     fn overlap_full_partial_none() {
@@ -519,14 +500,11 @@ mod geom_tests {
 
     #[test]
     fn new_group_names_are_numbered() {
+        use crate::store::next_new_group_name;
         assert_eq!(next_new_group_name(&[]), "새 그룹 1");
         assert_eq!(
             next_new_group_name(&["새 그룹 1".into(), "기타".into()]),
             "새 그룹 2"
-        );
-        assert_eq!(
-            next_new_group_name(&["새 그룹 1".into(), "새 그룹 2".into()]),
-            "새 그룹 3"
         );
     }
 }

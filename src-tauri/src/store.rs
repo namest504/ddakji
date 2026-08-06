@@ -123,6 +123,18 @@ fn default_theme() -> String {
     "system".into()
 }
 
+/// 새 모음집 자동 이름 — "새 그룹 {번호}" 순번
+pub fn next_new_group_name(existing: &[String]) -> String {
+    let mut n = 1u32;
+    loop {
+        let name = format!("새 그룹 {n}");
+        if !existing.iter().any(|g| g == &name) {
+            return name;
+        }
+        n += 1;
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -568,6 +580,45 @@ impl Store {
         v
     }
 
+    /// 드래그 합치기: moved(와 그 모음집 전체)를 target의 모음집으로 통합.
+    /// target이 무소속이면 "새 그룹 N"을 만들어 target부터 편입. 이미 같은
+    /// 모음집이면 변경 없음(false).
+    pub fn merge_note_groups(&self, moved_id: &str, target_id: &str) -> io::Result<bool> {
+        let target = self.load(target_id).ok_or(io::ErrorKind::NotFound)?;
+        let moved = self.load(moved_id).ok_or(io::ErrorKind::NotFound)?;
+        if target.meta.group.is_some() && target.meta.group == moved.meta.group {
+            return Ok(false);
+        }
+        let group = match target.meta.group.clone() {
+            Some(g) => g,
+            None => {
+                let name = next_new_group_name(&self.group_names());
+                self.save_meta(
+                    target_id,
+                    &MetaPatch { group: Some(name.clone()), ..Default::default() },
+                )?;
+                name
+            }
+        };
+        match moved.meta.group.clone() {
+            Some(old) => {
+                for m in self.group_notes(&old) {
+                    self.save_meta(
+                        &m.meta.id,
+                        &MetaPatch { group: Some(group.clone()), ..Default::default() },
+                    )?;
+                }
+            }
+            None => {
+                self.save_meta(
+                    moved_id,
+                    &MetaPatch { group: Some(group.clone()), ..Default::default() },
+                )?;
+            }
+        }
+        Ok(true)
+    }
+
     pub fn group_names(&self) -> Vec<String> {
         let mut v: Vec<String> = self.list().into_iter().filter_map(|n| n.meta.group).collect();
         v.sort();
@@ -786,6 +837,26 @@ mod tests {
             fs::read_to_string(id_dir.join("storage-path.txt")).unwrap().trim(),
             newp.to_string_lossy()
         );
+    }
+
+    #[test]
+    fn merge_groups_moves_whole_collection() {
+        let (_d, s) = store();
+        let a1 = s.create().unwrap();
+        let a2 = s.create().unwrap();
+        let t = s.create().unwrap();
+        for id in [&a1.meta.id, &a2.meta.id] {
+            s.save_meta(id, &MetaPatch { group: Some("A".into()), ..Default::default() }).unwrap();
+        }
+        // 그룹 A 창을 무소속 t 위로 — 새 그룹이 만들어지고 셋 다 편입
+        assert!(s.merge_note_groups(&a1.meta.id, &t.meta.id).unwrap());
+        let g = s.load(&t.meta.id).unwrap().meta.group.unwrap();
+        assert_eq!(g, "새 그룹 1");
+        let members = s.group_notes(&g);
+        assert_eq!(members.len(), 3);
+        assert_eq!(members[0].meta.id, t.meta.id, "target이 첫 순서");
+        // 같은 그룹끼리는 변경 없음
+        assert!(!s.merge_note_groups(&a1.meta.id, &t.meta.id).unwrap());
     }
 
     #[test]

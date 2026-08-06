@@ -61,35 +61,12 @@ pub fn run() {
             tray::create_tray(app.handle())?;
             // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)
             windows::ensure_main_stub(app.handle())?;
-            let visible: Vec<_> = notes.iter().filter(|n| !n.meta.hidden).collect();
             if notes.is_empty() {
                 let s = app.state::<Mutex<Store>>();
                 let note = s.lock().unwrap().create()?;
                 windows::open_note_window(app.handle(), &note)?;
             } else {
-                // 모음집은 그룹당 창 하나(순서상 첫 노트)만 연다 — 재시작 때마다
-                // 합쳐둔 창이 전부 펼쳐지던 문제 (#25). 전부 펼치기는 트레이 메뉴로.
-                use std::collections::{HashMap, HashSet};
-                let mut group_first: HashMap<&str, &store::Note> = HashMap::new();
-                for n in &visible {
-                    if let Some(g) = n.meta.group.as_deref() {
-                        let cur = group_first.entry(g).or_insert(n);
-                        if (n.meta.group_order, n.meta.created_at.as_str())
-                            < (cur.meta.group_order, cur.meta.created_at.as_str())
-                        {
-                            *cur = n;
-                        }
-                    }
-                }
-                let mut opened: HashSet<&str> = HashSet::new();
-                for n in &visible {
-                    if let Some(g) = n.meta.group.as_deref() {
-                        if !opened.insert(g) {
-                            continue;
-                        }
-                        windows::open_note_window(app.handle(), group_first[g])?;
-                        continue;
-                    }
+                for n in startup_notes(&notes) {
                     windows::open_note_window(app.handle(), n)?;
                 }
             }
@@ -157,6 +134,119 @@ pub fn run() {
                 }
             }
         });
+}
+
+/// 시작 시 열 노트 선택: 숨김 노트는 제외하고, 모음집은 그룹당 대표 노트
+/// ((group_order, created_at) 오름차순 첫 번째) 하나만 연다 — 재시작 때마다
+/// 합쳐둔 창이 전부 펼쳐지던 문제 (#25). 전부 펼치기는 트레이 메뉴로.
+pub fn startup_notes(notes: &[store::Note]) -> Vec<&store::Note> {
+    use std::collections::{HashMap, HashSet};
+    let visible: Vec<&store::Note> = notes.iter().filter(|n| !n.meta.hidden).collect();
+    let mut group_first: HashMap<&str, &store::Note> = HashMap::new();
+    for n in visible.iter().copied() {
+        if let Some(g) = n.meta.group.as_deref() {
+            let cur = group_first.entry(g).or_insert(n);
+            if (n.meta.group_order, n.meta.created_at.as_str())
+                < (cur.meta.group_order, cur.meta.created_at.as_str())
+            {
+                *cur = n;
+            }
+        }
+    }
+    let mut opened: HashSet<&str> = HashSet::new();
+    let mut out = Vec::new();
+    for n in visible.iter().copied() {
+        if let Some(g) = n.meta.group.as_deref() {
+            if !opened.insert(g) {
+                continue;
+            }
+            out.push(group_first[g]);
+            continue;
+        }
+        out.push(n);
+    }
+    out
+}
+
+#[cfg(test)]
+mod startup_tests {
+    use super::startup_notes;
+    use crate::store::{Note, NoteMeta};
+
+    fn note(id: &str, group: Option<&str>, order: u32, created: &str, hidden: bool) -> Note {
+        let mut meta = NoteMeta::new_default(id.into());
+        meta.group = group.map(String::from);
+        meta.group_order = order;
+        meta.created_at = created.into();
+        meta.hidden = hidden;
+        Note { meta, body: String::new() }
+    }
+
+    fn ids(notes: &[Note]) -> Vec<&str> {
+        startup_notes(notes).iter().map(|n| n.meta.id.as_str()).collect()
+    }
+
+    #[test]
+    fn group_opens_single_representative_by_order() {
+        // 재시작 시 그룹이 전부 펼쳐지던 회귀(#25)의 가드
+        let notes = vec![
+            note("b", Some("모음"), 2, "2026-08-01", false),
+            note("a", Some("모음"), 0, "2026-08-02", false),
+            note("c", Some("모음"), 1, "2026-08-03", false),
+        ];
+        assert_eq!(ids(&notes), vec!["a"]);
+    }
+
+    #[test]
+    fn order_tie_broken_by_created_at() {
+        let notes = vec![
+            note("late", Some("모음"), 0, "2026-08-05", false),
+            note("early", Some("모음"), 0, "2026-08-01", false),
+        ];
+        assert_eq!(ids(&notes), vec!["early"]);
+    }
+
+    #[test]
+    fn hidden_notes_are_skipped() {
+        let notes = vec![
+            note("shown", None, 0, "2026-08-01", false),
+            note("hidden", None, 0, "2026-08-02", true),
+        ];
+        assert_eq!(ids(&notes), vec!["shown"]);
+    }
+
+    #[test]
+    fn hidden_group_representative_falls_to_next_member() {
+        // 대표(첫 순서) 노트가 숨김이면 다음 멤버가 그룹 창을 대표한다
+        let notes = vec![
+            note("first", Some("모음"), 0, "2026-08-01", true),
+            note("second", Some("모음"), 1, "2026-08-02", false),
+        ];
+        assert_eq!(ids(&notes), vec!["second"]);
+    }
+
+    #[test]
+    fn ungrouped_visible_notes_all_open() {
+        let notes = vec![
+            note("a", None, 0, "2026-08-01", false),
+            note("b", None, 0, "2026-08-02", false),
+            note("g1", Some("모음"), 0, "2026-08-03", false),
+            note("g2", Some("모음"), 1, "2026-08-04", false),
+        ];
+        let mut got = ids(&notes);
+        got.sort();
+        assert_eq!(got, vec!["a", "b", "g1"]);
+    }
+
+    #[test]
+    fn all_hidden_opens_nothing() {
+        // 전부 숨김이면 트레이 상주만 — 창을 강제로 열지 않는다
+        let notes = vec![
+            note("a", None, 0, "2026-08-01", true),
+            note("g", Some("모음"), 0, "2026-08-02", true),
+        ];
+        assert!(ids(&notes).is_empty());
+    }
 }
 
 pub fn show_all_notes(app: &tauri::AppHandle) -> tauri::Result<()> {

@@ -241,4 +241,30 @@ mod tests {
         let monitors = [(0.0, 0.0, 1920.0, 1080.0), (1920.0, 0.0, 1920.0, 1080.0)];
         assert_eq!(visible_position(&saved, &monitors), (2020.0, 100.0));
     }
+
+    #[test]
+    fn negative_coordinate_monitor_keeps_position() {
+        // 보조 모니터가 주 모니터 왼쪽(x 음수)에 배치된 실사용 구성 —
+        // 음수 좌표를 "화면 밖"으로 오판해 리셋하면 안 된다
+        let saved = bounds(-1500.0, 300.0, 320.0, 340.0);
+        let monitors = [(-1920.0, 0.0, 1920.0, 1080.0), (0.0, 0.0, 1920.0, 1080.0)];
+        assert_eq!(visible_position(&saved, &monitors), (-1500.0, 300.0));
+    }
+
+    #[test]
+    fn monitor_above_primary_keeps_position() {
+        let saved = bounds(100.0, -800.0, 320.0, 340.0);
+        let monitors = [(0.0, -1080.0, 1920.0, 1080.0), (0.0, 0.0, 1920.0, 1080.0)];
+        assert_eq!(visible_position(&saved, &monitors), (100.0, -800.0));
+    }
+
+    #[test]
+    fn bottom_edge_keeps_position_while_title_bar_reachable() {
+        // 하단 경계: 제목줄 40px가 화면 안에 있으면 유지, 더 가라앉으면 리셋
+        let monitors = [(0.0, 0.0, 1920.0, 1080.0)];
+        let reachable = bounds(100.0, 1030.0, 320.0, 340.0); // 노출 40px == 임계값
+        assert_eq!(visible_position(&reachable, &monitors), (100.0, 1030.0));
+        let sunk = bounds(100.0, 1050.0, 320.0, 340.0); // 노출 30px < 40px
+        assert_eq!(visible_position(&sunk, &monitors), FALLBACK_POSITION);
+    }
 }

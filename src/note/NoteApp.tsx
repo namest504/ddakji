@@ -108,7 +108,12 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       if (draggedFar) {
         draggedFar = false;
         // 다른 노트 위에 60%+ 겹치게 "드래그해서" 놓였을 때만 합치기 (#25 G4)
-        api.checkMerge().catch(() => {});
+        api.checkMerge().then((merged) => {
+          if (!merged) {
+            setMergeHint(false);
+            api.mergePreviewOff().catch(() => {});
+          }
+        }).catch(() => {});
       }
     };
     let lastPreview = 0;
@@ -125,7 +130,10 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         api.mergePreview().then(setMergeHint).catch(() => {});
       }
       window.clearTimeout(previewClear);
-      previewClear = window.setTimeout(() => setMergeHint(false), 600);
+      previewClear = window.setTimeout(() => {
+        setMergeHint(false);
+        api.mergePreviewOff().catch(() => {});
+      }, 600);
       clearTimeout(t); t = window.setTimeout(save, 500);
     });
     const un2 = win.onResized(() => { clearTimeout(t); t = window.setTimeout(save, 500); });

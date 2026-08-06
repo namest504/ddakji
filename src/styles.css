@@ -11,8 +11,8 @@ html, body { background: transparent; }
   display: flex; flex-direction: column; height: 100%; position: relative;
   transition: transform .16s ease, filter .16s ease; transform-origin: center;
 }
-/* 드래그 중 흡수 예고 — 블랙홀에 빨려들 듯 축소·어두워짐 */
-.note.merge-hint { transform: scale(.82); filter: brightness(.5) saturate(.8); }
+/* 드래그 중 흡수 예고 — 창 자체가 축소(백엔드)되고 내용은 어두워진다 */
+.note.merge-hint { filter: brightness(.55) saturate(.8); }
 .note[data-color="yellow"]   { --bg: rgba(255,247,177,.66); --bar: rgba(245,228,120,.88); }
 .note[data-color="green"]    { --bg: rgba(217,247,209,.66); --bar: rgba(185,232,171,.88); }
 .note[data-color="pink"]     { --bg: rgba(255,217,232,.66); --bar: rgba(247,184,210,.88); }

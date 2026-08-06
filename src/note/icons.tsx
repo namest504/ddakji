@@ -35,6 +35,13 @@ export const NavRightIcon = () => (
   <svg {...base} width="18" height="18"><path d="M6 3.4L10.6 8 6 12.6" /></svg>
 );
 
+export const PopOutIcon = () => (
+  <svg {...base}>
+    <path d="M6.5 3H4a1.4 1.4 0 0 0-1.4 1.4v7.2A1.4 1.4 0 0 0 4 13h7.2a1.4 1.4 0 0 0 1.4-1.4V9.5" />
+    <path d="M9.4 2.8h3.8v3.8M13 3L8.2 7.8" />
+  </svg>
+);
+
 export const CloseIcon = () => (
   <svg {...base}><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6" /></svg>
 );

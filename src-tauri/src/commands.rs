@@ -383,6 +383,43 @@ pub async fn check_merge(
     Ok(true)
 }
 
+/// 현재 노트를 새 창으로 분리 — 원래 창은 그룹의 다음 노트로 전환 (#25)
+#[tauri::command]
+pub async fn pop_out(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    store: StoreState<'_>,
+    wn: State<'_, WindowNotes>,
+) -> Result<Option<Note>, String> {
+    let label = window.label().to_string();
+    let current_id = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .get(&label)
+        .cloned()
+        .ok_or("window not mapped")?;
+    let (mut cur, next) = {
+        let s = store.lock().map_err(err)?;
+        let cur = s.load(&current_id).ok_or("note gone")?;
+        let Some(g) = cur.meta.group.clone() else { return Ok(None) };
+        let ns = s.group_notes(&g);
+        if ns.len() < 2 {
+            return Ok(None);
+        }
+        let idx = ns.iter().position(|n| n.meta.id == current_id).unwrap_or(0);
+        let next = ns[(idx + 1) % ns.len()].clone();
+        (cur, next)
+    };
+    // 원래 창은 다음 노트를 표시
+    wn.0.lock().map_err(err)?.insert(label, next.meta.id.clone());
+    // 분리 창은 살짝 어긋난 위치에
+    cur.meta.window.x += 28.0;
+    cur.meta.window.y += 28.0;
+    crate::windows::open_note_window(&app, &cur).map_err(err)?;
+    Ok(Some(next))
+}
+
 #[tauri::command]
 pub fn list_system_fonts() -> Vec<String> {
     crate::fonts::list_system_fonts()

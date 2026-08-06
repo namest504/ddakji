@@ -5,6 +5,7 @@ import * as api from "../lib/api";
 import type { Note } from "../lib/api";
 import { clampFontSize, fontStack, hasMoreBelow } from "../lib/noteUtils";
 import Toolbar from "./Toolbar";
+import { NavLeftIcon, NavRightIcon } from "./icons";
 import FormatBar from "./FormatBar";
 import RichEditor from "./RichEditor";
 
@@ -12,6 +13,8 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   // 그룹 넘기기(#25)로 창이 표시하는 노트가 바뀔 수 있다 — 상태로 승격
   const [noteId, setNoteId] = useState(initialNoteId);
   const [note, setNote] = useState<Note | null>(null);
+  const [members, setMembers] = useState<string[]>([]); // 그룹 순서대로의 노트 id (#25 G2)
+  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
   const [base, setBase] = useState<string | null>(null); // 데이터 루트 (asset URL용)
   const [saveError, setSaveError] = useState(false);
   const bodyRef = useRef("");
@@ -67,6 +70,25 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     saveTimer.current = window.setTimeout(flushBody, 500);
   }, [flushBody]);
 
+  // 그룹 멤버 목록 — 그룹 변경 이벤트(다른 창·병합 포함) 시 메타와 함께 갱신
+  useEffect(() => {
+    let un: (() => void) | null = null;
+    const refresh = () => {
+      api.listNotes().then((all) => {
+        const n = all.find((x) => x.meta.id === noteId);
+        if (!n) return;
+        setNote((prev) => (prev ? { ...prev, meta: n.meta } : prev));
+        if (n.meta.group) api.groupMembers(noteId).then(setMembers).catch(() => {});
+        else setMembers([]);
+      }).catch(() => {});
+    };
+    refresh();
+    import("@tauri-apps/api/event").then(({ listen }) =>
+      listen("groups-changed", refresh).then((f) => { un = f; })
+    ).catch(() => {});
+    return () => { if (un) un(); };
+  }, [noteId]);
+
   // Cleanup pending timers on unmount
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
@@ -80,6 +102,8 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       const size = (await win.innerSize()).toLogical(factor);
       api.saveMeta(noteId, { window: { x: pos.x, y: pos.y, w: size.width, h: size.height } })
         .catch((e) => { closeIfGone(e); });
+      // 다른 노트 위에 60%+ 겹치게 놓였으면 모음집으로 합치기 (#25 G4)
+      api.checkMerge().catch(() => {});
     };
     const un1 = win.onMoved(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
     const un2 = win.onResized(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
@@ -113,10 +137,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       // 그룹 내 이전/다음 노트 (#25) — 이미 열린 노트면 그 창으로 포커스 이동
       if (e.altKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
         e.preventDefault();
-        flushBody();
-        api.navGroup(e.key === "ArrowRight" ? 1 : -1)
-          .then((n) => { if (n) setNoteId(n.meta.id); })
-          .catch(() => {});
+        navigate(e.key === "ArrowRight" ? 1 : -1);
       }
     };
     window.addEventListener("wheel", onWheel, { passive: false });
@@ -128,6 +149,18 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       window.removeEventListener("blur", flushBody);
     };
   }, [changeFont, flushBody]);
+
+  const navigate = useCallback((dir: 1 | -1) => {
+    flushBody();
+    setSlide(dir === 1 ? "next" : "prev");
+    api.navGroup(dir).then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
+  }, [flushBody]);
+
+  const jumpTo = useCallback((id: string, dirHint: "next" | "prev") => {
+    flushBody();
+    setSlide(dirHint);
+    api.navTo(id).then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
+  }, [flushBody]);
 
   // 이미지 저장 → 에디터에 상대경로로 삽입 (붙여넣기·드롭·서식바 공용).
   // pos가 있으면 그 위치(드롭 지점)에, 없으면 현재 커서에 넣는다.
@@ -253,7 +286,15 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
           저장 실패 — <button onClick={() => failedOp.current?.run()}>재시도</button>
         </div>
       )}
-      <div className="content" ref={contentRef}>
+      {members.length > 1 && (
+        <>
+          <button className="nav-arrow left" title="이전 노트 (Alt+←)"
+            onClick={() => navigate(-1)}><NavLeftIcon /></button>
+          <button className="nav-arrow right" title="다음 노트 (Alt+→)"
+            onClick={() => navigate(1)}><NavRightIcon /></button>
+        </>
+      )}
+      <div key={noteId} className={"content" + (slide ? ` slide-${slide}` : "")} ref={contentRef}>
         <RichEditor key={noteId} body={note.body} base={base}
           onChange={onBodyChange} onEditor={onEditor} onPasteFile={savePastedImage} />
         {more && (
@@ -265,6 +306,15 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
           </div>
         )}
       </div>
+      {members.length > 1 && (
+        <div className="group-dots" aria-hidden={false}>
+          {members.map((id, i) => (
+            <button key={id} className={id === noteId ? "active" : ""}
+              title={`${i + 1} / ${members.length}`}
+              onClick={() => { if (id !== noteId) jumpTo(id, i > members.indexOf(noteId) ? "next" : "prev"); }} />
+          ))}
+        </div>
+      )}
       <FormatBar editor={editor} onAddImage={pickImage} />
     </div>
   );

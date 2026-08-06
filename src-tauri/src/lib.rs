@@ -79,9 +79,9 @@ pub fn run() {
                             .set_position(tauri::LogicalPosition::new(-30000.0, -30000.0));
                         let _ = crate::show_all_notes(&window.app_handle());
                     }
-                    // 스텁이 닫히면 Alt-Tab 항목이 사라진다 — 닫기 무시
-                    tauri::WindowEvent::CloseRequested { api, .. } => {
-                        api.prevent_close();
+                    // 작업 표시줄에서 "창 닫기" = 명시적 종료 의도 — 앱을 완전히 끝낸다
+                    tauri::WindowEvent::CloseRequested { .. } => {
+                        window.app_handle().exit(0);
                     }
                     _ => {}
                 }

@@ -14,9 +14,6 @@ pub struct IdDir(pub std::path::PathBuf);
 /// 창 label → 표시 중인 노트 id (#25 그룹 넘기기로 창-노트가 동적이 됨)
 pub struct WindowNotes(pub Mutex<std::collections::HashMap<String, String>>);
 
-/// 흡수 예고로 축소된 창의 원래 크기 (label → w,h)
-pub struct PreviewSizes(pub Mutex<std::collections::HashMap<String, (u32, u32)>>);
-
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
@@ -292,15 +289,12 @@ pub async fn nav_to(
     Ok(Some(target))
 }
 
-/// 드래그 중 프리뷰: 60%+ 겹침이면 끌리는 "창 자체"를 72%로 축소(+프런트 암전),
-/// 벗어나면 원래 크기로 복원. OS 드래그는 좌상단 기준이라 리사이즈해도 커서가
-/// 어긋나지 않는다 (크롬 탭 분리와 같은 관용).
+/// 드래그 중 프리뷰: 지금 놓으면 합쳐질 상태(60%+ 겹침)인지 — 프런트가 암전 표시
 #[tauri::command]
 pub async fn merge_preview(
     app: AppHandle,
     window: tauri::WebviewWindow,
     wn: State<'_, WindowNotes>,
-    ps: State<'_, PreviewSizes>,
 ) -> Result<bool, String> {
     let label = window.label().to_string();
     let Ok(ap) = window.outer_position() else { return Ok(false) };
@@ -326,32 +320,8 @@ pub async fn merge_preview(
             break;
         }
     }
-    let mut sizes = ps.0.lock().map_err(err)?;
-    if hint {
-        if !sizes.contains_key(&label) {
-            sizes.insert(label.clone(), (asz.width, asz.height));
-            let _ = window.set_size(tauri::PhysicalSize::new(
-                (asz.width as f64 * 0.72) as u32,
-                (asz.height as f64 * 0.72) as u32,
-            ));
-        }
-    } else if let Some((w, h)) = sizes.remove(&label) {
-        let _ = window.set_size(tauri::PhysicalSize::new(w, h));
-    }
+    let _ = label;
     Ok(hint)
-}
-
-/// 드래그 종료 등으로 프리뷰 해제 — 축소했던 창 크기 복원
-#[tauri::command]
-pub async fn merge_preview_off(
-    window: tauri::WebviewWindow,
-    ps: State<'_, PreviewSizes>,
-) -> Result<(), String> {
-    let label = window.label().to_string();
-    if let Some((w, h)) = ps.0.lock().map_err(err)?.remove(&label) {
-        let _ = window.set_size(tauri::PhysicalSize::new(w, h));
-    }
-    Ok(())
 }
 
 /// 드래그 종료 후 호출 — 다른 노트 창과 충분히 겹치면(60%+) 그 노트와 같은

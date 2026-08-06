@@ -43,7 +43,6 @@ pub fn run() {
             commands::group_members,
             commands::check_merge,
             commands::merge_preview,
-            commands::merge_preview_off,
             commands::pop_out,
             commands::list_groups,
         ])
@@ -59,7 +58,6 @@ pub fn run() {
             app.manage(commands::IdDir(id_dir));
             app.manage(commands::LastViewed(Mutex::new(None)));
             app.manage(commands::WindowNotes(Mutex::new(std::collections::HashMap::new())));
-            app.manage(commands::PreviewSizes(Mutex::new(std::collections::HashMap::new())));
             tray::create_tray(app.handle())?;
             // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)
             windows::ensure_main_stub(app.handle())?;
@@ -118,11 +116,6 @@ pub fn run() {
                 tauri::WindowEvent::Destroyed => {
                     if let Some(wn) = app.try_state::<commands::WindowNotes>() {
                         if let Ok(mut m) = wn.0.lock() {
-                            m.remove(window.label());
-                        }
-                    }
-                    if let Some(ps) = app.try_state::<commands::PreviewSizes>() {
-                        if let Ok(mut m) = ps.0.lock() {
                             m.remove(window.label());
                         }
                     }

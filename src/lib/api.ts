@@ -49,7 +49,6 @@ export const navTo = (id: string) => invoke<Note | null>("nav_to", { id });
 export const groupMembers = (id: string) => invoke<string[]>("group_members", { id });
 export const checkMerge = () => invoke<boolean>("check_merge");
 export const mergePreview = () => invoke<boolean>("merge_preview");
-export const mergePreviewOff = () => invoke<void>("merge_preview_off");
 export const popOut = () => invoke<void>("pop_out");
 export const listGroups = () => invoke<string[]>("list_groups");
 export const getLastViewed = () => invoke<Note | null>("get_last_viewed");

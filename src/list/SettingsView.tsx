@@ -199,7 +199,7 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           </div>
           <div className="settings-row link" onClick={async () => {
             const { openUrl } = await import("@tauri-apps/plugin-opener");
-            await openUrl(`${REPO_URL}/blob/develop/docs/usage.md`);
+            await openUrl(`${REPO_URL}/blob/main/docs/usage.md`);
           }}>사용법 보기</div>
           <div className="settings-row link" onClick={openRepo}>GitHub</div>
         </div>

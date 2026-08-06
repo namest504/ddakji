@@ -98,15 +98,15 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     const win = getCurrentWindow();
     let t: number;
     let lastPos: { x: number; y: number } | null = null;
-    let draggedFar = false; // 30px+ 실제 드래그가 있었을 때만 병합 검사 (겹쳐만 있어도 흡수되던 버그)
+    let dragDist = 0; // 누적 드래그 거리 — 30px+ 실제 이동 후에만 병합 검사
     const save = async () => {
       const factor = await win.scaleFactor();
       const pos = (await win.outerPosition()).toLogical(factor);
       const size = (await win.innerSize()).toLogical(factor);
       api.saveMeta(noteId, { window: { x: pos.x, y: pos.y, w: size.width, h: size.height } })
         .catch((e) => { closeIfGone(e); });
-      if (draggedFar) {
-        draggedFar = false;
+      if (dragDist > 30) {
+        dragDist = 0;
         // 다른 노트 위에 60%+ 겹치게 "드래그해서" 놓였을 때만 합치기 (#25 G4)
         api.checkMerge().then((merged) => {
           if (!merged) setMergeHint(false);
@@ -116,8 +116,8 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     let lastPreview = 0;
     let previewClear: number | undefined;
     const un1 = win.onMoved(({ payload }) => {
-      if (lastPos && Math.abs(payload.x - lastPos.x) + Math.abs(payload.y - lastPos.y) > 30) {
-        draggedFar = true;
+      if (lastPos) {
+        dragDist += Math.abs(payload.x - lastPos.x) + Math.abs(payload.y - lastPos.y);
       }
       lastPos = { x: payload.x, y: payload.y };
       // 드래그 중 흡수 예고: 겹침이면 빨려드는 프리뷰, 벗어나거나 멈추면 해제

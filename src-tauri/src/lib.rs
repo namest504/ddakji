@@ -42,6 +42,7 @@ pub fn run() {
             commands::nav_to,
             commands::group_members,
             commands::check_merge,
+            commands::pop_out,
             commands::list_groups,
         ])
         .setup(|app| {

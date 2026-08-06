@@ -2,7 +2,7 @@ import { useState } from "react";
 import * as api from "../lib/api";
 import type { FontFamily, Note, NoteColor } from "../lib/api";
 import { fontStack } from "../lib/noteUtils";
-import { CloseIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, TrashIcon } from "./icons";
+import { CloseIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, PopOutIcon, TrashIcon } from "./icons";
 
 const COLORS: NoteColor[] = ["yellow", "green", "pink", "purple", "blue", "gray", "charcoal"];
 const FONTS: { key: FontFamily; label: string }[] = [
@@ -16,6 +16,8 @@ interface Props {
   onColor: (c: NoteColor) => void;
   onFont: (f: FontFamily) => void;
   onGroup: (name: string | null) => void;
+  canPopOut: boolean;
+  onPopOut: () => void;
   onPin: () => void;
   onFontDelta: (d: number) => void;
   onNew: () => void;
@@ -41,7 +43,7 @@ export default function Toolbar(p: Props) {
   const m = p.note.meta;
   return (
     <div className="toolbar" data-tauri-drag-region>
-      <button title="새 노트" onClick={p.onNew}><PlusIcon /></button>
+      <button title="새 노트 (Ctrl+N)" onClick={p.onNew}><PlusIcon /></button>
       {/* 색상 버튼은 글리프 대신 현재 노트 색 스와치 — 상태 표시를 겸한다 */}
       <button title="색상" onClick={() => toggle("colors")}>
         <span className="swatch-current" />
@@ -50,15 +52,18 @@ export default function Toolbar(p: Props) {
       <button title="모음집" className={m.group ? "active" : ""} onClick={() => toggle("groups")}>
         <GroupIcon />
       </button>
+      {p.canPopOut && (
+        <button title="새 창으로 분리 (Ctrl+Shift+P)" onClick={p.onPopOut}><PopOutIcon /></button>
+      )}
       <button title="항상 위" className={m.always_on_top ? "active" : ""} onClick={p.onPin}>
         <PinIcon filled={m.always_on_top} />
       </button>
       <span className="spacer" data-tauri-drag-region />
       <button title="글씨 작게" className="font-btn" onClick={() => p.onFontDelta(-1)}>A−</button>
       <button title="글씨 크게" className="font-btn" onClick={() => p.onFontDelta(1)}>A＋</button>
-      <button title="노트 목록" onClick={p.onOpenList}><ListIcon /></button>
+      <button title="노트 목록 (Ctrl+L)" onClick={p.onOpenList}><ListIcon /></button>
       <button title="삭제" onClick={p.onDelete}><TrashIcon /></button>
-      <button title="닫기 (트레이로 숨김)" onClick={p.onClose}><CloseIcon /></button>
+      <button title="닫기 (Ctrl+W, 트레이로 숨김)" onClick={p.onClose}><CloseIcon /></button>
       {popover === "colors" && (
         <div className="color-row">
           {COLORS.map((c) => (

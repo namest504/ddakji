@@ -96,16 +96,27 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   useEffect(() => {
     const win = getCurrentWindow();
     let t: number;
+    let lastPos: { x: number; y: number } | null = null;
+    let draggedFar = false; // 30px+ 실제 드래그가 있었을 때만 병합 검사 (겹쳐만 있어도 흡수되던 버그)
     const save = async () => {
       const factor = await win.scaleFactor();
       const pos = (await win.outerPosition()).toLogical(factor);
       const size = (await win.innerSize()).toLogical(factor);
       api.saveMeta(noteId, { window: { x: pos.x, y: pos.y, w: size.width, h: size.height } })
         .catch((e) => { closeIfGone(e); });
-      // 다른 노트 위에 60%+ 겹치게 놓였으면 모음집으로 합치기 (#25 G4)
-      api.checkMerge().catch(() => {});
+      if (draggedFar) {
+        draggedFar = false;
+        // 다른 노트 위에 60%+ 겹치게 "드래그해서" 놓였을 때만 합치기 (#25 G4)
+        api.checkMerge().catch(() => {});
+      }
     };
-    const un1 = win.onMoved(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
+    const un1 = win.onMoved(({ payload }) => {
+      if (lastPos && Math.abs(payload.x - lastPos.x) + Math.abs(payload.y - lastPos.y) > 30) {
+        draggedFar = true;
+      }
+      lastPos = { x: payload.x, y: payload.y };
+      clearTimeout(t); t = window.setTimeout(save, 500);
+    });
     const un2 = win.onResized(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
     // Alt-Tab 썸네일용 "최근 본 노트" 추적
     const un3 = win.onFocusChanged(({ payload }) => {
@@ -127,6 +138,24 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     });
   }, [noteId]);
 
+  const navigate = useCallback((dir: 1 | -1) => {
+    flushBody();
+    setSlide(dir === 1 ? "next" : "prev");
+    api.navGroup(dir).then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
+  }, [flushBody]);
+
+  const popOut = useCallback(() => {
+    flushBody();
+    setSlide("next");
+    api.popOut().then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
+  }, [flushBody]);
+
+  const jumpTo = useCallback((id: string, dirHint: "next" | "prev") => {
+    flushBody();
+    setSlide(dirHint);
+    api.navTo(id).then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
+  }, [flushBody]);
+
   useEffect(() => {
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey) { e.preventDefault(); changeFont(e.deltaY < 0 ? 1 : -1); }
@@ -139,6 +168,11 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         e.preventDefault();
         navigate(e.key === "ArrowRight" ? 1 : -1);
       }
+      const k = e.key.toLowerCase();
+      if (e.ctrlKey && !e.shiftKey && k === "n") { e.preventDefault(); api.createNote().catch(() => {}); }
+      if (e.ctrlKey && !e.shiftKey && k === "w") { e.preventDefault(); flushBody(); getCurrentWindow().close(); }
+      if (e.ctrlKey && !e.shiftKey && k === "l") { e.preventDefault(); api.openList().catch(() => {}); }
+      if (e.ctrlKey && e.shiftKey && k === "p") { e.preventDefault(); popOut(); }
     };
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("keydown", onKey);
@@ -148,19 +182,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("blur", flushBody);
     };
-  }, [changeFont, flushBody]);
-
-  const navigate = useCallback((dir: 1 | -1) => {
-    flushBody();
-    setSlide(dir === 1 ? "next" : "prev");
-    api.navGroup(dir).then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
-  }, [flushBody]);
-
-  const jumpTo = useCallback((id: string, dirHint: "next" | "prev") => {
-    flushBody();
-    setSlide(dirHint);
-    api.navTo(id).then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
-  }, [flushBody]);
+  }, [changeFont, flushBody, navigate, popOut]);
 
   // 이미지 저장 → 에디터에 상대경로로 삽입 (붙여넣기·드롭·서식바 공용).
   // pos가 있으면 그 위치(드롭 지점)에, 없으면 현재 커서에 넣는다.
@@ -248,6 +270,8 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       style={{ fontSize: m.font_size, fontFamily: fontStack(m.font_family) }}>
       <Toolbar
         note={note}
+        canPopOut={members.length > 1}
+        onPopOut={popOut}
         onColor={(color) => patchMeta({ color })}
         onFont={(font_family) => patchMeta({ font_family })}
         onGroup={(name) => {

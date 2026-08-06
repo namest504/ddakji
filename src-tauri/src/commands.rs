@@ -499,6 +499,39 @@ mod geom_tests {
     }
 
     #[test]
+    fn overlap_negative_coordinates() {
+        // 보조 모니터가 주 모니터 왼쪽/위(음수 좌표)에 배치된 실사용 구성
+        let a = (-1000.0, -500.0, 100.0, 100.0);
+        assert!((overlap_ratio(a, (-1000.0, -500.0, 100.0, 100.0)) - 1.0).abs() < 1e-9);
+        assert!((overlap_ratio(a, (-950.0, -500.0, 100.0, 100.0)) - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn overlap_contained_windows() {
+        // 작은 창이 큰 창 안에 완전히 들어가면 (이동한 창 면적 기준) 100%
+        let small = (10.0, 10.0, 50.0, 50.0);
+        let big = (0.0, 0.0, 200.0, 200.0);
+        assert!((overlap_ratio(small, big) - 1.0).abs() < 1e-9);
+        // 큰 창을 작은 창 위에 놓으면 작은 창 면적 / 큰 창 면적
+        assert!((overlap_ratio(big, small) - (50.0 * 50.0) / (200.0 * 200.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn overlap_touching_edges_is_zero() {
+        let a = (0.0, 0.0, 100.0, 100.0);
+        assert_eq!(overlap_ratio(a, (100.0, 0.0, 100.0, 100.0)), 0.0);
+        assert_eq!(overlap_ratio(a, (0.0, 100.0, 100.0, 100.0)), 0.0);
+    }
+
+    #[test]
+    fn overlap_zero_size_is_zero_not_nan() {
+        let a = (0.0, 0.0, 0.0, 0.0);
+        let b = (0.0, 0.0, 100.0, 100.0);
+        assert_eq!(overlap_ratio(a, b), 0.0);
+        assert_eq!(overlap_ratio(b, a), 0.0);
+    }
+
+    #[test]
     fn new_group_names_are_numbered() {
         use crate::store::next_new_group_name;
         assert_eq!(next_new_group_name(&[]), "새 그룹 1");

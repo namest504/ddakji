@@ -107,4 +107,22 @@ describe("마크다운 왕복 보존", () => {
     expect(out).toContain("> 인용문");
     expect(out).toMatch(/---|\*\*\*/);
   });
+
+  it("순서 목록", () => {
+    const out = roundtrip("1. 첫째\n2. 둘째");
+    expect(out).toMatch(/1\.\s+첫째/);
+    expect(out).toMatch(/2\.\s+둘째/);
+  });
+
+  it("링크 텍스트와 주소", () => {
+    const out = roundtrip("[문서](https://example.com/a?b=1)");
+    expect(out).toContain("[문서]");
+    expect(out).toContain("https://example.com/a?b=1");
+  });
+
+  it("중첩 체크박스 구조", () => {
+    const out = roundtrip("- [ ] 상위\n  - [x] 하위");
+    expect(out).toContain("[ ] 상위");
+    expect(out).toMatch(/\n\s+- \[x\] 하위/);
+  });
 });

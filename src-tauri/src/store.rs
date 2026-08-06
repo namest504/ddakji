@@ -860,6 +860,183 @@ mod tests {
     }
 
     #[test]
+    fn body_with_horizontal_rule_roundtrips() {
+        // 본문의 마크다운 구분선(---)이 프론트매터 종료로 오인되면 본문이 잘린다
+        let meta = NoteMeta::new_default("hr-1".into());
+        let body = "위 문단\n\n---\n\n아래 문단";
+        let note = Note { meta, body: body.into() };
+        let (parsed, recovered) = Note::from_file_string("hr-1", &note.to_file_string());
+        assert!(!recovered);
+        assert_eq!(parsed.body, body);
+    }
+
+    #[test]
+    fn reassigning_same_group_keeps_order() {
+        // 같은 그룹을 다시 지정해도(저장 경로가 group을 항상 실어 보내는 경우)
+        // 순서가 끝으로 밀리면 안 된다
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        let b = s.create().unwrap();
+        for id in [&a.meta.id, &b.meta.id] {
+            s.save_meta(id, &MetaPatch { group: Some("X".into()), ..Default::default() }).unwrap();
+        }
+        assert_eq!(s.load(&a.meta.id).unwrap().meta.group_order, 0);
+        s.save_meta(&a.meta.id, &MetaPatch { group: Some("X".into()), ..Default::default() }).unwrap();
+        assert_eq!(s.load(&a.meta.id).unwrap().meta.group_order, 0, "재지정은 순서 유지");
+    }
+
+    #[test]
+    fn moving_note_between_groups_appends_to_target() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        let b1 = s.create().unwrap();
+        let b2 = s.create().unwrap();
+        s.save_meta(&a.meta.id, &MetaPatch { group: Some("A".into()), ..Default::default() }).unwrap();
+        for id in [&b1.meta.id, &b2.meta.id] {
+            s.save_meta(id, &MetaPatch { group: Some("B".into()), ..Default::default() }).unwrap();
+        }
+        s.save_meta(&a.meta.id, &MetaPatch { group: Some("B".into()), ..Default::default() }).unwrap();
+        let g = s.group_notes("B");
+        assert_eq!(g.len(), 3);
+        assert_eq!(g.last().unwrap().meta.id, a.meta.id, "옮겨온 노트는 끝 순서");
+        assert!(s.group_notes("A").is_empty(), "원래 그룹에서는 빠진다");
+    }
+
+    #[test]
+    fn merge_grouped_into_grouped_moves_all_after_target() {
+        // 모음집 창을 다른 모음집 위에 얹으면 통째로 통합된다 — 대상 멤버가 앞 순서
+        let (_d, s) = store();
+        let a1 = s.create().unwrap();
+        let a2 = s.create().unwrap();
+        let b1 = s.create().unwrap();
+        let b2 = s.create().unwrap();
+        for id in [&a1.meta.id, &a2.meta.id] {
+            s.save_meta(id, &MetaPatch { group: Some("A".into()), ..Default::default() }).unwrap();
+        }
+        for id in [&b1.meta.id, &b2.meta.id] {
+            s.save_meta(id, &MetaPatch { group: Some("B".into()), ..Default::default() }).unwrap();
+        }
+        assert!(s.merge_note_groups(&a1.meta.id, &b1.meta.id).unwrap());
+        let ids: Vec<String> = s.group_notes("B").into_iter().map(|n| n.meta.id).collect();
+        assert_eq!(ids, vec![b1.meta.id, b2.meta.id, a1.meta.id.clone(), a2.meta.id]);
+        assert!(s.group_notes("A").is_empty());
+        assert_eq!(s.group_names(), vec!["B".to_string()], "빈 그룹 A는 사라진다");
+    }
+
+    #[test]
+    fn merge_ungrouped_into_grouped_appends() {
+        let (_d, s) = store();
+        let t = s.create().unwrap();
+        let m = s.create().unwrap();
+        s.save_meta(&t.meta.id, &MetaPatch { group: Some("B".into()), ..Default::default() }).unwrap();
+        assert!(s.merge_note_groups(&m.meta.id, &t.meta.id).unwrap());
+        let g = s.group_notes("B");
+        assert_eq!(g.len(), 2);
+        assert_eq!(g.last().unwrap().meta.id, m.meta.id);
+    }
+
+    #[test]
+    fn merge_missing_note_errors() {
+        let (_d, s) = store();
+        let t = s.create().unwrap();
+        assert!(s.merge_note_groups("20990101-000000-abcdef", &t.meta.id).is_err());
+        assert!(s.merge_note_groups(&t.meta.id, "20990101-000000-abcdef").is_err());
+    }
+
+    #[test]
+    fn group_notes_order_tie_broken_by_created_at() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        let b = s.create().unwrap();
+        // 명시적으로 같은 순서를 부여해도 생성 시각으로 안정 정렬
+        for id in [&b.meta.id, &a.meta.id] {
+            s.save_meta(
+                id,
+                &MetaPatch { group: Some("T".into()), group_order: Some(5), ..Default::default() },
+            )
+            .unwrap();
+        }
+        let g = s.group_notes("T");
+        assert_eq!(g[0].meta.id, a.meta.id);
+        assert_eq!(g[1].meta.id, b.meta.id);
+    }
+
+    #[test]
+    fn next_new_group_name_fills_gaps() {
+        assert_eq!(next_new_group_name(&["새 그룹 2".into(), "새 그룹 3".into()]), "새 그룹 1");
+        assert_eq!(next_new_group_name(&["새 그룹 1".into(), "새 그룹 3".into()]), "새 그룹 2");
+    }
+
+    #[test]
+    fn missing_note_errors_are_not_found_kind() {
+        // 프런트의 좀비 창 방지(NOTE_NOT_FOUND 마커, commands::err_io)는
+        // 이 에러 종류(NotFound)에 의존한다
+        let (_d, s) = store();
+        let gone = "20990101-000000-abcdef";
+        assert_eq!(s.save_body(gone, "x").unwrap_err().kind(), io::ErrorKind::NotFound);
+        assert_eq!(
+            s.save_meta(gone, &MetaPatch::default()).unwrap_err().kind(),
+            io::ErrorKind::NotFound
+        );
+        assert_eq!(s.delete(gone).unwrap_err().kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn id_length_and_charset_boundaries() {
+        let (_d, s) = store();
+        // 64자는 형식상 유효 — 파일이 없을 뿐(NotFound)
+        let ok64 = "a".repeat(64);
+        assert_eq!(s.save_body(&ok64, "x").unwrap_err().kind(), io::ErrorKind::NotFound);
+        let too_long = "a".repeat(65);
+        assert_eq!(s.save_body(&too_long, "x").unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(s.save_body("한글아이디", "x").unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(s.save_body("", "x").unwrap_err().kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn settings_with_unknown_fields_still_load() {
+        // 미래 버전이 쓴 settings.json(모르는 필드 포함)도 그대로 읽힌다 — 전방호환
+        let d = TempDir::new().unwrap();
+        fs::write(
+            d.path().join("settings.json"),
+            r#"{"default_color":"pink","future_field":{"nested":true}}"#,
+        )
+        .unwrap();
+        let s = Store::new(d.path()).unwrap();
+        assert_eq!(s.settings().default_color, "pink");
+    }
+
+    #[test]
+    fn migration_leaves_ids_stable_across_restarts() {
+        // 개명 마이그레이션은 멱등 — 재시작마다 파일명이 또 바뀌면 안 된다
+        let d = TempDir::new().unwrap();
+        fs::create_dir_all(d.path().join("notes")).unwrap();
+        let old_id = "0198aaaa-bbbb-4ccc-8ddd-eeeeffff0001";
+        fs::write(
+            d.path().join("notes").join(format!("{old_id}.md")),
+            format!("---\nid: {old_id}\ncreated_at: \"2026-08-01T09:30:00+09:00\"\n---\n본문"),
+        )
+        .unwrap();
+        let s = Store::new(d.path()).unwrap();
+        let id1 = s.list()[0].meta.id.clone();
+        drop(s);
+        let s2 = Store::new(d.path()).unwrap();
+        assert_eq!(s2.list()[0].meta.id, id1, "재마이그레이션에도 id 유지");
+    }
+
+    #[test]
+    fn list_ignores_non_md_files() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        fs::write(s.notes_dir().join("readme.txt"), "노트 아님").unwrap();
+        fs::write(s.notes_dir().join("ghost.md.12345.tmp"), "남은 임시 파일").unwrap();
+        let list = s.list();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].meta.id, n.meta.id);
+    }
+
+    #[test]
     fn title_patch_set_and_clear() {
         let (_d, s) = store();
         let n = s.create().unwrap();

@@ -414,16 +414,18 @@ pub async fn check_merge(
     Ok(true)
 }
 
-/// 새 창으로 보기 (#25): 현재 창은 그대로 두고, 그룹에서 아직 창이 없는
-/// 다음 노트를 새 창으로 띄운다. 전부 열려 있으면 다음 노트의 창을 포커스.
-/// (원래 창을 바꾸는 방식은 같은 노트가 두 창에 보이는 순간을 만들었다)
+/// 새 창으로 꺼내기 (#74): 현재 메모가 새 창으로 분리되고, 이 창은 그룹의
+/// 다음 멤버(창 없는 멤버 우선)로 전환된다 — 반환된 노트를 프런트가 표시.
+/// 매핑을 먼저 다음 멤버로 바꾼 뒤 새 창을 만들어, 같은 메모가 두 창에
+/// 보이는 순간을 만들지 않는다. 나머지 멤버가 전부 열려 있으면 전환할 곳이
+/// 없으므로 다음 멤버 창을 포커스만 하고 None.
 #[tauri::command]
 pub async fn pop_out(
     app: AppHandle,
     window: tauri::WebviewWindow,
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
-) -> Result<(), String> {
+) -> Result<Option<Note>, String> {
     let label = window.label().to_string();
     let current_id = wn
         .0
@@ -435,43 +437,100 @@ pub async fn pop_out(
     let (cur, members) = {
         let s = store.lock().map_err(err)?;
         let cur = s.load(&current_id).ok_or("note gone")?;
-        let Some(g) = cur.meta.group.clone() else { return Ok(()) };
+        let Some(g) = cur.meta.group.clone() else { return Ok(None) };
         let ns = s.group_notes(&g);
         (cur, ns)
     };
     if members.len() < 2 {
-        return Ok(());
+        return Ok(None);
     }
-    let idx = members.iter().position(|n| n.meta.id == current_id).unwrap_or(0);
     let mapped: std::collections::HashSet<String> =
         wn.0.lock().map_err(err)?.values().cloned().collect();
-    for k in 1..members.len() {
-        let cand = &members[(idx + k) % members.len()];
-        if !mapped.contains(&cand.meta.id) {
-            let mut c = cand.clone();
-            // 현재 창 옆에 어긋난 위치로
-            c.meta.window.x = cur.meta.window.x + 28.0;
-            c.meta.window.y = cur.meta.window.y + 28.0;
-            crate::windows::open_note_window(&app, &c).map_err(err)?;
-            return Ok(());
+    let Some(next) = pop_out_next(&members, &current_id, &mapped).cloned() else {
+        // 전부 창이 있으면 다음 노트의 창으로 포커스
+        let idx = members.iter().position(|n| n.meta.id == current_id).unwrap_or(0);
+        let next_id = members[(idx + 1) % members.len()].meta.id.clone();
+        let target_label = wn
+            .0
+            .lock()
+            .map_err(err)?
+            .iter()
+            .find(|(_, id)| **id == next_id)
+            .map(|(l, _)| l.clone());
+        if let Some(l) = target_label {
+            if let Some(w) = app.get_webview_window(&l) {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
         }
+        return Ok(None);
+    };
+    // 1) 이 창을 다음 멤버로 전환 — 매핑을 먼저 바꿔야 아래 open_note_window의
+    //    중복 검사가 현재 메모를 "이미 이 창에 있음"으로 오인하지 않는다
+    wn.0.lock().map_err(err)?.insert(label, next.meta.id.clone());
+    // 2) 현재 메모를 옆에 어긋난 새 창으로
+    let mut popped = cur.clone();
+    popped.meta.window.x = cur.meta.window.x + 28.0;
+    popped.meta.window.y = cur.meta.window.y + 28.0;
+    crate::windows::open_note_window(&app, &popped).map_err(err)?;
+    Ok(Some(next))
+}
+
+/// 팝아웃 시 기존 창이 전환할 다음 멤버 — 창이 없는 멤버를 순환 탐색,
+/// 전부 열려 있으면 None (#74). 순수 함수 — 테스트 대상.
+pub fn pop_out_next<'a>(
+    members: &'a [Note],
+    current_id: &str,
+    mapped: &std::collections::HashSet<String>,
+) -> Option<&'a Note> {
+    let idx = members.iter().position(|n| n.meta.id == current_id)?;
+    (1..members.len())
+        .map(|k| &members[(idx + k) % members.len()])
+        .find(|n| !mapped.contains(&n.meta.id))
+}
+
+#[cfg(test)]
+mod pop_out_tests {
+    use super::pop_out_next;
+    use crate::store::{Note, NoteMeta};
+    use std::collections::HashSet;
+
+    fn note(id: &str) -> Note {
+        Note { meta: NoteMeta::new_default(id.into()), body: String::new() }
     }
-    // 전부 창이 있으면 다음 노트의 창으로 포커스
-    let next_id = members[(idx + 1) % members.len()].meta.id.clone();
-    let target_label = wn
-        .0
-        .lock()
-        .map_err(err)?
-        .iter()
-        .find(|(_, id)| **id == next_id)
-        .map(|(l, _)| l.clone());
-    if let Some(l) = target_label {
-        if let Some(w) = app.get_webview_window(&l) {
-            let _ = w.show();
-            let _ = w.set_focus();
-        }
+    fn set(ids: &[&str]) -> HashSet<String> {
+        ids.iter().map(|s| s.to_string()).collect()
     }
-    Ok(())
+
+    #[test]
+    fn prefers_next_member_without_window() {
+        let m = [note("a"), note("b"), note("c")];
+        assert_eq!(pop_out_next(&m, "a", &set(&["a"])).unwrap().meta.id, "b");
+    }
+
+    #[test]
+    fn skips_members_that_already_have_windows() {
+        let m = [note("a"), note("b"), note("c")];
+        assert_eq!(pop_out_next(&m, "a", &set(&["a", "b"])).unwrap().meta.id, "c");
+    }
+
+    #[test]
+    fn wraps_around_the_group() {
+        let m = [note("a"), note("b"), note("c")];
+        assert_eq!(pop_out_next(&m, "c", &set(&["c", "b"])).unwrap().meta.id, "a");
+    }
+
+    #[test]
+    fn none_when_all_other_members_open() {
+        let m = [note("a"), note("b")];
+        assert!(pop_out_next(&m, "a", &set(&["a", "b"])).is_none());
+    }
+
+    #[test]
+    fn none_when_current_not_in_members() {
+        let m = [note("a"), note("b")];
+        assert!(pop_out_next(&m, "x", &set(&[])).is_none());
+    }
 }
 
 #[tauri::command]

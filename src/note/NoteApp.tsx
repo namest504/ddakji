@@ -151,22 +151,33 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     });
   }, [noteId]);
 
+  // 창이 표시하는 노트 전환: note와 noteId를 한 커밋에 같이 바꿔야 한다.
+  // noteId만 먼저 바꾸면 에디터(key=noteId)가 이전 note.body로 리마운트되고,
+  // RichEditor는 마운트 후 body 변경을 무시하므로 이전 메모가 계속 보인다 (#74)
+  const switchTo = useCallback((n: Note, dir: "next" | "prev") => {
+    bodyRef.current = n.body;
+    setSlide(dir);
+    setNote(n);
+    setNoteId(n.meta.id);
+  }, []);
+
   const navigate = useCallback((dir: 1 | -1) => {
     flushBody();
-    setSlide(dir === 1 ? "next" : "prev");
-    api.navGroup(dir).then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
-  }, [flushBody]);
+    api.navGroup(dir)
+      .then((n) => { if (n) switchTo(n, dir === 1 ? "next" : "prev"); })
+      .catch(() => {});
+  }, [flushBody, switchTo]);
 
   const popOut = useCallback(() => {
     flushBody();
-    api.popOut().catch(() => {});
-  }, [flushBody]);
+    // 현재 메모는 새 창으로 나가고, 이 창은 다음 멤버로 전환된다 (#74)
+    api.popOut().then((n) => { if (n) switchTo(n, "next"); }).catch(() => {});
+  }, [flushBody, switchTo]);
 
   const jumpTo = useCallback((id: string, dirHint: "next" | "prev") => {
     flushBody();
-    setSlide(dirHint);
-    api.navTo(id).then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
-  }, [flushBody]);
+    api.navTo(id).then((n) => { if (n) switchTo(n, dirHint); }).catch(() => {});
+  }, [flushBody, switchTo]);
 
   useEffect(() => {
     const onWheel = (e: WheelEvent) => {

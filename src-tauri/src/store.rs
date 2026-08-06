@@ -32,6 +32,9 @@ pub struct NoteMeta {
     pub always_on_top: bool,
     #[serde(default)]
     pub hidden: bool,
+    /// 사용자 지정 제목 — None이면 본문 첫 줄에서 파생
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     /// 모음집(그룹) 이름 — None이면 무소속 (#25)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
@@ -76,6 +79,7 @@ impl NoteMeta {
             window: default_window(),
             always_on_top: false,
             hidden: false,
+            title: None,
             group: None,
             group_order: 0,
         }
@@ -91,6 +95,8 @@ pub struct MetaPatch {
     pub always_on_top: Option<bool>,
     pub hidden: Option<bool>,
     pub window: Option<WindowBounds>,
+    /// 빈 문자열 = 제목 해제(본문 파생으로 복귀)
+    pub title: Option<String>,
     /// 빈 문자열 = 그룹 해제
     pub group: Option<String>,
     pub group_order: Option<u32>,
@@ -516,6 +522,9 @@ impl Store {
         if let Some(v) = &patch.window {
             m.window = v.clone();
         }
+        if let Some(v) = &patch.title {
+            m.title = if v.is_empty() { None } else { Some(v.clone()) };
+        }
         if let Some(v) = &patch.group {
             if v.is_empty() {
                 m.group = None;
@@ -777,6 +786,16 @@ mod tests {
             fs::read_to_string(id_dir.join("storage-path.txt")).unwrap().trim(),
             newp.to_string_lossy()
         );
+    }
+
+    #[test]
+    fn title_patch_set_and_clear() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        s.save_meta(&n.meta.id, &MetaPatch { title: Some("회의록".into()), ..Default::default() }).unwrap();
+        assert_eq!(s.load(&n.meta.id).unwrap().meta.title.as_deref(), Some("회의록"));
+        s.save_meta(&n.meta.id, &MetaPatch { title: Some(String::new()), ..Default::default() }).unwrap();
+        assert_eq!(s.load(&n.meta.id).unwrap().meta.title, None);
     }
 
     #[test]

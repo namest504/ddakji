@@ -27,6 +27,18 @@ export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
 );
 
+export const CloseIcon = () => (
+  <svg {...base}><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6" /></svg>
+);
+
+export const InfoIcon = () => (
+  <svg {...base}>
+    <circle cx="8" cy="8" r="5.7" />
+    <path d="M8 7.6v3.2" />
+    <circle cx="8" cy="5.1" r="0.4" fill="currentColor" />
+  </svg>
+);
+
 export const GroupIcon = () => (
   // 겹친 카드 두 장 — 모음집
   <svg {...base}>

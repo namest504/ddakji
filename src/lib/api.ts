@@ -9,12 +9,15 @@ export interface NoteMeta {
   color: NoteColor; font_size: number; font_family: FontFamily; viewer_mode: boolean;
   window: WindowBounds; always_on_top: boolean; hidden: boolean;
   group?: string | null; group_order: number;
+  title?: string | null;
 }
 export interface Note { meta: NoteMeta; body: string }
 export type MetaPatch = Partial<Pick<NoteMeta,
   "color" | "font_size" | "font_family" | "viewer_mode" | "always_on_top" | "hidden" | "window" | "group_order">> & {
   /** 빈 문자열 = 그룹 해제 */
   group?: string;
+  /** 빈 문자열 = 제목 해제(본문 파생으로 복귀) */
+  title?: string;
 };
 export interface Settings {
   default_color: NoteColor;

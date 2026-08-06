@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import * as api from "../lib/api";
 import type { Note } from "../lib/api";
 import { filterNotes, noteTitle, relativeTime } from "../lib/noteUtils";
-import { GearIcon, PlusIcon, TrashIcon } from "../note/icons";
+import { GearIcon, InfoIcon, PlusIcon, TrashIcon } from "../note/icons";
+import DetailView from "./DetailView";
 import SettingsView from "./SettingsView";
 
 export default function ListApp() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"list" | "settings">("list");
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const reload = useCallback(() => { api.listNotes().then(setNotes); }, []);
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function ListApp() {
   };
 
   if (view === "settings") return <SettingsView onBack={() => setView("list")} />;
+  if (detailId) return <DetailView noteId={detailId} onBack={() => { setDetailId(null); reload(); }} />;
 
   const shown = filterNotes(notes, query);
   return (
@@ -52,6 +55,10 @@ export default function ListApp() {
                 <span className="dot" data-color={n.meta.color} />
                 <span className="title">{noteTitle(n)}</span>
                 <span className="row-dim">{relativeTime(n.meta.updated_at)}</span>
+                <button className="row-info" title="자세히 보기"
+                  onClick={(e) => { e.stopPropagation(); setDetailId(n.meta.id); }}>
+                  <InfoIcon />
+                </button>
                 <button className="row-delete" title="삭제"
                   onClick={(e) => { e.stopPropagation(); remove(n.meta.id); }}>
                   <TrashIcon />

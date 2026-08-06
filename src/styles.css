@@ -47,6 +47,7 @@ html, body { background: transparent; }
   flex: 1; min-width: 90px; border: 0; border-radius: 6px; padding: 4px 8px;
   font-size: 12px; outline: none; background: rgba(255,255,255,.65); color: #1c1c1e;
 }
+.font-custom::placeholder { color: currentColor; opacity: .55; }
 .settings .font-custom { background: var(--l-field); max-width: none; width: 100%; }
 .font-picker { padding: 8px 14px 12px; border-top: 1px solid var(--l-sep); }
 .font-list {
@@ -216,6 +217,13 @@ html, body { background: transparent; }
   display: inline-flex; align-items: center; justify-content: center;
 }
 .list-row:hover .row-delete { opacity: 1; }
+.row-info {
+  border: 0; background: transparent; cursor: pointer; color: var(--l-dim);
+  width: 24px; height: 24px; border-radius: 6px; opacity: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.list-row:hover .row-info { opacity: 1; }
+.row-info:hover { background: var(--l-hover); color: var(--l-text); }
 .row-delete:hover { background: rgba(0,0,0,.08); color: #c0392b; }
 .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(0,0,0,.12); }
 .dot[data-color="yellow"]   { background: #f5e478; }
@@ -290,7 +298,9 @@ html, body { background: transparent; }
   background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.45));
   color: rgba(255,255,255,.6);
 }
-:root[data-theme="dark"] .font-custom { background: rgba(255,255,255,.12); color: #eee; }
+:root[data-theme="dark"] .font-custom {
+  background: rgba(255,255,255,.18); color: #eee; border: 1px solid rgba(255,255,255,.22);
+}
 
 :root[data-theme="dark"] .list {
   --l-bg: rgba(28,28,30,.55); --l-card: rgba(44,44,46,.78); --l-sep: rgba(84,84,88,.65);

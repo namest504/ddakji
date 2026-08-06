@@ -246,6 +246,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
           }
         }}
         onOpenList={() => api.openList()}
+        onClose={() => { flushBody(); getCurrentWindow().close(); }}
       />
       {saveError && (
         <div className="save-error">

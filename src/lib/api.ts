@@ -38,6 +38,7 @@ export const saveImage = (id: string, ext: string, bytes: Uint8Array) =>
   invoke<string>("save_image", { id, ext, bytes: Array.from(bytes) });
 export const importImage = (id: string, path: string) =>
   invoke<string>("import_image", { id, path });
+export const importMarkdown = (path: string) => invoke<Note>("import_markdown", { path });
 export const dataRoot = () => invoke<string>("data_root");
 export const getSettings = () => invoke<Settings>("get_settings");
 export const openDataDir = () => invoke<void>("open_data_dir");

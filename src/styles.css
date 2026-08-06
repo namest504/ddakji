@@ -163,6 +163,25 @@ html, body { background: transparent; overflow: hidden; }
 .tiptap blockquote { border-left: 3px solid rgba(0,0,0,.2); margin: 4px 0; padding-left: 8px; }
 .tiptap hr { border: 0; border-top: 1px solid rgba(0,0,0,.2); margin: 8px 0; }
 
+/* 마크다운 표 (#71) — 좁은 창에서는 표 영역만 가로 스크롤 (코드 블록과 동일 패턴) */
+.tiptap .tableWrapper { overflow-x: auto; max-width: 100%; margin: 4px 0; }
+.tiptap .tableWrapper::-webkit-scrollbar { height: 6px; }
+.tiptap .tableWrapper::-webkit-scrollbar-thumb { background: rgba(0,0,0,.25); border-radius: 3px; }
+:root[data-theme="dark"] .tiptap .tableWrapper::-webkit-scrollbar-thumb,
+.note[data-color="charcoal"] .tiptap .tableWrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,.3); }
+.tiptap table { border-collapse: collapse; width: max-content; max-width: none; }
+.tiptap th, .tiptap td {
+  border: 1px solid rgba(0,0,0,.22); padding: 3px 8px;
+  text-align: left; vertical-align: top; min-width: 2em;
+}
+.tiptap th { background: rgba(0,0,0,.06); font-weight: 600; }
+.tiptap th p, .tiptap td p { margin: 0; }
+.tiptap .selectedCell { background: rgba(80,160,220,.18); }
+:root[data-theme="dark"] .tiptap th, :root[data-theme="dark"] .tiptap td,
+.note[data-color="charcoal"] .tiptap th, .note[data-color="charcoal"] .tiptap td { border-color: rgba(255,255,255,.25); }
+:root[data-theme="dark"] .tiptap th,
+.note[data-color="charcoal"] .tiptap th { background: rgba(255,255,255,.10); }
+
 /* 하단 서식 바 (#18) — 상단 툴바처럼 평소엔 숨고, 하단 스트립 호버 시 나타난다 */
 .format-bar {
   display: flex; align-items: center; gap: 2px; padding: 4px 6px;

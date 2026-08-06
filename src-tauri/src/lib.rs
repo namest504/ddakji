@@ -30,6 +30,7 @@ pub fn run() {
             commands::open_list,
             commands::save_image,
             commands::import_image,
+            commands::import_markdown,
             commands::data_root,
             commands::get_settings,
             commands::save_settings,

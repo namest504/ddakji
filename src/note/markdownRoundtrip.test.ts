@@ -3,6 +3,7 @@ import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
+import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "tiptap-markdown";
 
 // 에디터가 마크다운을 읽고 다시 직렬화했을 때 의미가 보존되는지 (QA #2 대체).
@@ -13,6 +14,7 @@ const roundtrip = (src: string): string => {
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
+      TableKit.configure({ table: { resizable: false } }),
       Image,
       Markdown.configure({ html: true }),
     ],
@@ -124,5 +126,15 @@ describe("마크다운 왕복 보존", () => {
     const out = roundtrip("- [ ] 상위\n  - [x] 하위");
     expect(out).toContain("[ ] 상위");
     expect(out).toMatch(/\n\s+- \[x\] 하위/);
+  });
+
+  it("GFM 표 — 헤더·셀·구조 보존 (#71)", () => {
+    const out = roundtrip("| 입력 | 동작 |\n| --- | --- |\n| `Esc` | 노멀 모드 |\n| `i` | 커서 앞 입력 |");
+    expect(out).toContain("| 입력 | 동작 |");
+    expect(out).toMatch(/\| ---+ \| ---+ \|/);
+    expect(out).toContain("노멀 모드");
+    expect(out).toContain("커서 앞 입력");
+    // 셀 안 인라인 코드도 유지
+    expect(out).toContain("`Esc`");
   });
 });

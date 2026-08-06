@@ -646,6 +646,14 @@ impl Store {
         Ok(format!("assets/{note_id}/{name}"))
     }
 
+    /// 외부 마크다운 파일을 새 노트로 가져온다 (#72). UTF-8 텍스트만 —
+    /// 아닌 파일은 읽기 단계에서 에러가 나고 노트는 만들어지지 않는다.
+    pub fn import_markdown_file(&self, src: &Path) -> io::Result<Note> {
+        let body = fs::read_to_string(src)?;
+        let note = self.create()?;
+        self.save_body(&note.meta.id, &body)
+    }
+
     pub fn import_asset(&self, note_id: &str, src: &Path) -> io::Result<String> {
         validate_id(note_id)?;
         let ext = src
@@ -1023,6 +1031,29 @@ mod tests {
         drop(s);
         let s2 = Store::new(d.path()).unwrap();
         assert_eq!(s2.list()[0].meta.id, id1, "재마이그레이션에도 id 유지");
+    }
+
+    #[test]
+    fn import_markdown_file_creates_note_with_body() {
+        let (_d, s) = store();
+        let src = _d.path().join("vim-cheatsheet.md");
+        let content = "# Vim 치트시트\n\n| 입력 | 동작 |\n| --- | --- |\n| Esc | 노멀 모드 |";
+        fs::write(&src, content).unwrap();
+        let n = s.import_markdown_file(&src).unwrap();
+        assert_eq!(n.body, content);
+        assert_eq!(s.load(&n.meta.id).unwrap().body, content, "디스크에도 저장");
+        assert!(src.exists(), "원본 파일은 건드리지 않는다");
+    }
+
+    #[test]
+    fn import_markdown_missing_or_binary_creates_nothing() {
+        let (_d, s) = store();
+        assert!(s.import_markdown_file(Path::new("/no/such/file.md")).is_err());
+        // UTF-8이 아닌 파일은 읽기에서 실패하고 노트가 생기지 않는다
+        let bin = _d.path().join("image.md");
+        fs::write(&bin, [0xff, 0xfe, 0x00, 0x80]).unwrap();
+        assert!(s.import_markdown_file(&bin).is_err());
+        assert!(s.list().is_empty(), "실패 시 빈 노트를 남기지 않는다");
     }
 
     #[test]

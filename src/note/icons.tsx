@@ -54,6 +54,15 @@ export const InfoIcon = () => (
   </svg>
 );
 
+export const ImportIcon = () => (
+  // 트레이로 내려오는 화살표 — 마크다운 파일 가져오기
+  <svg {...base}>
+    <path d="M8 2.5V9" />
+    <path d="M5.5 6.7L8 9.2l2.5-2.5" />
+    <path d="M2.5 10.2v1.9A1.4 1.4 0 0 0 3.9 13.5h8.2a1.4 1.4 0 0 0 1.4-1.4v-1.9" />
+  </svg>
+);
+
 export const GroupIcon = () => (
   // 겹친 카드 두 장 — 모음집
   <svg {...base}>

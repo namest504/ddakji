@@ -67,7 +67,29 @@ pub fn run() {
                 let note = s.lock().unwrap().create()?;
                 windows::open_note_window(app.handle(), &note)?;
             } else {
-                for n in visible {
+                // 모음집은 그룹당 창 하나(순서상 첫 노트)만 연다 — 재시작 때마다
+                // 합쳐둔 창이 전부 펼쳐지던 문제 (#25). 전부 펼치기는 트레이 메뉴로.
+                use std::collections::{HashMap, HashSet};
+                let mut group_first: HashMap<&str, &store::Note> = HashMap::new();
+                for n in &visible {
+                    if let Some(g) = n.meta.group.as_deref() {
+                        let cur = group_first.entry(g).or_insert(n);
+                        if (n.meta.group_order, n.meta.created_at.as_str())
+                            < (cur.meta.group_order, cur.meta.created_at.as_str())
+                        {
+                            *cur = n;
+                        }
+                    }
+                }
+                let mut opened: HashSet<&str> = HashSet::new();
+                for n in &visible {
+                    if let Some(g) = n.meta.group.as_deref() {
+                        if !opened.insert(g) {
+                            continue;
+                        }
+                        windows::open_note_window(app.handle(), group_first[g])?;
+                        continue;
+                    }
                     windows::open_note_window(app.handle(), n)?;
                 }
             }

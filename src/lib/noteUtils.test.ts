@@ -28,6 +28,11 @@ describe("filterNotes", () => {
 });
 
 describe("noteTitle", () => {
+  it("meta.title이 있으면 우선", () => {
+    const n = note("a", "# 본문 제목");
+    n.meta.title = "지정 제목";
+    expect(noteTitle(n)).toBe("지정 제목");
+  });
   it("uses first non-empty line without md syntax", () => {
     expect(noteTitle(note("a", "\n# 제목이다\n본문"))).toBe("제목이다");
   });
@@ -66,16 +71,26 @@ describe("fontStack", () => {
 
 describe("relativeTime", () => {
   const now = new Date("2026-08-05T14:00:00+09:00");
-  it("오늘이면 시각으로", () => {
-    const t = "2026-08-05T14:10:00+09:00";
-    const expected = new Date(t).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
-    expect(relativeTime(t, now)).toBe(expected);
+  const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
+  it("1분 미만은 방금", () => {
+    expect(relativeTime(ago(30_000), now)).toBe("방금");
   });
-  it("어제면 '어제'", () => {
-    expect(relativeTime("2026-08-04T23:59:00+09:00", now)).toBe("어제");
+  it("분 단위", () => {
+    expect(relativeTime(ago(5 * 60_000), now)).toBe("5분 전");
   });
-  it("그 이전이면 월/일", () => {
-    expect(relativeTime("2026-07-30T10:00:00+09:00", now)).toBe("7/30");
+  it("같은 날은 시간 단위", () => {
+    expect(relativeTime(ago(3 * 3600_000), now)).toBe("3시간 전");
+  });
+  it("하루 전·이틀 전·N일 전", () => {
+    expect(relativeTime(ago(26 * 3600_000), now)).toBe("하루 전");
+    expect(relativeTime(ago(50 * 3600_000), now)).toBe("이틀 전");
+    expect(relativeTime(ago(5 * 24 * 3600_000), now)).toBe("5일 전");
+  });
+  it("7일 이상 같은 해는 월·일", () => {
+    expect(relativeTime("2026-07-20T12:00:00+09:00", now)).toBe("7월 20일");
+  });
+  it("다른 해는 연도 포함", () => {
+    expect(relativeTime("2025-12-30T12:00:00+09:00", now)).toBe("2025년 12월 30일");
   });
   it("파싱 불가면 빈 문자열", () => {
     expect(relativeTime("", now)).toBe("");

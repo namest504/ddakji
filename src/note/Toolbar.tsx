@@ -2,7 +2,7 @@ import { useState } from "react";
 import * as api from "../lib/api";
 import type { FontFamily, Note, NoteColor } from "../lib/api";
 import { fontStack } from "../lib/noteUtils";
-import { GroupIcon, ListIcon, PinIcon, PlusIcon, TrashIcon } from "./icons";
+import { CloseIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, TrashIcon } from "./icons";
 
 const COLORS: NoteColor[] = ["yellow", "green", "pink", "purple", "blue", "gray", "charcoal"];
 const FONTS: { key: FontFamily; label: string }[] = [
@@ -21,6 +21,7 @@ interface Props {
   onNew: () => void;
   onDelete: () => void;
   onOpenList: () => void;
+  onClose: () => void;
 }
 
 export default function Toolbar(p: Props) {
@@ -57,6 +58,7 @@ export default function Toolbar(p: Props) {
       <button title="글씨 크게" className="font-btn" onClick={() => p.onFontDelta(1)}>A＋</button>
       <button title="노트 목록" onClick={p.onOpenList}><ListIcon /></button>
       <button title="삭제" onClick={p.onDelete}><TrashIcon /></button>
+      <button title="닫기 (트레이로 숨김)" onClick={p.onClose}><CloseIcon /></button>
       {popover === "colors" && (
         <div className="color-row">
           {COLORS.map((c) => (
@@ -73,11 +75,16 @@ export default function Toolbar(p: Props) {
               {g}
             </button>
           ))}
-          <input className="font-custom" placeholder="새 모음집 이름"
+          <input className="font-custom" placeholder="새 모음집 이름" autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const v = e.currentTarget.value.trim();
+                e.currentTarget.blur();
                 if (v) { p.onGroup(v); setPopover(null); }
+              }
+              if (e.key === "Escape") {
+                e.currentTarget.blur();
+                setPopover(null);
               }
             }} />
           {m.group && (

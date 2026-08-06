@@ -25,19 +25,32 @@ export function filterNotes(notes: Note[], query: string): Note[] {
   return notes.filter((n) => n.body.toLowerCase().includes(q));
 }
 
-// 목록의 수정시각 표시: 오늘 → "오후 2:10", 어제 → "어제", 그 외 → "M/D"
+// 목록의 수정시각 표시: 방금/N분 전/N시간 전 → 하루 전/이틀 전/N일 전 → 날짜 명시
 export function relativeTime(iso: string, now: Date = new Date()): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
-  const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  if (sameDay(d, now)) {
-    return d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+  const diffMs = now.getTime() - d.getTime();
+  const dayStart = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dayDiff = Math.round((dayStart(now) - dayStart(d)) / 86_400_000);
+  if (dayDiff <= 0) {
+    if (diffMs < 60_000) return "방금";
+    const mins = Math.floor(diffMs / 60_000);
+    if (mins < 60) return `${mins}분 전`;
+    return `${Math.floor(mins / 60)}시간 전`;
   }
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (sameDay(d, yesterday)) return "어제";
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  if (dayDiff === 1) return "하루 전";
+  if (dayDiff === 2) return "이틀 전";
+  if (dayDiff < 7) return `${dayDiff}일 전`;
+  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+// 상세 보기용 전체 일시: 2026.08.05 14:03
+export function fullDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 // 썸네일 미리보기용: 마크다운 기호를 걷어낸 플레인 텍스트 (체크박스는 ☐/☑)
@@ -56,6 +69,8 @@ export function plainPreview(body: string): string {
 }
 
 export function noteTitle(note: Note): string {
+  const custom = note.meta.title?.trim();
+  if (custom) return custom;
   const line = note.body.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
   if (!line) return "(빈 노트)";
   return line.replace(/^(#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+)+/, "").replace(/[*_`~]/g, "").trim() || "(빈 노트)";

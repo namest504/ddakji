@@ -289,6 +289,38 @@ pub async fn nav_to(
     Ok(Some(target))
 }
 
+/// 드래그 중 프리뷰: 지금 놓으면 합쳐질 상태(60%+ 겹침)인지 — 읽기 전용
+#[tauri::command]
+pub async fn merge_preview(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    wn: State<'_, WindowNotes>,
+) -> Result<bool, String> {
+    let label = window.label().to_string();
+    let Ok(ap) = window.outer_position() else { return Ok(false) };
+    let Ok(asz) = window.outer_size() else { return Ok(false) };
+    let a = (ap.x as f64, ap.y as f64, asz.width as f64, asz.height as f64);
+    let entries: Vec<String> = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .iter()
+        .filter(|(l, _)| **l != label)
+        .map(|(l, _)| l.clone())
+        .collect();
+    for l in entries {
+        let Some(w) = app.get_webview_window(&l) else { continue };
+        if !w.is_visible().unwrap_or(false) {
+            continue;
+        }
+        let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else { continue };
+        if overlap_ratio(a, (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64)) >= 0.6 {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// 드래그 종료 후 호출 — 다른 노트 창과 충분히 겹치면(60%+) 그 노트와 같은
 /// 모음집으로 묶고, 끌던 창은 닫는다 (#25 G4)
 #[tauri::command]

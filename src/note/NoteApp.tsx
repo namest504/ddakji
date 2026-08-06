@@ -14,6 +14,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   const [noteId, setNoteId] = useState(initialNoteId);
   const [note, setNote] = useState<Note | null>(null);
   const [members, setMembers] = useState<string[]>([]); // 그룹 순서대로의 노트 id (#25 G2)
+  const [mergeHint, setMergeHint] = useState(false); // 드래그 중 "놓으면 합쳐짐" 프리뷰
   const [slide, setSlide] = useState<"next" | "prev" | null>(null);
   const [base, setBase] = useState<string | null>(null); // 데이터 루트 (asset URL용)
   const [saveError, setSaveError] = useState(false);
@@ -110,11 +111,21 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         api.checkMerge().catch(() => {});
       }
     };
+    let lastPreview = 0;
+    let previewClear: number | undefined;
     const un1 = win.onMoved(({ payload }) => {
       if (lastPos && Math.abs(payload.x - lastPos.x) + Math.abs(payload.y - lastPos.y) > 30) {
         draggedFar = true;
       }
       lastPos = { x: payload.x, y: payload.y };
+      // 드래그 중 흡수 예고: 겹침이면 빨려드는 프리뷰, 벗어나거나 멈추면 해제
+      const nowT = Date.now();
+      if (nowT - lastPreview > 100) {
+        lastPreview = nowT;
+        api.mergePreview().then(setMergeHint).catch(() => {});
+      }
+      window.clearTimeout(previewClear);
+      previewClear = window.setTimeout(() => setMergeHint(false), 600);
       clearTimeout(t); t = window.setTimeout(save, 500);
     });
     const un2 = win.onResized(() => { clearTimeout(t); t = window.setTimeout(save, 500); });
@@ -265,7 +276,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   };
 
   return (
-    <div className="note" data-color={m.color}
+    <div className={"note" + (mergeHint ? " merge-hint" : "")} data-color={m.color}
       style={{ fontSize: m.font_size, fontFamily: fontStack(m.font_family) }}>
       <Toolbar
         note={note}

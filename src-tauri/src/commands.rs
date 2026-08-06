@@ -184,31 +184,15 @@ pub fn overlap_ratio(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> f64 {
     (iw * ih) / (aw * ah)
 }
 
-/// 드래그 합치기 시 새 그룹 이름 — 대상 노트의 제목(지정 제목 → 본문 첫 줄) 기반
-pub fn derive_group_name(note: &Note) -> String {
-    if let Some(t) = note.meta.title.as_deref() {
-        let t = t.trim();
-        if !t.is_empty() {
-            return t.chars().take(12).collect();
+/// 드래그 합치기 시 새 그룹 이름 — "새 그룹 {번호}" 순번 자동 부여
+pub fn next_new_group_name(existing: &[String]) -> String {
+    let mut n = 1u32;
+    loop {
+        let name = format!("새 그룹 {n}");
+        if !existing.iter().any(|g| g == &name) {
+            return name;
         }
-    }
-    let line = note
-        .body
-        .lines()
-        .map(|l| l.trim())
-        .find(|l| !l.is_empty())
-        .unwrap_or("");
-    let cleaned: String = line
-        .trim_start_matches(|c: char| c == '#' || c == '-' || c == '*' || c == '>' || c == ' ')
-        .chars()
-        .take(12)
-        .collect::<String>()
-        .trim()
-        .to_string();
-    if cleaned.is_empty() {
-        "모음집".into()
-    } else {
-        cleaned
+        n += 1;
     }
 }
 
@@ -334,44 +318,67 @@ pub async fn check_merge(
         .filter(|(l, _)| **l != label)
         .map(|(l, id)| (l.clone(), id.clone()))
         .collect();
-    let mut best: Option<(String, String, f64)> = None;
+    let mut best: Option<(String, String, f64, (f64, f64, f64, f64))> = None;
     for (l, id) in entries {
         let Some(w) = app.get_webview_window(&l) else { continue };
         if !w.is_visible().unwrap_or(false) {
             continue;
         }
         let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else { continue };
-        let r = overlap_ratio(a, (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64));
-        if r > best.as_ref().map(|b| b.2).unwrap_or(0.0) {
-            best = Some((l, id, r));
+        let b = (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64);
+        let r = overlap_ratio(a, b);
+        if r > best.as_ref().map(|x| x.2).unwrap_or(0.0) {
+            best = Some((l, id, r, b));
         }
     }
-    let Some((target_label, target_id, ratio)) = best else { return Ok(false) };
+    let Some((target_label, target_id, ratio, tb)) = best else { return Ok(false) };
     if ratio < 0.6 || target_id == moved_id {
         return Ok(false);
     }
+    let mut changed = false;
     {
         let s = store.lock().map_err(err)?;
         let target = s.load(&target_id).ok_or("target gone")?;
-        let group = match target.meta.group.clone() {
-            Some(g) => g,
-            None => {
-                let name = derive_group_name(&target);
-                s.save_meta(
-                    &target_id,
-                    &MetaPatch { group: Some(name.clone()), ..Default::default() },
-                )
+        let moved = s.load(&moved_id).ok_or("note gone")?;
+        // 이미 같은 그룹이면 메타 변경 없이 창만 흡수한다
+        if target.meta.group.is_none() || target.meta.group != moved.meta.group {
+            let group = match target.meta.group.clone() {
+                Some(g) => g,
+                None => {
+                    let name = next_new_group_name(&s.group_names());
+                    s.save_meta(
+                        &target_id,
+                        &MetaPatch { group: Some(name.clone()), ..Default::default() },
+                    )
+                    .map_err(err)?;
+                    name
+                }
+            };
+            s.save_meta(&moved_id, &MetaPatch { group: Some(group), ..Default::default() })
                 .map_err(err)?;
-                name
-            }
-        };
-        s.save_meta(&moved_id, &MetaPatch { group: Some(group), ..Default::default() })
-            .map_err(err)?;
+            changed = true;
+        }
+    }
+    // 흡수 애니메이션: 끌던 창이 대상 중심으로 미끄러져 들어간 뒤 닫힌다
+    let (tcx, tcy) = (tb.0 + tb.2 / 2.0, tb.1 + tb.3 / 2.0);
+    let (scx, scy) = (a.0 + a.2 / 2.0, a.1 + a.3 / 2.0);
+    for i in 1..=8u32 {
+        let t = i as f64 / 8.0;
+        let e = t * t * (3.0 - 2.0 * t); // smoothstep
+        let cx = scx + (tcx - scx) * e;
+        let cy = scy + (tcy - scy) * e;
+        let _ = window.set_position(tauri::PhysicalPosition::new(
+            (cx - a.2 / 2.0) as i32,
+            (cy - a.3 / 2.0) as i32,
+        ));
+        std::thread::sleep(std::time::Duration::from_millis(14));
     }
     if let Some(w) = app.get_webview_window(&target_label) {
         let _ = w.set_focus();
     }
-    let _ = app.emit("groups-changed", ());
+    if changed {
+        let _ = app.emit("groups-changed", ());
+    }
     let _ = window.destroy();
     Ok(true)
 }
@@ -405,8 +412,7 @@ pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> R
 
 #[cfg(test)]
 mod geom_tests {
-    use super::{derive_group_name, overlap_ratio};
-    use crate::store::{Note, NoteMeta};
+    use super::{next_new_group_name, overlap_ratio};
 
     #[test]
     fn overlap_full_partial_none() {
@@ -417,13 +423,15 @@ mod geom_tests {
     }
 
     #[test]
-    fn group_name_from_title_or_body() {
-        let mut n = Note { meta: NoteMeta::new_default("x".into()), body: "# 회의 기록입니다 아주 길어요\n내용".into() };
-        assert_eq!(derive_group_name(&n), "회의 기록입니다 아주");
-        n.meta.title = Some("업무".into());
-        assert_eq!(derive_group_name(&n), "업무");
-        n.meta.title = None;
-        n.body = "".into();
-        assert_eq!(derive_group_name(&n), "모음집");
+    fn new_group_names_are_numbered() {
+        assert_eq!(next_new_group_name(&[]), "새 그룹 1");
+        assert_eq!(
+            next_new_group_name(&["새 그룹 1".into(), "기타".into()]),
+            "새 그룹 2"
+        );
+        assert_eq!(
+            next_new_group_name(&["새 그룹 1".into(), "새 그룹 2".into()]),
+            "새 그룹 3"
+        );
     }
 }

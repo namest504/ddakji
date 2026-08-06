@@ -53,7 +53,7 @@ export default function Toolbar(p: Props) {
         <GroupIcon />
       </button>
       {p.canPopOut && (
-        <button title="새 창으로 분리 (Ctrl+Shift+P)" onClick={p.onPopOut}><PopOutIcon /></button>
+        <button title="그룹 노트를 새 창으로 (Ctrl+Shift+P)" onClick={p.onPopOut}><PopOutIcon /></button>
       )}
       <button title="항상 위" className={m.always_on_top ? "active" : ""} onClick={p.onPin}>
         <PinIcon filled={m.always_on_top} />

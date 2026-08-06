@@ -48,7 +48,7 @@ export const navGroup = (dir: 1 | -1) => invoke<Note | null>("nav_group", { dir 
 export const navTo = (id: string) => invoke<Note | null>("nav_to", { id });
 export const groupMembers = (id: string) => invoke<string[]>("group_members", { id });
 export const checkMerge = () => invoke<boolean>("check_merge");
-export const popOut = () => invoke<Note | null>("pop_out");
+export const popOut = () => invoke<void>("pop_out");
 export const listGroups = () => invoke<string[]>("list_groups");
 export const getLastViewed = () => invoke<Note | null>("get_last_viewed");
 export const saveSettings = (settings: Settings) => invoke<void>("save_settings", { settings });

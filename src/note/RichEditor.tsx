@@ -5,6 +5,7 @@ import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
+import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "tiptap-markdown";
 import { convertFileSrc } from "@tauri-apps/api/core";
 
@@ -65,8 +66,11 @@ export default function RichEditor({ body, base, onChange, onEditor, onPasteFile
       // 체크박스: `- [ ] `/`[ ] ` 입력으로 생성, 클릭 토글, GFM(- [x])으로 저장
       TaskList,
       TaskItemSafe.configure({ nested: true }),
+      // GFM 표 (#71) — 리사이즈 핸들은 끔 (마크다운에 폭을 저장할 수 없다)
+      TableKit.configure({ table: { resizable: false } }),
       assetImage(base),
-      Markdown.configure({ html: true }),
+      // transformPastedText: 마크다운 텍스트를 붙여넣으면 서식으로 파싱 (#72)
+      Markdown.configure({ html: true, transformPastedText: true }),
     ],
     content: body,
     autofocus: "end",

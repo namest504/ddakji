@@ -7,6 +7,7 @@ vi.mock("../lib/api", () => ({
   deleteNote: vi.fn(),
   openNote: vi.fn(),
   saveMeta: vi.fn(),
+  importMarkdown: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -14,11 +15,11 @@ vi.mock("@tauri-apps/api/window", () => ({
     setFocus: () => Promise.resolve(),
   }),
 }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn(), open: vi.fn() }));
 
 import * as api from "../lib/api";
 import type { Note, NoteMeta } from "../lib/api";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { ask, open } from "@tauri-apps/plugin-dialog";
 import ListApp from "./ListApp";
 
 const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note => ({
@@ -107,6 +108,28 @@ describe("ListApp 행 동작", () => {
     fireEvent.click(within(row).getByTitle("자세히 보기"));
     await screen.findByText("자세히 보기");
     expect(api.openNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("ListApp 마크다운 가져오기 (#72)", () => {
+  it("여러 파일을 고르면 각각 노트로 가져온다", async () => {
+    render(<ListApp />);
+    await screen.findByText("노트가 없습니다. ＋로 시작하세요.");
+    vi.mocked(open).mockResolvedValue(["C:/docs/a.md", "C:/docs/b.md"]);
+    vi.mocked(api.importMarkdown).mockResolvedValue(mkNote("x", "# 가져온 노트"));
+    fireEvent.click(screen.getByTitle("마크다운 가져오기"));
+    await waitFor(() => expect(api.importMarkdown).toHaveBeenCalledTimes(2));
+    expect(api.importMarkdown).toHaveBeenCalledWith("C:/docs/a.md");
+    expect(api.importMarkdown).toHaveBeenCalledWith("C:/docs/b.md");
+  });
+
+  it("파일 선택을 취소하면 아무 일도 없다", async () => {
+    render(<ListApp />);
+    await screen.findByText("노트가 없습니다. ＋로 시작하세요.");
+    vi.mocked(open).mockResolvedValue(null);
+    fireEvent.click(screen.getByTitle("마크다운 가져오기"));
+    await waitFor(() => expect(open).toHaveBeenCalled());
+    expect(api.importMarkdown).not.toHaveBeenCalled();
   });
 });
 

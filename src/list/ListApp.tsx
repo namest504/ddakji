@@ -3,7 +3,7 @@ import * as api from "../lib/api";
 import type { Note } from "../lib/api";
 import { filterNotes, noteTitle, relativeTime } from "../lib/noteUtils";
 import { CheckboxIcon } from "../note/icons";
-import { GearIcon, InfoIcon, PlusIcon, TrashIcon } from "../note/icons";
+import { GearIcon, ImportIcon, InfoIcon, PlusIcon, TrashIcon } from "../note/icons";
 import DetailView from "./DetailView";
 import SettingsView from "./SettingsView";
 
@@ -44,6 +44,18 @@ export default function ListApp() {
     });
   };
 
+  // 기존 마크다운 파일을 새 노트로 (#72) — 다중 선택 지원
+  const importMd = async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const sel = await open({
+      multiple: true,
+      filters: [{ name: "Markdown", extensions: ["md", "markdown", "txt"] }],
+    });
+    const paths = Array.isArray(sel) ? sel : typeof sel === "string" ? [sel] : [];
+    for (const p of paths) await api.importMarkdown(p).catch(() => {});
+    if (paths.length) reload();
+  };
+
   const applyGroup = async (name: string) => {
     for (const id of selected) {
       await api.saveMeta(id, { group: name }).catch(() => {});
@@ -77,6 +89,9 @@ export default function ListApp() {
         <input placeholder="검색" value={query} onChange={(e) => setQuery(e.target.value)} />
         <button className="icon-btn" title="새 노트" onClick={() => api.createNote().then(reload)}>
           <PlusIcon />
+        </button>
+        <button className="icon-btn" title="마크다운 가져오기" onClick={importMd}>
+          <ImportIcon />
         </button>
         <button className="icon-btn" title="선택해서 모음집으로 묶기"
           onClick={() => { setSelecting(!selecting); setSelected(new Set()); }}>

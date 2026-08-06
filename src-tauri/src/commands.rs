@@ -113,6 +113,21 @@ pub fn save_image(
     store.lock().map_err(err)?.save_asset(&id, &ext, &bytes).map_err(err)
 }
 
+// 창을 여는 커맨드이므로 async 필수 (#8 데드락 규칙)
+#[tauri::command]
+pub async fn import_markdown(
+    app: AppHandle,
+    store: StoreState<'_>,
+    path: String,
+) -> Result<Note, String> {
+    let note = {
+        let s = store.lock().map_err(err)?;
+        s.import_markdown_file(std::path::Path::new(&path)).map_err(err)?
+    };
+    windows::open_note_window(&app, &note).map_err(err)?;
+    Ok(note)
+}
+
 #[tauri::command]
 pub fn import_image(store: StoreState, id: String, path: String) -> Result<String, String> {
     store

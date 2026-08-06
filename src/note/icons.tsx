@@ -27,6 +27,14 @@ export const ListIcon = () => (
   <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
 );
 
+export const NavLeftIcon = () => (
+  <svg {...base} width="18" height="18"><path d="M10 3.4L5.4 8 10 12.6" /></svg>
+);
+
+export const NavRightIcon = () => (
+  <svg {...base} width="18" height="18"><path d="M6 3.4L10.6 8 6 12.6" /></svg>
+);
+
 export const CloseIcon = () => (
   <svg {...base}><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6" /></svg>
 );

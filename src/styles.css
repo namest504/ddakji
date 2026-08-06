@@ -316,3 +316,56 @@ html, body { background: transparent; }
 :root[data-theme="dark"] .settings-row.link { color: #409cff; }
 :root[data-theme="dark"] .row-delete:hover { background: rgba(255,255,255,.1); }
 :root[data-theme="dark"] .dot { border-color: rgba(255,255,255,.15); }
+
+/* ── 모음집 넘기기 UI (#25 G2) ── */
+.nav-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 6;
+  width: 26px; height: 46px; border: 0; border-radius: 8px; padding: 0;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: transparent; color: rgba(0,0,0,.45); opacity: 0; transition: opacity .15s;
+}
+.nav-arrow.left { left: 2px; }
+.nav-arrow.right { right: 2px; }
+.note:hover .nav-arrow { opacity: .5; }
+.nav-arrow:hover { opacity: 1 !important; background: rgba(0,0,0,.08); }
+.note[data-color="charcoal"] .nav-arrow,
+:root[data-theme="dark"] .nav-arrow { color: rgba(255,255,255,.55); }
+.note[data-color="charcoal"] .nav-arrow:hover,
+:root[data-theme="dark"] .nav-arrow:hover { background: rgba(255,255,255,.12); }
+
+.group-dots {
+  position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 6px; z-index: 6;
+}
+.group-dots button {
+  width: 7px; height: 7px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  background: rgba(0,0,0,.25);
+}
+.group-dots button.active { background: rgba(0,0,0,.65); }
+.note[data-color="charcoal"] .group-dots button,
+:root[data-theme="dark"] .group-dots button { background: rgba(255,255,255,.3); }
+.note[data-color="charcoal"] .group-dots button.active,
+:root[data-theme="dark"] .group-dots button.active { background: rgba(255,255,255,.85); }
+
+.content.slide-next { animation: slideNext .16s ease; }
+.content.slide-prev { animation: slidePrev .16s ease; }
+@keyframes slideNext { from { transform: translateX(26px); opacity: .35; } to { transform: none; opacity: 1; } }
+@keyframes slidePrev { from { transform: translateX(-26px); opacity: .35; } to { transform: none; opacity: 1; } }
+
+/* ── 목록 그룹·선택 묶기 (#25 G3) ── */
+.sel-dot {
+  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--l-dim); display: inline-block;
+}
+.sel-dot.on { background: #0a84ff; border-color: #0a84ff; }
+.sel-bar {
+  display: flex; gap: 6px; padding: 8px 12px; align-items: center;
+  background: var(--l-card); border-top: 1px solid var(--l-sep);
+}
+.sel-bar input { flex: 1; }
+.sel-bar button {
+  border: 0; border-radius: 7px; padding: 5px 10px; cursor: pointer;
+  background: var(--l-field); color: inherit; font-size: 12px;
+}
+.sel-bar button.primary { background: #0a84ff; color: white; }
+.group-count { color: var(--l-dim); font-weight: 400; margin-left: 4px; }

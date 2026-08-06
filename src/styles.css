@@ -2,7 +2,7 @@
 * { box-sizing: border-box; margin: 0; }
 html, body, #root { height: 100%; }
 /* Liquid Glass: 창은 투명 + OS Acrylic 블러, 색은 CSS 반투명 틴트가 결정 */
-html, body { background: transparent; }
+html, body { background: transparent; overflow: hidden; }
 /* 글라스 미지원 플랫폼(비-Windows): 불투명 배경 폴백 */
 :root[data-glass="off"] body { background: #f4f2e9; }
 :root[data-glass="off"][data-theme="dark"] body { background: #1c1c1e; }
@@ -97,7 +97,8 @@ html, body { background: transparent; }
 .content-editor::-webkit-scrollbar { display: none; }
 .editor.tiptap {
   flex: 1; outline: none; padding: 10px 12px; line-height: 1.55;
-  font: inherit; color: inherit; word-break: break-word;
+  font: inherit; color: inherit; overflow-wrap: anywhere; word-break: break-word;
+  max-width: 100%;
 }
 .tiptap p { margin: 0 0 2px; }
 /* 링크: 기본 파랑은 노트 배경에서 너무 쨍하다 — 차분한 톤 + 얇은 밑줄 */
@@ -142,7 +143,7 @@ html, body { background: transparent; }
 .tiptap ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; opacity: .55; }
 .tiptap img { max-width: 100%; border-radius: 4px; }
 .tiptap img.ProseMirror-selectednode { outline: 2px solid #0a84ff; }
-.tiptap pre { background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; overflow-x: auto; }
+.tiptap pre { background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; overflow-x: auto; max-width: 100%; }
 .tiptap code { background: rgba(0,0,0,.08); border-radius: 3px; padding: 1px 4px; }
 .tiptap pre code { background: none; padding: 0; }
 .tiptap blockquote { border-left: 3px solid rgba(0,0,0,.2); margin: 4px 0; padding-left: 8px; }

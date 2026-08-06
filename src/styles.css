@@ -335,8 +335,11 @@ html, body { background: transparent; }
 
 .group-dots {
   position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 6px; z-index: 6;
+  display: flex; gap: 6px; z-index: 6; transition: bottom .18s ease;
 }
+/* 서식 바가 올라오면 인디케이터는 그 위로 비켜난다 */
+.note:has(.format-bar:hover) .group-dots,
+.note:has(.format-bar:focus-within) .group-dots { bottom: 40px; }
 .group-dots button {
   width: 7px; height: 7px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
   background: rgba(0,0,0,.25);

@@ -74,6 +74,7 @@ const setupNote = (note: Note, members: string[] = []) => {
   vi.mocked(api.checkMerge).mockResolvedValue(false);
   vi.mocked(api.mergePreview).mockResolvedValue(false);
   vi.mocked(api.setLastViewed).mockResolvedValue(undefined);
+  vi.mocked(api.popOut).mockResolvedValue(null);
 };
 
 beforeEach(() => {
@@ -108,6 +109,17 @@ describe("NoteApp 그룹 UI", () => {
     render(<NoteApp noteId="n1" />);
     fireEvent.click(await screen.findByTitle("다음 노트 (Alt+→)"));
     await waitFor(() => expect(api.navGroup).toHaveBeenCalledWith(1));
+  });
+
+  it("이동하면 에디터가 다음 노트의 본문을 보여준다 (#74 stale body 회귀)", async () => {
+    const cur = mkNote("n1", "첫 번째 본문", { group: "모음" });
+    const next = mkNote("n2", "두 번째 본문", { group: "모음", group_order: 1 });
+    setupNote(cur, ["n1", "n2"]);
+    vi.mocked(api.listNotes).mockResolvedValue([cur, next]);
+    vi.mocked(api.navGroup).mockResolvedValue(next);
+    render(<NoteApp noteId="n1" />);
+    fireEvent.click(await screen.findByTitle("다음 노트 (Alt+→)"));
+    await screen.findByText("두 번째 본문");
   });
 });
 
@@ -157,6 +169,31 @@ describe("NoteApp 드래그 병합 게이트", () => {
     // 이벤트당 10px씩 — 연속 델타 판정이라면 절대 30px를 못 넘는 패턴
     drag([[100, 100], [110, 100], [120, 100], [130, 100], [140, 100]]); // 누적 40px
     await waitFor(() => expect(api.checkMerge).toHaveBeenCalled(), { timeout: 1500 });
+  });
+});
+
+describe("NoteApp 팝아웃 (#74)", () => {
+  it("현재 메모를 꺼내면 이 창은 반환된 다음 멤버를 표시한다", async () => {
+    const cur = mkNote("n1", "현재 메모", { group: "모음" });
+    const next = mkNote("n2", "다음 메모 내용", { group: "모음", group_order: 1 });
+    setupNote(cur, ["n1", "n2"]);
+    vi.mocked(api.listNotes).mockResolvedValue([cur, next]);
+    vi.mocked(api.popOut).mockResolvedValue(next);
+    render(<NoteApp noteId="n1" />);
+    fireEvent.click(await screen.findByTitle("새 창으로 꺼내기 (Ctrl+Shift+P)"));
+    await waitFor(() => expect(api.popOut).toHaveBeenCalled());
+    // 같은 메모가 두 창에 남지 않도록, 기존 창이 다음 멤버로 넘어간다
+    await screen.findByText("다음 메모 내용");
+  });
+
+  it("전환할 멤버가 없으면(None) 이 창은 그대로", async () => {
+    const cur = mkNote("n1", "현재 메모", { group: "모음" });
+    setupNote(cur, ["n1", "n2"]);
+    vi.mocked(api.popOut).mockResolvedValue(null);
+    render(<NoteApp noteId="n1" />);
+    fireEvent.click(await screen.findByTitle("새 창으로 꺼내기 (Ctrl+Shift+P)"));
+    await waitFor(() => expect(api.popOut).toHaveBeenCalled());
+    expect(screen.getByText("현재 메모")).toBeTruthy();
   });
 });
 

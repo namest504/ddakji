@@ -383,14 +383,16 @@ pub async fn check_merge(
     Ok(true)
 }
 
-/// 현재 노트를 새 창으로 분리 — 원래 창은 그룹의 다음 노트로 전환 (#25)
+/// 새 창으로 보기 (#25): 현재 창은 그대로 두고, 그룹에서 아직 창이 없는
+/// 다음 노트를 새 창으로 띄운다. 전부 열려 있으면 다음 노트의 창을 포커스.
+/// (원래 창을 바꾸는 방식은 같은 노트가 두 창에 보이는 순간을 만들었다)
 #[tauri::command]
 pub async fn pop_out(
     app: AppHandle,
     window: tauri::WebviewWindow,
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
-) -> Result<Option<Note>, String> {
+) -> Result<(), String> {
     let label = window.label().to_string();
     let current_id = wn
         .0
@@ -399,25 +401,46 @@ pub async fn pop_out(
         .get(&label)
         .cloned()
         .ok_or("window not mapped")?;
-    let (mut cur, next) = {
+    let (cur, members) = {
         let s = store.lock().map_err(err)?;
         let cur = s.load(&current_id).ok_or("note gone")?;
-        let Some(g) = cur.meta.group.clone() else { return Ok(None) };
+        let Some(g) = cur.meta.group.clone() else { return Ok(()) };
         let ns = s.group_notes(&g);
-        if ns.len() < 2 {
-            return Ok(None);
-        }
-        let idx = ns.iter().position(|n| n.meta.id == current_id).unwrap_or(0);
-        let next = ns[(idx + 1) % ns.len()].clone();
-        (cur, next)
+        (cur, ns)
     };
-    // 원래 창은 다음 노트를 표시
-    wn.0.lock().map_err(err)?.insert(label, next.meta.id.clone());
-    // 분리 창은 살짝 어긋난 위치에
-    cur.meta.window.x += 28.0;
-    cur.meta.window.y += 28.0;
-    crate::windows::open_note_window(&app, &cur).map_err(err)?;
-    Ok(Some(next))
+    if members.len() < 2 {
+        return Ok(());
+    }
+    let idx = members.iter().position(|n| n.meta.id == current_id).unwrap_or(0);
+    let mapped: std::collections::HashSet<String> =
+        wn.0.lock().map_err(err)?.values().cloned().collect();
+    for k in 1..members.len() {
+        let cand = &members[(idx + k) % members.len()];
+        if !mapped.contains(&cand.meta.id) {
+            let mut c = cand.clone();
+            // 현재 창 옆에 어긋난 위치로
+            c.meta.window.x = cur.meta.window.x + 28.0;
+            c.meta.window.y = cur.meta.window.y + 28.0;
+            crate::windows::open_note_window(&app, &c).map_err(err)?;
+            return Ok(());
+        }
+    }
+    // 전부 창이 있으면 다음 노트의 창으로 포커스
+    let next_id = members[(idx + 1) % members.len()].meta.id.clone();
+    let target_label = wn
+        .0
+        .lock()
+        .map_err(err)?
+        .iter()
+        .find(|(_, id)| **id == next_id)
+        .map(|(l, _)| l.clone());
+    if let Some(l) = target_label {
+        if let Some(w) = app.get_webview_window(&l) {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

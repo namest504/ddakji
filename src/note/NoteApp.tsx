@@ -146,8 +146,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
 
   const popOut = useCallback(() => {
     flushBody();
-    setSlide("next");
-    api.popOut().then((n) => { if (n) setNoteId(n.meta.id); }).catch(() => {});
+    api.popOut().catch(() => {});
   }, [flushBody]);
 
   const jumpTo = useCallback((id: string, dirHint: "next" | "prev") => {

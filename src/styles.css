@@ -85,7 +85,7 @@ html, body { background: transparent; overflow: hidden; }
 .swatch[data-color="charcoal"] { background: #4a4a4a; }
 
 .content {
-  position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0;
+  position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0;
   transition: padding-top .18s ease, padding-bottom .18s ease;
 }
 /* 툴바/서식 바가 나타나면 뷰포트를 그만큼 줄여 가려지는 줄만 비켜준다 — 상하 동일 동작 */
@@ -145,8 +145,12 @@ html, body { background: transparent; overflow: hidden; }
 .tiptap img.ProseMirror-selectednode { outline: 2px solid #0a84ff; }
 .tiptap pre {
   background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; max-width: 100%;
-  white-space: pre-wrap; overflow-wrap: anywhere;
+  overflow-x: auto; /* 한 줄 유지 — 복사·붙여넣기 무결성, 블록 안에서만 가로 스크롤 */
 }
+.tiptap pre::-webkit-scrollbar { height: 6px; }
+.tiptap pre::-webkit-scrollbar-thumb { background: rgba(0,0,0,.25); border-radius: 3px; }
+:root[data-theme="dark"] .tiptap pre::-webkit-scrollbar-thumb,
+.note[data-color="charcoal"] .tiptap pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,.3); }
 .tiptap code { background: rgba(0,0,0,.08); border-radius: 3px; padding: 1px 4px; }
 .tiptap pre code { background: none; padding: 0; }
 .tiptap blockquote { border-left: 3px solid rgba(0,0,0,.2); margin: 4px 0; padding-left: 8px; }

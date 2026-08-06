@@ -63,8 +63,13 @@ html, body { background: transparent; }
 .toolbar .spacer { flex: 1; height: 100%; }
 .color-row {
   position: absolute; top: 100%; left: 0; right: 0; display: flex; gap: 6px;
-  padding: 6px; background: var(--bar); z-index: 10;
+  padding: 8px; z-index: 10; align-items: center;
+  /* 팝오버는 불투명 메뉴 패널 — 반투명이면 뒤 본문이 비쳐 읽기 어렵다 */
+  background: #f1f1f3; box-shadow: 0 5px 16px rgba(0,0,0,.22);
+  border-radius: 0 0 10px 10px; color: #1c1c1e;
 }
+.note[data-color="charcoal"] .color-row,
+:root[data-theme="dark"] .color-row { background: #2c2c2e; color: #ececec; }
 .swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); }
 .swatch[data-color="yellow"]   { background: #fff7b1; }
 .swatch[data-color="green"]    { background: #d9f7d1; }

@@ -143,7 +143,10 @@ html, body { background: transparent; overflow: hidden; }
 .tiptap ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; opacity: .55; }
 .tiptap img { max-width: 100%; border-radius: 4px; }
 .tiptap img.ProseMirror-selectednode { outline: 2px solid #0a84ff; }
-.tiptap pre { background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; overflow-x: auto; max-width: 100%; }
+.tiptap pre {
+  background: rgba(0,0,0,.08); padding: 8px; border-radius: 6px; max-width: 100%;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
 .tiptap code { background: rgba(0,0,0,.08); border-radius: 3px; padding: 1px 4px; }
 .tiptap pre code { background: none; padding: 0; }
 .tiptap blockquote { border-left: 3px solid rgba(0,0,0,.2); margin: 4px 0; padding-left: 8px; }

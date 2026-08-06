@@ -110,7 +110,8 @@ describe("fontStack", () => {
 });
 
 describe("relativeTime", () => {
-  const now = new Date("2026-08-05T14:00:00+09:00");
+  // 오프셋 없는 로컬 시각 — 실행 타임존(CI는 UTC)과 무관하게 날짜 관계가 성립
+  const now = new Date("2026-08-05T14:00:00");
   const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
   it("1분 미만은 방금", () => {
     expect(relativeTime(ago(30_000), now)).toBe("방금");
@@ -127,10 +128,10 @@ describe("relativeTime", () => {
     expect(relativeTime(ago(5 * 24 * 3600_000), now)).toBe("5일 전");
   });
   it("7일 이상 같은 해는 월·일", () => {
-    expect(relativeTime("2026-07-20T12:00:00+09:00", now)).toBe("7월 20일");
+    expect(relativeTime("2026-07-20T12:00:00", now)).toBe("7월 20일");
   });
   it("다른 해는 연도 포함", () => {
-    expect(relativeTime("2025-12-30T12:00:00+09:00", now)).toBe("2025년 12월 30일");
+    expect(relativeTime("2025-12-30T12:00:00", now)).toBe("2025년 12월 30일");
   });
   it("파싱 불가면 빈 문자열", () => {
     expect(relativeTime("", now)).toBe("");

@@ -11,9 +11,11 @@ import * as api from "../lib/api";
 import type { Note, NoteMeta } from "../lib/api";
 import DetailView from "./DetailView";
 
+// 시각은 오프셋 없는 로컬 시간 문자열 — fullDateTime이 로컬 기준으로 포맷하므로
+// 테스트가 실행 타임존(CI는 UTC)과 무관하게 성립한다
 const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note => ({
   meta: {
-    id, created_at: "2026-08-01T10:00:00+09:00", updated_at: "2026-08-02T14:30:00+09:00",
+    id, created_at: "2026-08-01T10:00:00", updated_at: "2026-08-02T14:30:00",
     color: "yellow", font_size: 16, font_family: "system", viewer_mode: false,
     window: { x: 0, y: 0, w: 320, h: 340 }, always_on_top: false, hidden: false,
     group_order: 0, ...extra,

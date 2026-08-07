@@ -1,7 +1,10 @@
+use std::sync::Mutex;
+
+use tauri::{AppHandle, Manager, State};
+
 use crate::store::{MetaPatch, Note, Settings, Store};
 use crate::windows;
-use std::sync::Mutex;
-use tauri::{AppHandle, Manager, State};
+use crate::{Error, Result};
 
 type StoreState<'a> = State<'a, Mutex<Store>>;
 
@@ -14,44 +17,35 @@ pub struct IdDir(pub std::path::PathBuf);
 /// 창 label → 표시 중인 노트 id (#25 그룹 넘기기로 창-노트가 동적이 됨)
 pub struct WindowNotes(pub Mutex<std::collections::HashMap<String, String>>);
 
-fn err(e: impl std::fmt::Display) -> String {
-    e.to_string()
-}
-
-// 노트 파일이 밖에서 삭제된 경우를 프런트가 구분할 수 있게 하는 마커.
-// 프런트는 이 에러를 받으면 좀비 창을 만들지 않고 창을 닫는다.
-fn err_io(e: std::io::Error) -> String {
-    if e.kind() == std::io::ErrorKind::NotFound {
-        "NOTE_NOT_FOUND".into()
-    } else {
-        e.to_string()
-    }
+/// 상태 잠금 — 다른 스레드가 패닉했을 때만 실패한다.
+fn lock<T>(m: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>> {
+    m.lock().map_err(|_| Error::Poisoned)
 }
 
 #[tauri::command]
-pub fn list_notes(store: StoreState) -> Result<Vec<Note>, String> {
-    Ok(store.lock().map_err(err)?.list())
+pub fn list_notes(store: StoreState) -> Result<Vec<Note>> {
+    Ok(lock(&store)?.list())
 }
 
 // 창을 만들거나 파괴하는 커맨드는 반드시 async여야 한다. sync 커맨드는 메인 스레드에서
 // 실행되는데, Windows에서 웹뷰 창 생성/파괴는 메인 스레드의 메시지 펌프를 기다리므로
 // 데드락된다 (#8). async 커맨드는 별도 태스크에서 돌아 이벤트 루프로 정상 디스패치된다.
 #[tauri::command]
-pub async fn create_note(app: AppHandle, store: StoreState<'_>) -> Result<Note, String> {
-    let note = store.lock().map_err(err)?.create().map_err(err)?;
-    windows::open_note_window(&app, &note).map_err(err)?;
+pub async fn create_note(app: AppHandle, store: StoreState<'_>) -> Result<Note> {
+    let note = lock(&store)?.create()?;
+    windows::open_note_window(&app, &note)?;
     Ok(note)
 }
 
 #[tauri::command]
-pub fn save_body(store: StoreState, id: String, body: String) -> Result<Note, String> {
-    store.lock().map_err(err)?.save_body(&id, &body).map_err(err_io)
+pub fn save_body(store: StoreState, id: String, body: String) -> Result<Note> {
+    lock(&store)?.save_body(&id, &body)
 }
 
 #[tauri::command]
-pub fn save_meta(app: AppHandle, store: StoreState, id: String, patch: MetaPatch) -> Result<Note, String> {
+pub fn save_meta(app: AppHandle, store: StoreState, id: String, patch: MetaPatch) -> Result<Note> {
     let group_changed = patch.group.is_some() || patch.group_order.is_some();
-    let n = store.lock().map_err(err)?.save_meta(&id, &patch).map_err(err_io)?;
+    let n = lock(&store)?.save_meta(&id, &patch)?;
     if group_changed {
         use tauri::Emitter;
         let _ = app.emit("groups-changed", ());
@@ -65,42 +59,38 @@ pub async fn delete_note(
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
     id: String,
-) -> Result<(), String> {
-    store.lock().map_err(err)?.delete(&id).map_err(err)?;
-    let label = wn
-        .0
-        .lock()
-        .map_err(err)?
+) -> Result<()> {
+    lock(&store)?.delete(&id)?;
+    let label = lock(&wn.0)?
         .iter()
         .find(|(_, nid)| **nid == id)
         .map(|(l, _)| l.clone());
     if let Some(l) = label {
         if let Some(win) = app.get_webview_window(&l) {
-            win.destroy().map_err(err)?;
+            win.destroy()?;
         }
     }
     Ok(())
 }
 
 #[tauri::command]
-pub async fn open_note(app: AppHandle, store: StoreState<'_>, id: String) -> Result<(), String> {
+pub async fn open_note(app: AppHandle, store: StoreState<'_>, id: String) -> Result<()> {
     let note = {
-        let s = store.lock().map_err(err)?;
+        let s = lock(&store)?;
         s.save_meta(
             &id,
             &MetaPatch {
                 hidden: Some(false),
                 ..Default::default()
             },
-        )
-        .map_err(err)?
+        )?
     };
-    windows::open_note_window(&app, &note).map_err(err)
+    Ok(windows::open_note_window(&app, &note)?)
 }
 
 #[tauri::command]
-pub async fn open_list(app: AppHandle) -> Result<(), String> {
-    windows::open_list_window(&app).map_err(err)
+pub async fn open_list(app: AppHandle) -> Result<()> {
+    Ok(windows::open_list_window(&app)?)
 }
 
 #[tauri::command]
@@ -109,8 +99,8 @@ pub fn save_image(
     id: String,
     ext: String,
     bytes: Vec<u8>,
-) -> Result<String, String> {
-    store.lock().map_err(err)?.save_asset(&id, &ext, &bytes).map_err(err)
+) -> Result<String> {
+    lock(&store)?.save_asset(&id, &ext, &bytes)
 }
 
 // 창을 여는 커맨드이므로 async 필수 (#8 데드락 규칙)
@@ -119,22 +109,18 @@ pub async fn import_markdown(
     app: AppHandle,
     store: StoreState<'_>,
     path: String,
-) -> Result<Note, String> {
+) -> Result<Note> {
     let note = {
-        let s = store.lock().map_err(err)?;
-        s.import_markdown_file(std::path::Path::new(&path)).map_err(err)?
+        let s = lock(&store)?;
+        s.import_markdown_file(std::path::Path::new(&path))?
     };
-    windows::open_note_window(&app, &note).map_err(err)?;
+    windows::open_note_window(&app, &note)?;
     Ok(note)
 }
 
 #[tauri::command]
-pub fn import_image(store: StoreState, id: String, path: String) -> Result<String, String> {
-    store
-        .lock()
-        .map_err(err)?
-        .import_asset(&id, std::path::Path::new(&path))
-        .map_err(err)
+pub fn import_image(store: StoreState, id: String, path: String) -> Result<String> {
+    lock(&store)?.import_asset(&id, std::path::Path::new(&path))
 }
 
 #[tauri::command]
@@ -143,13 +129,13 @@ pub fn set_storage_path(
     store: StoreState,
     id_dir: State<IdDir>,
     new_path: String,
-) -> Result<(), String> {
+) -> Result<()> {
     let new_root = std::path::PathBuf::from(new_path.trim());
     if new_root.as_os_str().is_empty() {
-        return Err("경로가 비어 있습니다".into());
+        return Err(Error::Invalid("경로가 비어 있습니다".into()));
     }
-    let current = store.lock().map_err(err)?.root().to_path_buf();
-    crate::store::move_storage(&id_dir.0, &current, &new_root).map_err(err)?;
+    let current = lock(&store)?.root().to_path_buf();
+    crate::store::move_storage(&id_dir.0, &current, &new_root)?;
     // 새 경로로 깨끗하게 재기동
     app.restart();
 }
@@ -162,33 +148,26 @@ pub fn set_last_viewed(state: State<LastViewed>, id: String) {
 }
 
 #[tauri::command]
-pub fn get_last_viewed(state: State<LastViewed>, store: StoreState) -> Result<Option<Note>, String> {
-    let id = state.0.lock().map_err(err)?.clone();
-    let s = store.lock().map_err(err)?;
+pub fn get_last_viewed(state: State<LastViewed>, store: StoreState) -> Result<Option<Note>> {
+    let id = lock(&state.0)?.clone();
+    let s = lock(&store)?;
     // 아직 본 노트가 없으면 가장 최근 수정된 노트로
     Ok(id.and_then(|i| s.load(&i)).or_else(|| s.list().into_iter().next()))
 }
 
 #[tauri::command]
-pub fn data_root(store: StoreState) -> Result<String, String> {
-    Ok(store.lock().map_err(err)?.root().to_string_lossy().into_owned())
+pub fn data_root(store: StoreState) -> Result<String> {
+    Ok(lock(&store)?.root().to_string_lossy().into_owned())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::err_io;
+/// 창 사각형 (x, y, w, h) — 물리 픽셀
+type Rect = (f64, f64, f64, f64);
 
-    #[test]
-    fn not_found_maps_to_marker() {
-        let nf = std::io::Error::new(std::io::ErrorKind::NotFound, "x");
-        assert_eq!(err_io(nf), "NOTE_NOT_FOUND");
-        let other = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
-        assert_ne!(err_io(other), "NOTE_NOT_FOUND");
-    }
-}
+/// 합치기 후보: (창 label, 노트 id, 겹침 비율, 대상 사각형)
+type MergeCandidate = (String, String, f64, Rect);
 
 /// 이동한 창(a)이 대상 창(b)과 겹치는 비율 — a 면적 기준 0.0~1.0
-pub fn overlap_ratio(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> f64 {
+pub fn overlap_ratio(a: Rect, b: Rect) -> f64 {
     let (ax, ay, aw, ah) = a;
     let (bx, by, bw, bh) = b;
     let iw = (ax + aw).min(bx + bw) - ax.max(bx);
@@ -212,8 +191,8 @@ pub fn next_new_group_name(existing: &[String]) -> String {
 }
 
 #[tauri::command]
-pub fn list_groups(store: StoreState) -> Result<Vec<String>, String> {
-    Ok(store.lock().map_err(err)?.group_names())
+pub fn list_groups(store: StoreState) -> Result<Vec<String>> {
+    Ok(lock(&store)?.group_names())
 }
 
 /// 그룹 내 이전/다음 노트로 이동. 대상이 이미 다른 창에 열려 있으면 그 창을
@@ -224,18 +203,15 @@ pub async fn nav_group(
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
     dir: i32,
-) -> Result<Option<Note>, String> {
+) -> Result<Option<Note>> {
     let label = window.label().to_string();
-    let current_id = wn
-        .0
-        .lock()
-        .map_err(err)?
+    let current_id = lock(&wn.0)?
         .get(&label)
         .cloned()
-        .ok_or("window not mapped")?;
+        .ok_or(Error::WindowNotMapped)?;
     let notes = {
-        let s = store.lock().map_err(err)?;
-        let cur = s.load(&current_id).ok_or("note gone")?;
+        let s = lock(&store)?;
+        let cur = s.load(&current_id).ok_or(Error::NoteNotFound)?;
         let Some(g) = cur.meta.group.clone() else {
             return Ok(None);
         };
@@ -247,10 +223,7 @@ pub async fn nav_group(
     let idx = notes.iter().position(|n| n.meta.id == current_id).unwrap_or(0) as i32;
     let len = notes.len() as i32;
     let target = notes[(((idx + dir) % len + len) % len) as usize].clone();
-    let other = wn
-        .0
-        .lock()
-        .map_err(err)?
+    let other = lock(&wn.0)?
         .iter()
         .find(|(l, id)| **id == target.meta.id && **l != label)
         .map(|(l, _)| l.clone());
@@ -261,13 +234,13 @@ pub async fn nav_group(
             return Ok(None);
         }
     }
-    wn.0.lock().map_err(err)?.insert(label, target.meta.id.clone());
+    lock(&wn.0)?.insert(label, target.meta.id.clone());
     Ok(Some(target))
 }
 
 #[tauri::command]
-pub fn group_members(store: StoreState, id: String) -> Result<Vec<String>, String> {
-    let s = store.lock().map_err(err)?;
+pub fn group_members(store: StoreState, id: String) -> Result<Vec<String>> {
+    let s = lock(&store)?;
     let Some(n) = s.load(&id) else { return Ok(vec![]) };
     let Some(g) = n.meta.group else { return Ok(vec![]) };
     Ok(s.group_notes(&g).into_iter().map(|n| n.meta.id).collect())
@@ -280,16 +253,13 @@ pub async fn nav_to(
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
     id: String,
-) -> Result<Option<Note>, String> {
+) -> Result<Option<Note>> {
     let label = window.label().to_string();
     let target = {
-        let s = store.lock().map_err(err)?;
-        s.load(&id).ok_or("note gone")?
+        let s = lock(&store)?;
+        s.load(&id).ok_or(Error::NoteNotFound)?
     };
-    let other = wn
-        .0
-        .lock()
-        .map_err(err)?
+    let other = lock(&wn.0)?
         .iter()
         .find(|(l, nid)| **nid == id && **l != label)
         .map(|(l, _)| l.clone());
@@ -300,7 +270,7 @@ pub async fn nav_to(
             return Ok(None);
         }
     }
-    wn.0.lock().map_err(err)?.insert(label, target.meta.id.clone());
+    lock(&wn.0)?.insert(label, target.meta.id.clone());
     Ok(Some(target))
 }
 
@@ -310,15 +280,12 @@ pub async fn merge_preview(
     app: AppHandle,
     window: tauri::WebviewWindow,
     wn: State<'_, WindowNotes>,
-) -> Result<bool, String> {
+) -> Result<bool> {
     let label = window.label().to_string();
     let Ok(ap) = window.outer_position() else { return Ok(false) };
     let Ok(asz) = window.outer_size() else { return Ok(false) };
     let a = (ap.x as f64, ap.y as f64, asz.width as f64, asz.height as f64);
-    let entries: Vec<String> = wn
-        .0
-        .lock()
-        .map_err(err)?
+    let entries: Vec<String> = lock(&wn.0)?
         .iter()
         .filter(|(l, _)| **l != label)
         .map(|(l, _)| l.clone())
@@ -347,28 +314,22 @@ pub async fn check_merge(
     window: tauri::WebviewWindow,
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
-) -> Result<bool, String> {
+) -> Result<bool> {
     use tauri::Emitter;
     let label = window.label().to_string();
-    let moved_id = wn
-        .0
-        .lock()
-        .map_err(err)?
+    let moved_id = lock(&wn.0)?
         .get(&label)
         .cloned()
-        .ok_or("window not mapped")?;
-    let ap = window.outer_position().map_err(err)?;
-    let asz = window.outer_size().map_err(err)?;
+        .ok_or(Error::WindowNotMapped)?;
+    let ap = window.outer_position()?;
+    let asz = window.outer_size()?;
     let a = (ap.x as f64, ap.y as f64, asz.width as f64, asz.height as f64);
-    let entries: Vec<(String, String)> = wn
-        .0
-        .lock()
-        .map_err(err)?
+    let entries: Vec<(String, String)> = lock(&wn.0)?
         .iter()
         .filter(|(l, _)| **l != label)
         .map(|(l, id)| (l.clone(), id.clone()))
         .collect();
-    let mut best: Option<(String, String, f64, (f64, f64, f64, f64))> = None;
+    let mut best: Option<MergeCandidate> = None;
     for (l, id) in entries {
         let Some(w) = app.get_webview_window(&l) else { continue };
         if !w.is_visible().unwrap_or(false) {
@@ -387,8 +348,8 @@ pub async fn check_merge(
     }
     // 모음집 창을 얹으면 모음집 전체가 대상 그룹으로 통합된다 (같은 그룹이면 창만 흡수)
     let changed = {
-        let s = store.lock().map_err(err)?;
-        s.merge_note_groups(&moved_id, &target_id).map_err(err)?
+        let s = lock(&store)?;
+        s.merge_note_groups(&moved_id, &target_id)?
     };
     // 흡수 애니메이션: 끌던 창이 대상 중심으로 미끄러져 들어간 뒤 닫힌다
     let (tcx, tcy) = (tb.0 + tb.2 / 2.0, tb.1 + tb.3 / 2.0);
@@ -425,18 +386,15 @@ pub async fn pop_out(
     window: tauri::WebviewWindow,
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
-) -> Result<Option<Note>, String> {
+) -> Result<Option<Note>> {
     let label = window.label().to_string();
-    let current_id = wn
-        .0
-        .lock()
-        .map_err(err)?
+    let current_id = lock(&wn.0)?
         .get(&label)
         .cloned()
-        .ok_or("window not mapped")?;
+        .ok_or(Error::WindowNotMapped)?;
     let (cur, members) = {
-        let s = store.lock().map_err(err)?;
-        let cur = s.load(&current_id).ok_or("note gone")?;
+        let s = lock(&store)?;
+        let cur = s.load(&current_id).ok_or(Error::NoteNotFound)?;
         let Some(g) = cur.meta.group.clone() else { return Ok(None) };
         let ns = s.group_notes(&g);
         (cur, ns)
@@ -445,15 +403,12 @@ pub async fn pop_out(
         return Ok(None);
     }
     let mapped: std::collections::HashSet<String> =
-        wn.0.lock().map_err(err)?.values().cloned().collect();
+        lock(&wn.0)?.values().cloned().collect();
     let Some(next) = pop_out_next(&members, &current_id, &mapped).cloned() else {
         // 전부 창이 있으면 다음 노트의 창으로 포커스
         let idx = members.iter().position(|n| n.meta.id == current_id).unwrap_or(0);
         let next_id = members[(idx + 1) % members.len()].meta.id.clone();
-        let target_label = wn
-            .0
-            .lock()
-            .map_err(err)?
+        let target_label = lock(&wn.0)?
             .iter()
             .find(|(_, id)| **id == next_id)
             .map(|(l, _)| l.clone());
@@ -467,12 +422,12 @@ pub async fn pop_out(
     };
     // 1) 이 창을 다음 멤버로 전환 — 매핑을 먼저 바꿔야 아래 open_note_window의
     //    중복 검사가 현재 메모를 "이미 이 창에 있음"으로 오인하지 않는다
-    wn.0.lock().map_err(err)?.insert(label, next.meta.id.clone());
+    lock(&wn.0)?.insert(label, next.meta.id.clone());
     // 2) 현재 메모를 옆에 어긋난 새 창으로
     let mut popped = cur.clone();
     popped.meta.window.x = cur.meta.window.x + 28.0;
     popped.meta.window.y = cur.meta.window.y + 28.0;
-    crate::windows::open_note_window(&app, &popped).map_err(err)?;
+    crate::windows::open_note_window(&app, &popped)?;
     Ok(Some(next))
 }
 
@@ -489,71 +444,27 @@ pub fn pop_out_next<'a>(
         .find(|n| !mapped.contains(&n.meta.id))
 }
 
-#[cfg(test)]
-mod pop_out_tests {
-    use super::pop_out_next;
-    use crate::store::{Note, NoteMeta};
-    use std::collections::HashSet;
-
-    fn note(id: &str) -> Note {
-        Note { meta: NoteMeta::new_default(id.into()), body: String::new() }
-    }
-    fn set(ids: &[&str]) -> HashSet<String> {
-        ids.iter().map(|s| s.to_string()).collect()
-    }
-
-    #[test]
-    fn prefers_next_member_without_window() {
-        let m = [note("a"), note("b"), note("c")];
-        assert_eq!(pop_out_next(&m, "a", &set(&["a"])).unwrap().meta.id, "b");
-    }
-
-    #[test]
-    fn skips_members_that_already_have_windows() {
-        let m = [note("a"), note("b"), note("c")];
-        assert_eq!(pop_out_next(&m, "a", &set(&["a", "b"])).unwrap().meta.id, "c");
-    }
-
-    #[test]
-    fn wraps_around_the_group() {
-        let m = [note("a"), note("b"), note("c")];
-        assert_eq!(pop_out_next(&m, "c", &set(&["c", "b"])).unwrap().meta.id, "a");
-    }
-
-    #[test]
-    fn none_when_all_other_members_open() {
-        let m = [note("a"), note("b")];
-        assert!(pop_out_next(&m, "a", &set(&["a", "b"])).is_none());
-    }
-
-    #[test]
-    fn none_when_current_not_in_members() {
-        let m = [note("a"), note("b")];
-        assert!(pop_out_next(&m, "x", &set(&[])).is_none());
-    }
-}
-
 #[tauri::command]
 pub fn list_system_fonts() -> Vec<String> {
     crate::fonts::list_system_fonts()
 }
 
 #[tauri::command]
-pub fn open_data_dir(store: StoreState) -> Result<(), String> {
+pub fn open_data_dir(store: StoreState) -> Result<()> {
     // 프런트의 opener open_path는 경로 스코프 권한이 따로 필요해 실패한다(#15 QA) —
     // Rust API로 직접 연다
-    let root = store.lock().map_err(err)?.root().to_path_buf();
-    tauri_plugin_opener::open_path(root, None::<&str>).map_err(err)
+    let root = lock(&store)?.root().to_path_buf();
+    tauri_plugin_opener::open_path(root, None::<&str>).map_err(|e| Error::External(e.to_string()))
 }
 
 #[tauri::command]
-pub fn get_settings(store: StoreState) -> Result<Settings, String> {
-    Ok(store.lock().map_err(err)?.settings())
+pub fn get_settings(store: StoreState) -> Result<Settings> {
+    Ok(lock(&store)?.settings())
 }
 
 #[tauri::command]
-pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> Result<(), String> {
-    store.lock().map_err(err)?.set_settings(&settings).map_err(err)?;
+pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> Result<()> {
+    lock(&store)?.set_settings(&settings)?;
     // 다른 창(노트들)이 테마·즐겨찾기 변경을 즉시 반영하도록 알린다
     use tauri::Emitter;
     let _ = app.emit("settings-changed", ());
@@ -561,8 +472,10 @@ pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> R
 }
 
 #[cfg(test)]
-mod geom_tests {
-    use super::overlap_ratio;
+mod tests {
+    use super::*;
+    use crate::store::NoteMeta;
+    use std::collections::HashSet;
 
     #[test]
     fn overlap_full_partial_none() {
@@ -605,13 +518,40 @@ mod geom_tests {
         assert_eq!(overlap_ratio(b, a), 0.0);
     }
 
+    fn note(id: &str) -> Note {
+        Note { meta: NoteMeta::new_default(id.into()), body: String::new() }
+    }
+    fn set(ids: &[&str]) -> HashSet<String> {
+        ids.iter().map(|s| s.to_string()).collect()
+    }
+
     #[test]
-    fn new_group_names_are_numbered() {
-        use crate::store::next_new_group_name;
-        assert_eq!(next_new_group_name(&[]), "새 그룹 1");
-        assert_eq!(
-            next_new_group_name(&["새 그룹 1".into(), "기타".into()]),
-            "새 그룹 2"
-        );
+    fn prefers_next_member_without_window() {
+        let m = [note("a"), note("b"), note("c")];
+        assert_eq!(pop_out_next(&m, "a", &set(&["a"])).unwrap().meta.id, "b");
+    }
+
+    #[test]
+    fn skips_members_that_already_have_windows() {
+        let m = [note("a"), note("b"), note("c")];
+        assert_eq!(pop_out_next(&m, "a", &set(&["a", "b"])).unwrap().meta.id, "c");
+    }
+
+    #[test]
+    fn wraps_around_the_group() {
+        let m = [note("a"), note("b"), note("c")];
+        assert_eq!(pop_out_next(&m, "c", &set(&["c", "b"])).unwrap().meta.id, "a");
+    }
+
+    #[test]
+    fn none_when_all_other_members_open() {
+        let m = [note("a"), note("b")];
+        assert!(pop_out_next(&m, "a", &set(&["a", "b"])).is_none());
+    }
+
+    #[test]
+    fn none_when_current_not_in_members() {
+        let m = [note("a"), note("b")];
+        assert!(pop_out_next(&m, "x", &set(&[])).is_none());
     }
 }

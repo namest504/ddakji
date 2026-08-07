@@ -1,399 +1,25 @@
-use serde::{Deserialize, Serialize};
+//! 노트 저장소 — 디스크의 노트·에셋·설정에 대한 유일한 접근 경로.
+
+mod model;
+mod paths;
+
+pub use model::{next_new_group_name, MetaPatch, Note, NoteMeta, Settings, WindowBounds};
+pub use paths::{move_storage, resolve_data_root};
+
 use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct WindowBounds {
-    pub x: f64,
-    pub y: f64,
-    pub w: f64,
-    pub h: f64,
-}
+use paths::{migrate_uuid_filenames, new_file_id, validate_ext, validate_id};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct NoteMeta {
-    pub id: String,
-    #[serde(default)]
-    pub created_at: String,
-    #[serde(default)]
-    pub updated_at: String,
-    #[serde(default = "default_color")]
-    pub color: String,
-    #[serde(default = "default_font_size")]
-    pub font_size: u32,
-    #[serde(default = "default_font_family")]
-    pub font_family: String,
-    #[serde(default)]
-    pub viewer_mode: bool,
-    #[serde(default = "default_window")]
-    pub window: WindowBounds,
-    #[serde(default)]
-    pub always_on_top: bool,
-    #[serde(default)]
-    pub hidden: bool,
-    /// 사용자 지정 제목 — None이면 본문 첫 줄에서 파생
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    /// 모음집(그룹) 이름 — None이면 무소속 (#25)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group: Option<String>,
-    /// 그룹 내 순서 (오름차순)
-    #[serde(default)]
-    pub group_order: u32,
-}
-
-fn default_color() -> String {
-    "yellow".into()
-}
-
-fn default_font_size() -> u32 {
-    16
-}
-
-fn default_font_family() -> String {
-    // 의미 키("system" | "serif" | "mono") — 실제 폰트 스택 매핑은 프런트가 담당
-    "system".into()
-}
-
-fn default_window() -> WindowBounds {
-    WindowBounds {
-        x: 100.0,
-        y: 100.0,
-        w: 320.0,
-        h: 340.0,
-    }
-}
-
-impl NoteMeta {
-    pub fn new_default(id: String) -> Self {
-        let now = chrono::Local::now().to_rfc3339();
-        NoteMeta {
-            id,
-            created_at: now.clone(),
-            updated_at: now,
-            color: default_color(),
-            font_size: default_font_size(),
-            font_family: default_font_family(),
-            viewer_mode: false,
-            window: default_window(),
-            always_on_top: false,
-            hidden: false,
-            title: None,
-            group: None,
-            group_order: 0,
-        }
-    }
-}
-
-#[derive(Deserialize, Default, Debug, Clone)]
-pub struct MetaPatch {
-    pub color: Option<String>,
-    pub font_size: Option<u32>,
-    pub font_family: Option<String>,
-    pub viewer_mode: Option<bool>,
-    pub always_on_top: Option<bool>,
-    pub hidden: Option<bool>,
-    pub window: Option<WindowBounds>,
-    /// 빈 문자열 = 제목 해제(본문 파생으로 복귀)
-    pub title: Option<String>,
-    /// 빈 문자열 = 그룹 해제
-    pub group: Option<String>,
-    pub group_order: Option<u32>,
-}
-
-/// 새 노트에 적용될 기본값. `settings.json`(데이터 루트)에 저장된다.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Settings {
-    #[serde(default = "default_color")]
-    pub default_color: String,
-    #[serde(default = "default_font_family")]
-    pub default_font_family: String,
-    #[serde(default = "default_font_size")]
-    pub default_font_size: u32,
-    /// 자주 쓰는 폰트 (노트 툴바 팝오버에 프리셋과 함께 노출)
-    #[serde(default)]
-    pub favorite_fonts: Vec<String>,
-    /// "system" | "light" | "dark" — system은 OS 설정 추종
-    #[serde(default = "default_theme")]
-    pub theme: String,
-}
-
-fn default_theme() -> String {
-    "system".into()
-}
-
-/// 새 모음집 자동 이름 — "새 그룹 {번호}" 순번
-pub fn next_new_group_name(existing: &[String]) -> String {
-    let mut n = 1u32;
-    loop {
-        let name = format!("새 그룹 {n}");
-        if !existing.iter().any(|g| g == &name) {
-            return name;
-        }
-        n += 1;
-    }
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Settings {
-            default_color: default_color(),
-            default_font_family: default_font_family(),
-            default_font_size: default_font_size(),
-            favorite_fonts: Vec::new(),
-            theme: default_theme(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Note {
-    pub meta: NoteMeta,
-    pub body: String,
-}
-
-impl Note {
-    pub fn to_file_string(&self) -> String {
-        let yaml = serde_yaml::to_string(&self.meta).expect("meta serializes");
-        format!("---\n{yaml}---\n{}", self.body)
-    }
-
-    /// Parses `content` (raw file text) into a `Note`.
-    ///
-    /// Returns `(note, recovered)`: `recovered` is `true` when the frontmatter
-    /// was missing or corrupt and `NoteMeta::new_default` had to be synthesized
-    /// as a fallback. Callers that persist notes (`Store::load`/`Store::list`)
-    /// use this flag to write the recovered meta back to disk once, so a
-    /// fresh `updated_at`/`hidden` is not re-synthesized on every read.
-    ///
-    /// This function stays pure (no I/O) — recovery persistence is the
-    /// caller's responsibility.
-    pub fn from_file_string(id: &str, content: &str) -> (Note, bool) {
-        if let Some(rest) = content.strip_prefix("---\n") {
-            // Try to find closing delimiter with newline: \n---\n
-            if let Some(end) = rest.find("\n---\n") {
-                let (yaml, body) = (&rest[..end], &rest[end + 5..]);
-                if let Ok(mut meta) = serde_yaml::from_str::<NoteMeta>(yaml) {
-                    meta.id = id.to_string(); // 파일명이 진실
-                    return (
-                        Note {
-                            meta,
-                            body: body.to_string(),
-                        },
-                        false,
-                    );
-                }
-                // 프론트매터 손상: 본문만 보존
-                return (
-                    Note {
-                        meta: NoteMeta::new_default(id.into()),
-                        body: body.to_string(),
-                    },
-                    true,
-                );
-            }
-            // Try closing delimiter at EOF (no trailing newline): \n---
-            if rest.ends_with("\n---") {
-                let end = rest.len() - 4; // length of "\n---"
-                let yaml = &rest[..end];
-                if let Ok(mut meta) = serde_yaml::from_str::<NoteMeta>(yaml) {
-                    meta.id = id.to_string();
-                    return (
-                        Note {
-                            meta,
-                            body: String::new(),
-                        },
-                        false,
-                    );
-                }
-                // 프론트매터 손상: 본문은 비어있음
-                return (
-                    Note {
-                        meta: NoteMeta::new_default(id.into()),
-                        body: String::new(),
-                    },
-                    true,
-                );
-            }
-        }
-        (
-            Note {
-                meta: NoteMeta::new_default(id.into()),
-                body: content.to_string(),
-            },
-            true,
-        )
-    }
-}
+use crate::{Error, Result};
 
 pub struct Store {
     root: PathBuf,
     settings: Settings,
 }
 
-fn validate_id(id: &str) -> io::Result<()> {
-    // 경로 조작 방지: 영숫자와 '-'만 허용 (새 형식 20260805-134024-a1b2c3,
-    // 구형 UUID 모두 통과)
-    let ok = !id.is_empty()
-        && id.len() <= 64
-        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
-    if ok {
-        Ok(())
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "id must be alphanumeric/dash",
-        ))
-    }
-}
-
-/// 새 노트/에셋 파일명: 사람이 읽는 생성시각 + 짧은 고유 접미사.
-/// 폴더에서 이름 정렬 = 생성 순서가 되고, 시각이 눈에 바로 보인다.
-fn new_file_id() -> String {
-    let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
-    let suffix = &uuid::Uuid::new_v4().simple().to_string()[..6];
-    format!("{ts}-{suffix}")
-}
-
-/// 데이터 루트 결정 (#저장 위치):
-/// 1) `<식별자 폴더>/storage-path.txt`에 사용자 지정 경로가 있으면 그것
-/// 2) 기본: `%APPDATA%/StickDown` — 없으면 만들고 기존 식별자 폴더의 데이터를 이사
-/// 3) StickDown 폴더가 존재하는데 우리 데이터(notes/)가 아니면 충돌 — 기존 식별자 폴더 유지
-pub fn resolve_data_root(id_dir: &Path) -> PathBuf {
-    let ptr = id_dir.join("storage-path.txt");
-    if let Ok(p) = fs::read_to_string(&ptr) {
-        let p = PathBuf::from(p.trim());
-        if !p.as_os_str().is_empty() && fs::create_dir_all(p.join("notes")).is_ok() {
-            return p;
-        }
-    }
-    let Some(roaming) = id_dir.parent() else {
-        return id_dir.to_path_buf();
-    };
-    let std_dir = roaming.join("StickDown");
-    if std_dir.join("notes").is_dir() {
-        return std_dir; // 우리가 쓰던 폴더
-    }
-    if !std_dir.exists() {
-        if fs::create_dir_all(&std_dir).is_ok() {
-            for name in ["notes", "assets", "settings.json"] {
-                let from = id_dir.join(name);
-                if from.exists() {
-                    let _ = move_entry(&from, &std_dir.join(name));
-                }
-            }
-            return std_dir;
-        }
-        return id_dir.to_path_buf();
-    }
-    // StickDown이 있지만 다른 용도의 폴더 — 건드리지 않는다
-    id_dir.to_path_buf()
-}
-
-/// 저장 위치 변경: 현재 루트의 데이터를 새 경로로 옮긴다 (같은 볼륨이면 rename,
-/// 아니면 복사 후 삭제). 성공 시 포인터 파일에 새 경로를 기록한다.
-pub fn move_storage(id_dir: &Path, current: &Path, new_root: &Path) -> io::Result<()> {
-    fs::create_dir_all(new_root)?;
-    if new_root != current {
-        for name in ["notes", "assets", "settings.json"] {
-            let from = current.join(name);
-            let to = new_root.join(name);
-            if from.exists() && !to.exists() {
-                move_entry(&from, &to)?;
-            }
-        }
-    }
-    fs::write(id_dir.join("storage-path.txt"), new_root.to_string_lossy().as_bytes())
-}
-
-fn move_entry(from: &Path, to: &Path) -> io::Result<()> {
-    if fs::rename(from, to).is_ok() {
-        return Ok(());
-    }
-    // 볼륨이 다르면 rename이 실패한다 — 복사 후 원본 삭제
-    if from.is_dir() {
-        copy_dir(from, to)?;
-        fs::remove_dir_all(from)
-    } else {
-        fs::copy(from, to)?;
-        fs::remove_file(from)
-    }
-}
-
-fn copy_dir(from: &Path, to: &Path) -> io::Result<()> {
-    fs::create_dir_all(to)?;
-    for e in fs::read_dir(from)?.flatten() {
-        let dst = to.join(e.file_name());
-        if e.path().is_dir() {
-            copy_dir(&e.path(), &dst)?;
-        } else {
-            fs::copy(e.path(), &dst)?;
-        }
-    }
-    Ok(())
-}
-
-/// 구형(UUID 파일명) 노트를 새 형식으로 개명한다 — 에셋 폴더와 본문의
-/// assets/<id>/ 참조까지 함께. 시각은 프론트매터 created_at을 사용한다.
-fn migrate_uuid_filenames(root: &Path) {
-    let notes_dir = root.join("notes");
-    let Ok(rd) = fs::read_dir(&notes_dir) else { return };
-    for e in rd.flatten() {
-        let p = e.path();
-        if p.extension().map(|x| x != "md").unwrap_or(true) {
-            continue;
-        }
-        let Some(stem) = p.file_stem().and_then(|s| s.to_str()).map(String::from) else {
-            continue;
-        };
-        if uuid::Uuid::parse_str(&stem).is_err() {
-            continue; // 이미 새 형식
-        }
-        let ts = fs::read_to_string(&p)
-            .ok()
-            .map(|c| Note::from_file_string(&stem, &c).0.meta.created_at)
-            .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
-            .map(|d| d.format("%Y%m%d-%H%M%S").to_string())
-            .unwrap_or_else(|| chrono::Local::now().format("%Y%m%d-%H%M%S").to_string());
-        let suffix = &uuid::Uuid::new_v4().simple().to_string()[..6];
-        let new_id = format!("{ts}-{suffix}");
-        let new_path = notes_dir.join(format!("{new_id}.md"));
-        if fs::rename(&p, &new_path).is_err() {
-            continue;
-        }
-        let assets_old = root.join("assets").join(&stem);
-        if assets_old.exists() {
-            let _ = fs::rename(assets_old, root.join("assets").join(&new_id));
-        }
-        if let Ok(c) = fs::read_to_string(&new_path) {
-            let c2 = c.replace(&format!("assets/{stem}/"), &format!("assets/{new_id}/"));
-            if c2 != c {
-                let _ = fs::write(&new_path, c2);
-            }
-        }
-    }
-}
-
-fn validate_ext(ext: &str) -> io::Result<()> {
-    // Validate ext as ASCII-alphanumeric only, length 1..=5
-    if ext.is_empty() || ext.len() > 5 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "ext must be 1..=5 characters",
-        ));
-    }
-    if !ext.chars().all(|c| c.is_ascii_alphanumeric()) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "ext must contain only ASCII alphanumeric characters",
-        ));
-    }
-    Ok(())
-}
-
 impl Store {
-    pub fn new(root: &Path) -> io::Result<Store> {
+    pub fn new(root: &Path) -> Result<Store> {
         fs::create_dir_all(root.join("notes"))?;
         fs::create_dir_all(root.join("assets"))?;
         migrate_uuid_filenames(root);
@@ -412,7 +38,7 @@ impl Store {
         self.settings.clone()
     }
 
-    pub fn set_settings(&mut self, s: &Settings) -> io::Result<()> {
+    pub fn set_settings(&mut self, s: &Settings) -> Result<()> {
         let path = self.root.join("settings.json");
         let tmp = self.root.join(format!("settings.json.{}.tmp", uuid::Uuid::now_v7()));
         fs::write(&tmp, serde_json::to_string_pretty(s).expect("settings serialize"))?;
@@ -433,13 +59,14 @@ impl Store {
         self.notes_dir().join(format!("{id}.md"))
     }
 
-    fn write_atomic(&self, note: &Note) -> io::Result<()> {
+    fn write_atomic(&self, note: &Note) -> Result<()> {
         let path = self.note_path(&note.meta.id);
         // Use unique tmp name to avoid concurrent write conflicts
         let tmp_id = uuid::Uuid::now_v7().to_string();
         let tmp = path.with_extension(format!("md.{}.tmp", tmp_id));
         fs::write(&tmp, note.to_file_string())?;
-        fs::rename(&tmp, &path)
+        fs::rename(&tmp, &path)?;
+        Ok(())
     }
 
     pub fn list(&self) -> Vec<Note> {
@@ -480,7 +107,7 @@ impl Store {
         Some(note)
     }
 
-    pub fn create(&self) -> io::Result<Note> {
+    pub fn create(&self) -> Result<Note> {
         let id = new_file_id();
         let mut meta = NoteMeta::new_default(id);
         meta.color = self.settings.default_color.clone();
@@ -494,16 +121,16 @@ impl Store {
         Ok(note)
     }
 
-    pub fn save_body(&self, id: &str, body: &str) -> io::Result<Note> {
+    pub fn save_body(&self, id: &str, body: &str) -> Result<Note> {
         validate_id(id)?;
-        let mut note = self.load(id).ok_or(io::ErrorKind::NotFound)?;
+        let mut note = self.load(id).ok_or(Error::NoteNotFound)?;
         note.body = body.to_string();
         note.meta.updated_at = chrono::Local::now().to_rfc3339();
         self.write_atomic(&note)?;
         Ok(note)
     }
 
-    pub fn save_meta(&self, id: &str, patch: &MetaPatch) -> io::Result<Note> {
+    pub fn save_meta(&self, id: &str, patch: &MetaPatch) -> Result<Note> {
         validate_id(id)?;
         let next_order = patch
             .group
@@ -511,7 +138,7 @@ impl Store {
             .filter(|g| !g.is_empty())
             .map(|g| self.next_group_order(g))
             .unwrap_or(0);
-        let mut note = self.load(id).ok_or(io::ErrorKind::NotFound)?;
+        let mut note = self.load(id).ok_or(Error::NoteNotFound)?;
         let m = &mut note.meta;
         if let Some(v) = &patch.color {
             m.color = v.clone();
@@ -583,9 +210,9 @@ impl Store {
     /// 드래그 합치기: moved(와 그 모음집 전체)를 target의 모음집으로 통합.
     /// target이 무소속이면 "새 그룹 N"을 만들어 target부터 편입. 이미 같은
     /// 모음집이면 변경 없음(false).
-    pub fn merge_note_groups(&self, moved_id: &str, target_id: &str) -> io::Result<bool> {
-        let target = self.load(target_id).ok_or(io::ErrorKind::NotFound)?;
-        let moved = self.load(moved_id).ok_or(io::ErrorKind::NotFound)?;
+    pub fn merge_note_groups(&self, moved_id: &str, target_id: &str) -> Result<bool> {
+        let target = self.load(target_id).ok_or(Error::NoteNotFound)?;
+        let moved = self.load(moved_id).ok_or(Error::NoteNotFound)?;
         if target.meta.group.is_some() && target.meta.group == moved.meta.group {
             return Ok(false);
         }
@@ -626,9 +253,9 @@ impl Store {
         v
     }
 
-    pub fn delete(&self, id: &str) -> io::Result<()> {
+    pub fn delete(&self, id: &str) -> Result<()> {
         validate_id(id)?;
-        fs::remove_file(self.note_path(id))?;
+        fs::remove_file(self.note_path(id)).map_err(Error::note_io)?;
         let assets = self.root.join("assets").join(id);
         if assets.exists() {
             fs::remove_dir_all(assets)?;
@@ -636,7 +263,7 @@ impl Store {
         Ok(())
     }
 
-    pub fn save_asset(&self, note_id: &str, ext: &str, bytes: &[u8]) -> io::Result<String> {
+    pub fn save_asset(&self, note_id: &str, ext: &str, bytes: &[u8]) -> Result<String> {
         validate_id(note_id)?;
         validate_ext(ext)?;
         let dir = self.root.join("assets").join(note_id);
@@ -648,13 +275,13 @@ impl Store {
 
     /// 외부 마크다운 파일을 새 노트로 가져온다 (#72). UTF-8 텍스트만 —
     /// 아닌 파일은 읽기 단계에서 에러가 나고 노트는 만들어지지 않는다.
-    pub fn import_markdown_file(&self, src: &Path) -> io::Result<Note> {
+    pub fn import_markdown_file(&self, src: &Path) -> Result<Note> {
         let body = fs::read_to_string(src)?;
         let note = self.create()?;
         self.save_body(&note.meta.id, &body)
     }
 
-    pub fn import_asset(&self, note_id: &str, src: &Path) -> io::Result<String> {
+    pub fn import_asset(&self, note_id: &str, src: &Path) -> Result<String> {
         validate_id(note_id)?;
         let ext = src
             .extension()
@@ -674,72 +301,6 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let s = Store::new(dir.path()).unwrap();
         (dir, s)
-    }
-
-    #[test]
-    fn frontmatter_roundtrip() {
-        let mut meta = NoteMeta::new_default("abc-123".into());
-        meta.color = "pink".into();
-        meta.font_size = 20;
-        meta.viewer_mode = true;
-        let note = Note {
-            meta: meta.clone(),
-            body: "# 제목\n본문 --- 대시 포함\n".into(),
-        };
-        let s = note.to_file_string();
-        let (parsed, recovered) = Note::from_file_string("abc-123", &s);
-        assert_eq!(parsed.meta, meta);
-        assert_eq!(parsed.body, "# 제목\n본문 --- 대시 포함\n");
-        assert!(!recovered);
-    }
-
-    #[test]
-    fn corrupt_frontmatter_preserves_body_with_default_meta() {
-        let content = "---\ncolor: [broken yaml\n---\n본문은 살아야 한다";
-        let (parsed, recovered) = Note::from_file_string("id-1", content);
-        assert_eq!(parsed.meta.id, "id-1");
-        assert_eq!(parsed.meta.color, "yellow");
-        assert_eq!(parsed.body, "본문은 살아야 한다");
-        assert!(recovered);
-    }
-
-    #[test]
-    fn no_frontmatter_treats_all_as_body() {
-        let (parsed, recovered) = Note::from_file_string("id-2", "그냥 텍스트");
-        assert_eq!(parsed.body, "그냥 텍스트");
-        assert_eq!(parsed.meta.id, "id-2");
-        assert!(recovered);
-    }
-
-    #[test]
-    fn frontmatter_no_trailing_newline() {
-        // File ends right after closing --- (no trailing newline)
-        let content = "---\nid: abc-123\ncolor: blue\n---";
-        let (parsed, recovered) = Note::from_file_string("abc-123", content);
-        assert_eq!(parsed.meta.id, "abc-123");
-        assert_eq!(parsed.meta.color, "blue");
-        assert_eq!(parsed.body, "");
-        assert!(!recovered);
-    }
-
-    #[test]
-    fn corrupt_frontmatter_at_eof_no_trailing_newline() {
-        // Corrupt YAML at EOF (no trailing newline after closing delimiter)
-        let content = "---\ncolor: [broken yaml\n---";
-        let (parsed, recovered) = Note::from_file_string("id-x", content);
-        assert_eq!(parsed.meta.id, "id-x");
-        assert_eq!(parsed.meta.color, "yellow");
-        assert_eq!(parsed.body, "");
-        assert!(recovered);
-    }
-
-    #[test]
-    fn meta_without_font_family_defaults_to_system() {
-        // v0.1 노트에는 font_family가 없다 — 하위호환 확인
-        let content = "---\nid: abc\ncolor: blue\n---\n본문";
-        let (parsed, recovered) = Note::from_file_string("abc", content);
-        assert_eq!(parsed.meta.font_family, "system");
-        assert!(!recovered);
     }
 
     #[test]
@@ -797,57 +358,6 @@ mod tests {
     }
 
     #[test]
-    fn resolves_default_stickdown_dir_and_migrates() {
-        let base = TempDir::new().unwrap();
-        let id_dir = base.path().join("com.stickdown.app");
-        fs::create_dir_all(id_dir.join("notes")).unwrap();
-        fs::write(id_dir.join("notes").join("a.md"), "x").unwrap();
-        fs::write(id_dir.join("settings.json"), "{}").unwrap();
-        let root = resolve_data_root(&id_dir);
-        assert_eq!(root, base.path().join("StickDown"));
-        assert!(root.join("notes").join("a.md").exists(), "데이터 이사");
-        assert!(!id_dir.join("notes").exists(), "원본 정리");
-    }
-
-    #[test]
-    fn conflicting_stickdown_dir_falls_back_to_id_dir() {
-        let base = TempDir::new().unwrap();
-        let id_dir = base.path().join("com.stickdown.app");
-        fs::create_dir_all(&id_dir).unwrap();
-        // notes/ 없는 남의 StickDown 폴더
-        fs::create_dir_all(base.path().join("StickDown").join("other")).unwrap();
-        assert_eq!(resolve_data_root(&id_dir), id_dir);
-    }
-
-    #[test]
-    fn storage_pointer_file_overrides_default() {
-        let base = TempDir::new().unwrap();
-        let id_dir = base.path().join("com.stickdown.app");
-        fs::create_dir_all(&id_dir).unwrap();
-        let custom = base.path().join("custom");
-        fs::write(id_dir.join("storage-path.txt"), custom.to_string_lossy().as_bytes()).unwrap();
-        assert_eq!(resolve_data_root(&id_dir), custom);
-        assert!(custom.join("notes").is_dir());
-    }
-
-    #[test]
-    fn move_storage_relocates_and_writes_pointer() {
-        let base = TempDir::new().unwrap();
-        let id_dir = base.path().join("com.stickdown.app");
-        let cur = base.path().join("StickDown");
-        fs::create_dir_all(cur.join("notes")).unwrap();
-        fs::write(cur.join("notes").join("a.md"), "x").unwrap();
-        fs::create_dir_all(&id_dir).unwrap();
-        let newp = base.path().join("elsewhere");
-        move_storage(&id_dir, &cur, &newp).unwrap();
-        assert!(newp.join("notes").join("a.md").exists());
-        assert_eq!(
-            fs::read_to_string(id_dir.join("storage-path.txt")).unwrap().trim(),
-            newp.to_string_lossy()
-        );
-    }
-
-    #[test]
     fn merge_groups_moves_whole_collection() {
         let (_d, s) = store();
         let a1 = s.create().unwrap();
@@ -865,17 +375,6 @@ mod tests {
         assert_eq!(members[0].meta.id, t.meta.id, "target이 첫 순서");
         // 같은 그룹끼리는 변경 없음
         assert!(!s.merge_note_groups(&a1.meta.id, &t.meta.id).unwrap());
-    }
-
-    #[test]
-    fn body_with_horizontal_rule_roundtrips() {
-        // 본문의 마크다운 구분선(---)이 프론트매터 종료로 오인되면 본문이 잘린다
-        let meta = NoteMeta::new_default("hr-1".into());
-        let body = "위 문단\n\n---\n\n아래 문단";
-        let note = Note { meta, body: body.into() };
-        let (parsed, recovered) = Note::from_file_string("hr-1", &note.to_file_string());
-        assert!(!recovered);
-        assert_eq!(parsed.body, body);
     }
 
     #[test]
@@ -971,35 +470,28 @@ mod tests {
     }
 
     #[test]
-    fn next_new_group_name_fills_gaps() {
-        assert_eq!(next_new_group_name(&["새 그룹 2".into(), "새 그룹 3".into()]), "새 그룹 1");
-        assert_eq!(next_new_group_name(&["새 그룹 1".into(), "새 그룹 3".into()]), "새 그룹 2");
-    }
-
-    #[test]
-    fn missing_note_errors_are_not_found_kind() {
-        // 프런트의 좀비 창 방지(NOTE_NOT_FOUND 마커, commands::err_io)는
-        // 이 에러 종류(NotFound)에 의존한다
+    fn missing_note_maps_to_note_not_found() {
+        // 프런트의 좀비 창 방지는 이 에러가 NOTE_NOT_FOUND로 직렬화되는 데 의존한다
         let (_d, s) = store();
         let gone = "20990101-000000-abcdef";
-        assert_eq!(s.save_body(gone, "x").unwrap_err().kind(), io::ErrorKind::NotFound);
-        assert_eq!(
-            s.save_meta(gone, &MetaPatch::default()).unwrap_err().kind(),
-            io::ErrorKind::NotFound
-        );
-        assert_eq!(s.delete(gone).unwrap_err().kind(), io::ErrorKind::NotFound);
+        assert!(matches!(s.save_body(gone, "x"), Err(Error::NoteNotFound)));
+        assert!(matches!(
+            s.save_meta(gone, &MetaPatch::default()),
+            Err(Error::NoteNotFound)
+        ));
+        assert!(matches!(s.delete(gone), Err(Error::NoteNotFound)));
     }
 
     #[test]
     fn id_length_and_charset_boundaries() {
         let (_d, s) = store();
-        // 64자는 형식상 유효 — 파일이 없을 뿐(NotFound)
+        // 64자는 형식상 유효 — 파일이 없을 뿐
         let ok64 = "a".repeat(64);
-        assert_eq!(s.save_body(&ok64, "x").unwrap_err().kind(), io::ErrorKind::NotFound);
+        assert!(matches!(s.save_body(&ok64, "x"), Err(Error::NoteNotFound)));
         let too_long = "a".repeat(65);
-        assert_eq!(s.save_body(&too_long, "x").unwrap_err().kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(s.save_body("한글아이디", "x").unwrap_err().kind(), io::ErrorKind::InvalidInput);
-        assert_eq!(s.save_body("", "x").unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        assert!(matches!(s.save_body(&too_long, "x"), Err(Error::Invalid(_))));
+        assert!(matches!(s.save_body("한글아이디", "x"), Err(Error::Invalid(_))));
+        assert!(matches!(s.save_body("", "x"), Err(Error::Invalid(_))));
     }
 
     #[test]
@@ -1075,13 +567,6 @@ mod tests {
         assert_eq!(s.load(&n.meta.id).unwrap().meta.title.as_deref(), Some("회의록"));
         s.save_meta(&n.meta.id, &MetaPatch { title: Some(String::new()), ..Default::default() }).unwrap();
         assert_eq!(s.load(&n.meta.id).unwrap().meta.title, None);
-    }
-
-    #[test]
-    fn group_fields_default_and_backcompat() {
-        let (parsed, _) = Note::from_file_string("abc", "---\nid: abc\n---\n본문");
-        assert_eq!(parsed.meta.group, None);
-        assert_eq!(parsed.meta.group_order, 0);
     }
 
     #[test]
@@ -1186,7 +671,7 @@ mod tests {
         assert_eq!(n2.meta.color, "blue");
         assert_eq!(n2.meta.font_size, 22);
         assert_eq!(n2.meta.updated_at, n.meta.updated_at);
-        assert_eq!(n2.meta.hidden, false); // 미지정 필드 유지
+        assert!(!n2.meta.hidden, "미지정 필드 유지");
     }
 
     #[test]
@@ -1342,7 +827,7 @@ mod tests {
         let first = s.list();
         assert_eq!(first.len(), 1);
         let updated_at_1 = first[0].meta.updated_at.clone();
-        assert_eq!(first[0].meta.hidden, false);
+        assert!(!first[0].meta.hidden);
 
         std::thread::sleep(std::time::Duration::from_millis(5));
 

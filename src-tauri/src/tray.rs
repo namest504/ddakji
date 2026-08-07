@@ -29,17 +29,28 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id().as_ref() {
             "new" => {
-                let note = app.state::<Mutex<crate::store::Store>>().lock().unwrap().create();
+                let note = app
+                    .state::<Mutex<crate::store::Store>>()
+                    .lock()
+                    .unwrap()
+                    .create();
                 if let Ok(note) = note {
                     let _ = crate::windows::open_note_window(app, &note);
                 }
             }
-            "list" => { let _ = crate::windows::open_list_window(app); }
-            "show_all" => { let _ = crate::expand_all_notes(app); }
+            "list" => {
+                let _ = crate::windows::open_list_window(app);
+            }
+            "show_all" => {
+                let _ = crate::expand_all_notes(app);
+            }
             "autostart" => {
                 let al = app.autolaunch();
-                if al.is_enabled().unwrap_or(false) { let _ = al.disable(); }
-                else { let _ = al.enable(); }
+                if al.is_enabled().unwrap_or(false) {
+                    let _ = al.disable();
+                } else {
+                    let _ = al.enable();
+                }
                 let _ = autostart_handle.set_checked(al.is_enabled().unwrap_or(false));
             }
             "quit" => app.exit(0),

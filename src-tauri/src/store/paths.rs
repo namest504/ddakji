@@ -78,7 +78,10 @@ pub fn move_storage(id_dir: &Path, current: &Path, new_root: &Path) -> Result<()
             }
         }
     }
-    fs::write(id_dir.join("storage-path.txt"), new_root.to_string_lossy().as_bytes())?;
+    fs::write(
+        id_dir.join("storage-path.txt"),
+        new_root.to_string_lossy().as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -113,7 +116,9 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
 /// assets/<id>/ 참조까지 함께. 시각은 프론트매터 created_at을 사용한다.
 pub(super) fn migrate_uuid_filenames(root: &Path) {
     let notes_dir = root.join("notes");
-    let Ok(rd) = fs::read_dir(&notes_dir) else { return };
+    let Ok(rd) = fs::read_dir(&notes_dir) else {
+        return;
+    };
     for e in rd.flatten() {
         let p = e.path();
         if p.extension().map(|x| x != "md").unwrap_or(true) {
@@ -197,7 +202,11 @@ mod tests {
         let id_dir = base.path().join("com.stickdown.app");
         fs::create_dir_all(&id_dir).unwrap();
         let custom = base.path().join("custom");
-        fs::write(id_dir.join("storage-path.txt"), custom.to_string_lossy().as_bytes()).unwrap();
+        fs::write(
+            id_dir.join("storage-path.txt"),
+            custom.to_string_lossy().as_bytes(),
+        )
+        .unwrap();
         assert_eq!(resolve_data_root(&id_dir), custom);
         assert!(custom.join("notes").is_dir());
     }
@@ -214,7 +223,9 @@ mod tests {
         move_storage(&id_dir, &cur, &newp).unwrap();
         assert!(newp.join("notes").join("a.md").exists());
         assert_eq!(
-            fs::read_to_string(id_dir.join("storage-path.txt")).unwrap().trim(),
+            fs::read_to_string(id_dir.join("storage-path.txt"))
+                .unwrap()
+                .trim(),
             newp.to_string_lossy()
         );
     }

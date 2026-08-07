@@ -40,8 +40,13 @@ impl Store {
 
     pub fn set_settings(&mut self, s: &Settings) -> Result<()> {
         let path = self.root.join("settings.json");
-        let tmp = self.root.join(format!("settings.json.{}.tmp", uuid::Uuid::now_v7()));
-        fs::write(&tmp, serde_json::to_string_pretty(s).expect("settings serialize"))?;
+        let tmp = self
+            .root
+            .join(format!("settings.json.{}.tmp", uuid::Uuid::now_v7()));
+        fs::write(
+            &tmp,
+            serde_json::to_string_pretty(s).expect("settings serialize"),
+        )?;
         fs::rename(&tmp, &path)?;
         self.settings = s.clone();
         Ok(())
@@ -222,7 +227,10 @@ impl Store {
                 let name = next_new_group_name(&self.group_names());
                 self.save_meta(
                     target_id,
-                    &MetaPatch { group: Some(name.clone()), ..Default::default() },
+                    &MetaPatch {
+                        group: Some(name.clone()),
+                        ..Default::default()
+                    },
                 )?;
                 name
             }
@@ -232,14 +240,20 @@ impl Store {
                 for m in self.group_notes(&old) {
                     self.save_meta(
                         &m.meta.id,
-                        &MetaPatch { group: Some(group.clone()), ..Default::default() },
+                        &MetaPatch {
+                            group: Some(group.clone()),
+                            ..Default::default()
+                        },
                     )?;
                 }
             }
             None => {
                 self.save_meta(
                     moved_id,
-                    &MetaPatch { group: Some(group.clone()), ..Default::default() },
+                    &MetaPatch {
+                        group: Some(group.clone()),
+                        ..Default::default()
+                    },
                 )?;
             }
         }
@@ -247,7 +261,11 @@ impl Store {
     }
 
     pub fn group_names(&self) -> Vec<String> {
-        let mut v: Vec<String> = self.list().into_iter().filter_map(|n| n.meta.group).collect();
+        let mut v: Vec<String> = self
+            .list()
+            .into_iter()
+            .filter_map(|n| n.meta.group)
+            .collect();
         v.sort();
         v.dedup();
         v
@@ -283,10 +301,7 @@ impl Store {
 
     pub fn import_asset(&self, note_id: &str, src: &Path) -> Result<String> {
         validate_id(note_id)?;
-        let ext = src
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("png");
+        let ext = src.extension().and_then(|e| e.to_str()).unwrap_or("png");
         let bytes = fs::read(src)?;
         self.save_asset(note_id, ext, &bytes)
     }
@@ -364,7 +379,14 @@ mod tests {
         let a2 = s.create().unwrap();
         let t = s.create().unwrap();
         for id in [&a1.meta.id, &a2.meta.id] {
-            s.save_meta(id, &MetaPatch { group: Some("A".into()), ..Default::default() }).unwrap();
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("A".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
         // 그룹 A 창을 무소속 t 위로 — 새 그룹이 만들어지고 셋 다 편입
         assert!(s.merge_note_groups(&a1.meta.id, &t.meta.id).unwrap());
@@ -385,11 +407,29 @@ mod tests {
         let a = s.create().unwrap();
         let b = s.create().unwrap();
         for id in [&a.meta.id, &b.meta.id] {
-            s.save_meta(id, &MetaPatch { group: Some("X".into()), ..Default::default() }).unwrap();
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("X".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
         assert_eq!(s.load(&a.meta.id).unwrap().meta.group_order, 0);
-        s.save_meta(&a.meta.id, &MetaPatch { group: Some("X".into()), ..Default::default() }).unwrap();
-        assert_eq!(s.load(&a.meta.id).unwrap().meta.group_order, 0, "재지정은 순서 유지");
+        s.save_meta(
+            &a.meta.id,
+            &MetaPatch {
+                group: Some("X".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            s.load(&a.meta.id).unwrap().meta.group_order,
+            0,
+            "재지정은 순서 유지"
+        );
     }
 
     #[test]
@@ -398,14 +438,39 @@ mod tests {
         let a = s.create().unwrap();
         let b1 = s.create().unwrap();
         let b2 = s.create().unwrap();
-        s.save_meta(&a.meta.id, &MetaPatch { group: Some("A".into()), ..Default::default() }).unwrap();
+        s.save_meta(
+            &a.meta.id,
+            &MetaPatch {
+                group: Some("A".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         for id in [&b1.meta.id, &b2.meta.id] {
-            s.save_meta(id, &MetaPatch { group: Some("B".into()), ..Default::default() }).unwrap();
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("B".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
-        s.save_meta(&a.meta.id, &MetaPatch { group: Some("B".into()), ..Default::default() }).unwrap();
+        s.save_meta(
+            &a.meta.id,
+            &MetaPatch {
+                group: Some("B".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let g = s.group_notes("B");
         assert_eq!(g.len(), 3);
-        assert_eq!(g.last().unwrap().meta.id, a.meta.id, "옮겨온 노트는 끝 순서");
+        assert_eq!(
+            g.last().unwrap().meta.id,
+            a.meta.id,
+            "옮겨온 노트는 끝 순서"
+        );
         assert!(s.group_notes("A").is_empty(), "원래 그룹에서는 빠진다");
     }
 
@@ -418,16 +483,37 @@ mod tests {
         let b1 = s.create().unwrap();
         let b2 = s.create().unwrap();
         for id in [&a1.meta.id, &a2.meta.id] {
-            s.save_meta(id, &MetaPatch { group: Some("A".into()), ..Default::default() }).unwrap();
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("A".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
         for id in [&b1.meta.id, &b2.meta.id] {
-            s.save_meta(id, &MetaPatch { group: Some("B".into()), ..Default::default() }).unwrap();
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("B".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
         assert!(s.merge_note_groups(&a1.meta.id, &b1.meta.id).unwrap());
         let ids: Vec<String> = s.group_notes("B").into_iter().map(|n| n.meta.id).collect();
-        assert_eq!(ids, vec![b1.meta.id, b2.meta.id, a1.meta.id.clone(), a2.meta.id]);
+        assert_eq!(
+            ids,
+            vec![b1.meta.id, b2.meta.id, a1.meta.id.clone(), a2.meta.id]
+        );
         assert!(s.group_notes("A").is_empty());
-        assert_eq!(s.group_names(), vec!["B".to_string()], "빈 그룹 A는 사라진다");
+        assert_eq!(
+            s.group_names(),
+            vec!["B".to_string()],
+            "빈 그룹 A는 사라진다"
+        );
     }
 
     #[test]
@@ -435,7 +521,14 @@ mod tests {
         let (_d, s) = store();
         let t = s.create().unwrap();
         let m = s.create().unwrap();
-        s.save_meta(&t.meta.id, &MetaPatch { group: Some("B".into()), ..Default::default() }).unwrap();
+        s.save_meta(
+            &t.meta.id,
+            &MetaPatch {
+                group: Some("B".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert!(s.merge_note_groups(&m.meta.id, &t.meta.id).unwrap());
         let g = s.group_notes("B");
         assert_eq!(g.len(), 2);
@@ -446,8 +539,12 @@ mod tests {
     fn merge_missing_note_errors() {
         let (_d, s) = store();
         let t = s.create().unwrap();
-        assert!(s.merge_note_groups("20990101-000000-abcdef", &t.meta.id).is_err());
-        assert!(s.merge_note_groups(&t.meta.id, "20990101-000000-abcdef").is_err());
+        assert!(s
+            .merge_note_groups("20990101-000000-abcdef", &t.meta.id)
+            .is_err());
+        assert!(s
+            .merge_note_groups(&t.meta.id, "20990101-000000-abcdef")
+            .is_err());
     }
 
     #[test]
@@ -460,7 +557,11 @@ mod tests {
         for id in [&b.meta.id, &a.meta.id] {
             s.save_meta(
                 id,
-                &MetaPatch { group: Some("T".into()), group_order: Some(5), ..Default::default() },
+                &MetaPatch {
+                    group: Some("T".into()),
+                    group_order: Some(5),
+                    ..Default::default()
+                },
             )
             .unwrap();
         }
@@ -489,8 +590,14 @@ mod tests {
         let ok64 = "a".repeat(64);
         assert!(matches!(s.save_body(&ok64, "x"), Err(Error::NoteNotFound)));
         let too_long = "a".repeat(65);
-        assert!(matches!(s.save_body(&too_long, "x"), Err(Error::Invalid(_))));
-        assert!(matches!(s.save_body("한글아이디", "x"), Err(Error::Invalid(_))));
+        assert!(matches!(
+            s.save_body(&too_long, "x"),
+            Err(Error::Invalid(_))
+        ));
+        assert!(matches!(
+            s.save_body("한글아이디", "x"),
+            Err(Error::Invalid(_))
+        ));
         assert!(matches!(s.save_body("", "x"), Err(Error::Invalid(_))));
     }
 
@@ -540,7 +647,9 @@ mod tests {
     #[test]
     fn import_markdown_missing_or_binary_creates_nothing() {
         let (_d, s) = store();
-        assert!(s.import_markdown_file(Path::new("/no/such/file.md")).is_err());
+        assert!(s
+            .import_markdown_file(Path::new("/no/such/file.md"))
+            .is_err());
         // UTF-8이 아닌 파일은 읽기에서 실패하고 노트가 생기지 않는다
         let bin = _d.path().join("image.md");
         fs::write(&bin, [0xff, 0xfe, 0x00, 0x80]).unwrap();
@@ -563,9 +672,26 @@ mod tests {
     fn title_patch_set_and_clear() {
         let (_d, s) = store();
         let n = s.create().unwrap();
-        s.save_meta(&n.meta.id, &MetaPatch { title: Some("회의록".into()), ..Default::default() }).unwrap();
-        assert_eq!(s.load(&n.meta.id).unwrap().meta.title.as_deref(), Some("회의록"));
-        s.save_meta(&n.meta.id, &MetaPatch { title: Some(String::new()), ..Default::default() }).unwrap();
+        s.save_meta(
+            &n.meta.id,
+            &MetaPatch {
+                title: Some("회의록".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            s.load(&n.meta.id).unwrap().meta.title.as_deref(),
+            Some("회의록")
+        );
+        s.save_meta(
+            &n.meta.id,
+            &MetaPatch {
+                title: Some(String::new()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(s.load(&n.meta.id).unwrap().meta.title, None);
     }
 
@@ -573,9 +699,26 @@ mod tests {
     fn empty_group_patch_clears_group() {
         let (_d, s) = store();
         let n = s.create().unwrap();
-        s.save_meta(&n.meta.id, &MetaPatch { group: Some("업무".into()), ..Default::default() }).unwrap();
-        assert_eq!(s.load(&n.meta.id).unwrap().meta.group.as_deref(), Some("업무"));
-        s.save_meta(&n.meta.id, &MetaPatch { group: Some(String::new()), ..Default::default() }).unwrap();
+        s.save_meta(
+            &n.meta.id,
+            &MetaPatch {
+                group: Some("업무".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            s.load(&n.meta.id).unwrap().meta.group.as_deref(),
+            Some("업무")
+        );
+        s.save_meta(
+            &n.meta.id,
+            &MetaPatch {
+                group: Some(String::new()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(s.load(&n.meta.id).unwrap().meta.group, None);
     }
 
@@ -586,12 +729,23 @@ mod tests {
         let b = s.create().unwrap();
         let c = s.create().unwrap();
         for id in [&a.meta.id, &b.meta.id, &c.meta.id] {
-            s.save_meta(id, &MetaPatch { group: Some("모음".into()), ..Default::default() }).unwrap();
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("모음".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         }
         let g = s.group_notes("모음");
         assert_eq!(g.len(), 3);
         let orders: Vec<u32> = g.iter().map(|n| n.meta.group_order).collect();
-        assert!(orders[0] < orders[1] && orders[1] < orders[2], "부여 순서대로 정렬: {:?}", orders);
+        assert!(
+            orders[0] < orders[1] && orders[1] < orders[2],
+            "부여 순서대로 정렬: {:?}",
+            orders
+        );
         assert_eq!(g[0].meta.id, a.meta.id);
         assert_eq!(s.group_names(), vec!["모음".to_string()]);
     }
@@ -600,7 +754,10 @@ mod tests {
     fn migrates_uuid_filenames_with_assets_and_body_refs() {
         let d = TempDir::new().unwrap();
         let notes = d.path().join("notes");
-        let assets = d.path().join("assets").join("0198aaaa-bbbb-4ccc-8ddd-eeeeffff0000");
+        let assets = d
+            .path()
+            .join("assets")
+            .join("0198aaaa-bbbb-4ccc-8ddd-eeeeffff0000");
         fs::create_dir_all(&notes).unwrap();
         fs::create_dir_all(&assets).unwrap();
         fs::write(assets.join("img.png"), b"png").unwrap();
@@ -614,9 +771,23 @@ mod tests {
         let list = s.list();
         assert_eq!(list.len(), 1);
         let n = &list[0];
-        assert!(n.meta.id.starts_with("20260801-093000-"), "created_at 기반 개명: {}", n.meta.id);
-        assert!(n.body.contains(&format!("assets/{}/img.png", n.meta.id)), "본문 참조 갱신");
-        assert!(d.path().join("assets").join(&n.meta.id).join("img.png").exists(), "에셋 폴더 개명");
+        assert!(
+            n.meta.id.starts_with("20260801-093000-"),
+            "created_at 기반 개명: {}",
+            n.meta.id
+        );
+        assert!(
+            n.body.contains(&format!("assets/{}/img.png", n.meta.id)),
+            "본문 참조 갱신"
+        );
+        assert!(
+            d.path()
+                .join("assets")
+                .join(&n.meta.id)
+                .join("img.png")
+                .exists(),
+            "에셋 폴더 개명"
+        );
         assert!(!notes.join(format!("{old_id}.md")).exists());
     }
 
@@ -624,7 +795,11 @@ mod tests {
     fn settings_without_favorite_fonts_defaults_empty() {
         // 기존 settings.json(구 버전)에 favorite_fonts가 없어도 로드된다
         let d = TempDir::new().unwrap();
-        fs::write(d.path().join("settings.json"), r#"{"default_color":"pink"}"#).unwrap();
+        fs::write(
+            d.path().join("settings.json"),
+            r#"{"default_color":"pink"}"#,
+        )
+        .unwrap();
         let s = Store::new(d.path()).unwrap();
         assert_eq!(s.settings().default_color, "pink");
         assert!(s.settings().favorite_fonts.is_empty());
@@ -757,7 +932,9 @@ mod tests {
         for entry in root_entries {
             let path = entry.unwrap().path();
             if path.is_dir() {
-                assert!(path.file_name().unwrap() == "notes" || path.file_name().unwrap() == "assets");
+                assert!(
+                    path.file_name().unwrap() == "notes" || path.file_name().unwrap() == "assets"
+                );
             }
         }
     }

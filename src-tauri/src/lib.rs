@@ -86,11 +86,15 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     let store = Store::new(&root)?;
     let notes = store.list();
     // 커스텀 저장 경로에서도 이미지(asset)가 로드되도록 스코프 허용
-    let _ = app.asset_protocol_scope().allow_directory(root.join("assets"), true);
+    let _ = app
+        .asset_protocol_scope()
+        .allow_directory(root.join("assets"), true);
     app.manage(Mutex::new(store));
     app.manage(commands::IdDir(id_dir));
     app.manage(commands::LastViewed(Mutex::new(None)));
-    app.manage(commands::WindowNotes(Mutex::new(std::collections::HashMap::new())));
+    app.manage(commands::WindowNotes(Mutex::new(
+        std::collections::HashMap::new(),
+    )));
     tray::create_tray(app.handle())?;
     // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)
     windows::ensure_main_stub(app.handle())?;
@@ -116,7 +120,9 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         tauri::WindowEvent::CloseRequested { api, .. } => {
             // 창이 표시 중인 노트는 매핑이 진실 (#25 — label은 불변, 노트는 동적)
             let id = app.try_state::<commands::WindowNotes>().and_then(|wn| {
-                wn.0.lock().ok().and_then(|m| m.get(window.label()).cloned())
+                wn.0.lock()
+                    .ok()
+                    .and_then(|m| m.get(window.label()).cloned())
             });
             if let Some(id) = id {
                 // 닫기 = 숨김 (삭제 아님), 트레이 상주

@@ -94,22 +94,13 @@ pub async fn open_list(app: AppHandle) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn save_image(
-    store: StoreState,
-    id: String,
-    ext: String,
-    bytes: Vec<u8>,
-) -> Result<String> {
+pub fn save_image(store: StoreState, id: String, ext: String, bytes: Vec<u8>) -> Result<String> {
     lock(&store)?.save_asset(&id, &ext, &bytes)
 }
 
 // 창을 여는 커맨드이므로 async 필수 (#8 데드락 규칙)
 #[tauri::command]
-pub async fn import_markdown(
-    app: AppHandle,
-    store: StoreState<'_>,
-    path: String,
-) -> Result<Note> {
+pub async fn import_markdown(app: AppHandle, store: StoreState<'_>, path: String) -> Result<Note> {
     let note = {
         let s = lock(&store)?;
         s.import_markdown_file(std::path::Path::new(&path))?
@@ -152,7 +143,9 @@ pub fn get_last_viewed(state: State<LastViewed>, store: StoreState) -> Result<Op
     let id = lock(&state.0)?.clone();
     let s = lock(&store)?;
     // 아직 본 노트가 없으면 가장 최근 수정된 노트로
-    Ok(id.and_then(|i| s.load(&i)).or_else(|| s.list().into_iter().next()))
+    Ok(id
+        .and_then(|i| s.load(&i))
+        .or_else(|| s.list().into_iter().next()))
 }
 
 #[tauri::command]
@@ -220,7 +213,10 @@ pub async fn nav_group(
     if notes.len() < 2 {
         return Ok(None);
     }
-    let idx = notes.iter().position(|n| n.meta.id == current_id).unwrap_or(0) as i32;
+    let idx = notes
+        .iter()
+        .position(|n| n.meta.id == current_id)
+        .unwrap_or(0) as i32;
     let len = notes.len() as i32;
     let target = notes[(((idx + dir) % len + len) % len) as usize].clone();
     let other = lock(&wn.0)?
@@ -241,8 +237,12 @@ pub async fn nav_group(
 #[tauri::command]
 pub fn group_members(store: StoreState, id: String) -> Result<Vec<String>> {
     let s = lock(&store)?;
-    let Some(n) = s.load(&id) else { return Ok(vec![]) };
-    let Some(g) = n.meta.group else { return Ok(vec![]) };
+    let Some(n) = s.load(&id) else {
+        return Ok(vec![]);
+    };
+    let Some(g) = n.meta.group else {
+        return Ok(vec![]);
+    };
     Ok(s.group_notes(&g).into_iter().map(|n| n.meta.id).collect())
 }
 
@@ -282,9 +282,18 @@ pub async fn merge_preview(
     wn: State<'_, WindowNotes>,
 ) -> Result<bool> {
     let label = window.label().to_string();
-    let Ok(ap) = window.outer_position() else { return Ok(false) };
-    let Ok(asz) = window.outer_size() else { return Ok(false) };
-    let a = (ap.x as f64, ap.y as f64, asz.width as f64, asz.height as f64);
+    let Ok(ap) = window.outer_position() else {
+        return Ok(false);
+    };
+    let Ok(asz) = window.outer_size() else {
+        return Ok(false);
+    };
+    let a = (
+        ap.x as f64,
+        ap.y as f64,
+        asz.width as f64,
+        asz.height as f64,
+    );
     let entries: Vec<String> = lock(&wn.0)?
         .iter()
         .filter(|(l, _)| **l != label)
@@ -292,12 +301,20 @@ pub async fn merge_preview(
         .collect();
     let mut hint = false;
     for l in entries {
-        let Some(w) = app.get_webview_window(&l) else { continue };
+        let Some(w) = app.get_webview_window(&l) else {
+            continue;
+        };
         if !w.is_visible().unwrap_or(false) {
             continue;
         }
-        let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else { continue };
-        if overlap_ratio(a, (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64)) >= 0.6 {
+        let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else {
+            continue;
+        };
+        if overlap_ratio(
+            a,
+            (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64),
+        ) >= 0.6
+        {
             hint = true;
             break;
         }
@@ -323,7 +340,12 @@ pub async fn check_merge(
         .ok_or(Error::WindowNotMapped)?;
     let ap = window.outer_position()?;
     let asz = window.outer_size()?;
-    let a = (ap.x as f64, ap.y as f64, asz.width as f64, asz.height as f64);
+    let a = (
+        ap.x as f64,
+        ap.y as f64,
+        asz.width as f64,
+        asz.height as f64,
+    );
     let entries: Vec<(String, String)> = lock(&wn.0)?
         .iter()
         .filter(|(l, _)| **l != label)
@@ -331,18 +353,24 @@ pub async fn check_merge(
         .collect();
     let mut best: Option<MergeCandidate> = None;
     for (l, id) in entries {
-        let Some(w) = app.get_webview_window(&l) else { continue };
+        let Some(w) = app.get_webview_window(&l) else {
+            continue;
+        };
         if !w.is_visible().unwrap_or(false) {
             continue;
         }
-        let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else { continue };
+        let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else {
+            continue;
+        };
         let b = (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64);
         let r = overlap_ratio(a, b);
         if r > best.as_ref().map(|x| x.2).unwrap_or(0.0) {
             best = Some((l, id, r, b));
         }
     }
-    let Some((target_label, target_id, ratio, tb)) = best else { return Ok(false) };
+    let Some((target_label, target_id, ratio, tb)) = best else {
+        return Ok(false);
+    };
     if ratio < 0.6 || target_id == moved_id {
         return Ok(false);
     }
@@ -395,18 +423,22 @@ pub async fn pop_out(
     let (cur, members) = {
         let s = lock(&store)?;
         let cur = s.load(&current_id).ok_or(Error::NoteNotFound)?;
-        let Some(g) = cur.meta.group.clone() else { return Ok(None) };
+        let Some(g) = cur.meta.group.clone() else {
+            return Ok(None);
+        };
         let ns = s.group_notes(&g);
         (cur, ns)
     };
     if members.len() < 2 {
         return Ok(None);
     }
-    let mapped: std::collections::HashSet<String> =
-        lock(&wn.0)?.values().cloned().collect();
+    let mapped: std::collections::HashSet<String> = lock(&wn.0)?.values().cloned().collect();
     let Some(next) = pop_out_next(&members, &current_id, &mapped).cloned() else {
         // 전부 창이 있으면 다음 노트의 창으로 포커스
-        let idx = members.iter().position(|n| n.meta.id == current_id).unwrap_or(0);
+        let idx = members
+            .iter()
+            .position(|n| n.meta.id == current_id)
+            .unwrap_or(0);
         let next_id = members[(idx + 1) % members.len()].meta.id.clone();
         let target_label = lock(&wn.0)?
             .iter()
@@ -519,7 +551,10 @@ mod tests {
     }
 
     fn note(id: &str) -> Note {
-        Note { meta: NoteMeta::new_default(id.into()), body: String::new() }
+        Note {
+            meta: NoteMeta::new_default(id.into()),
+            body: String::new(),
+        }
     }
     fn set(ids: &[&str]) -> HashSet<String> {
         ids.iter().map(|s| s.to_string()).collect()
@@ -534,13 +569,19 @@ mod tests {
     #[test]
     fn skips_members_that_already_have_windows() {
         let m = [note("a"), note("b"), note("c")];
-        assert_eq!(pop_out_next(&m, "a", &set(&["a", "b"])).unwrap().meta.id, "c");
+        assert_eq!(
+            pop_out_next(&m, "a", &set(&["a", "b"])).unwrap().meta.id,
+            "c"
+        );
     }
 
     #[test]
     fn wraps_around_the_group() {
         let m = [note("a"), note("b"), note("c")];
-        assert_eq!(pop_out_next(&m, "c", &set(&["c", "b"])).unwrap().meta.id, "a");
+        assert_eq!(
+            pop_out_next(&m, "c", &set(&["c", "b"])).unwrap().meta.id,
+            "a"
+        );
     }
 
     #[test]

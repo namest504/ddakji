@@ -29,8 +29,11 @@ export function useNoteDocument(initialNoteId: string, guard: SaveGuard) {
   const [slide, setSlide] = useState<"next" | "prev" | null>(null);
   const bodyRef = useRef("");
   const saveTimer = useRef<number>();
+  // 이벤트 핸들러(changeFont)가 최신 노트를 보되 리렌더는 유발하지 않도록
   const noteRef = useRef<Note | null>(null);
-  noteRef.current = note;
+  useEffect(() => {
+    noteRef.current = note;
+  }, [note]);
 
   useEffect(() => {
     api

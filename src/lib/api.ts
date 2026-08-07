@@ -3,17 +3,44 @@ import { invoke } from "@tauri-apps/api/core";
 export type NoteColor = "yellow" | "green" | "pink" | "purple" | "blue" | "gray" | "charcoal";
 // 프리셋 3종 외의 문자열은 사용자 지정 폰트명 (커스텀 폰트)
 export type FontFamily = "system" | "serif" | "mono" | (string & {});
-export interface WindowBounds { x: number; y: number; w: number; h: number }
+export interface WindowBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 export interface NoteMeta {
-  id: string; created_at: string; updated_at: string;
-  color: NoteColor; font_size: number; font_family: FontFamily; viewer_mode: boolean;
-  window: WindowBounds; always_on_top: boolean; hidden: boolean;
-  group?: string | null; group_order: number;
+  id: string;
+  created_at: string;
+  updated_at: string;
+  color: NoteColor;
+  font_size: number;
+  font_family: FontFamily;
+  viewer_mode: boolean;
+  window: WindowBounds;
+  always_on_top: boolean;
+  hidden: boolean;
+  group?: string | null;
+  group_order: number;
   title?: string | null;
 }
-export interface Note { meta: NoteMeta; body: string }
-export type MetaPatch = Partial<Pick<NoteMeta,
-  "color" | "font_size" | "font_family" | "viewer_mode" | "always_on_top" | "hidden" | "window" | "group_order">> & {
+export interface Note {
+  meta: NoteMeta;
+  body: string;
+}
+export type MetaPatch = Partial<
+  Pick<
+    NoteMeta,
+    | "color"
+    | "font_size"
+    | "font_family"
+    | "viewer_mode"
+    | "always_on_top"
+    | "hidden"
+    | "window"
+    | "group_order"
+  >
+> & {
   /** 빈 문자열 = 그룹 해제 */
   group?: string;
   /** 빈 문자열 = 제목 해제(본문 파생으로 복귀) */

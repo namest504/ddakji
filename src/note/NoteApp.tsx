@@ -24,7 +24,8 @@ import { useWindowSync } from "./hooks/useWindowSync";
 export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   const { saveError, guard, retry } = useSaveGuard();
   const doc = useNoteDocument(initialNoteId, guard);
-  const { noteId, note, setNote, slide, flushBody, onBodyChange, patchMeta, changeFont, switchTo } = doc;
+  const { noteId, note, setNote, slide, flushBody, onBodyChange, patchMeta, changeFont, switchTo } =
+    doc;
   const base = useDataRoot();
 
   const { members, navigate, jumpTo, popOut } = useGroupNavigation({

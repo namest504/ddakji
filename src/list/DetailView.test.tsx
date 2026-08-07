@@ -15,10 +15,18 @@ import DetailView from "./DetailView";
 // 테스트가 실행 타임존(CI는 UTC)과 무관하게 성립한다
 const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note => ({
   meta: {
-    id, created_at: "2026-08-01T10:00:00", updated_at: "2026-08-02T14:30:00",
-    color: "yellow", font_size: 16, font_family: "system", viewer_mode: false,
-    window: { x: 0, y: 0, w: 320, h: 340 }, always_on_top: false, hidden: false,
-    group_order: 0, ...extra,
+    id,
+    created_at: "2026-08-01T10:00:00",
+    updated_at: "2026-08-02T14:30:00",
+    color: "yellow",
+    font_size: 16,
+    font_family: "system",
+    viewer_mode: false,
+    window: { x: 0, y: 0, w: 320, h: 340 },
+    always_on_top: false,
+    hidden: false,
+    group_order: 0,
+    ...extra,
   },
   body,
 });

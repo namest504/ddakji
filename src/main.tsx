@@ -19,9 +19,14 @@ const view = params.get("view");
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {noteId ? <NoteApp noteId={noteId} />
-      : view === "list" ? <ListApp />
-      : view === "stub" ? <StubPreview />
-      : <div>stickdown</div>}
-  </React.StrictMode>
+    {noteId ? (
+      <NoteApp noteId={noteId} />
+    ) : view === "list" ? (
+      <ListApp />
+    ) : view === "stub" ? (
+      <StubPreview />
+    ) : (
+      <div>stickdown</div>
+    )}
+  </React.StrictMode>,
 );

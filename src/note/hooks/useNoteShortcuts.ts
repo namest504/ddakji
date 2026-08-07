@@ -27,21 +27,36 @@ export function useNoteShortcuts({ changeFont, navigate, popOut, flushBody }: Ha
       changeFont(e.deltaY < 0 ? 1 : -1);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && (e.key === "+" || e.key === "=")) { e.preventDefault(); changeFont(1); }
-      if (e.ctrlKey && e.key === "-") { e.preventDefault(); changeFont(-1); }
+      if (e.ctrlKey && (e.key === "+" || e.key === "=")) {
+        e.preventDefault();
+        changeFont(1);
+      }
+      if (e.ctrlKey && e.key === "-") {
+        e.preventDefault();
+        changeFont(-1);
+      }
       if (e.altKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
         e.preventDefault();
         navigate(e.key === "ArrowRight" ? 1 : -1);
       }
       const k = e.key.toLowerCase();
-      if (e.ctrlKey && !e.shiftKey && k === "n") { e.preventDefault(); api.createNote().catch(() => {}); }
+      if (e.ctrlKey && !e.shiftKey && k === "n") {
+        e.preventDefault();
+        api.createNote().catch(() => {});
+      }
       if (e.ctrlKey && !e.shiftKey && k === "w") {
         e.preventDefault();
         flushBody();
         getCurrentWindow().close();
       }
-      if (e.ctrlKey && !e.shiftKey && k === "l") { e.preventDefault(); api.openList().catch(() => {}); }
-      if (e.ctrlKey && e.shiftKey && k === "p") { e.preventDefault(); popOut(); }
+      if (e.ctrlKey && !e.shiftKey && k === "l") {
+        e.preventDefault();
+        api.openList().catch(() => {});
+      }
+      if (e.ctrlKey && e.shiftKey && k === "p") {
+        e.preventDefault();
+        popOut();
+      }
     };
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("keydown", onKey);

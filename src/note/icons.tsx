@@ -13,7 +13,9 @@ const base = {
 } as const;
 
 export const PlusIcon = () => (
-  <svg {...base}><path d="M8 3v10M3 8h10" /></svg>
+  <svg {...base}>
+    <path d="M8 3v10M3 8h10" />
+  </svg>
 );
 
 export const PinIcon = ({ filled }: { filled?: boolean }) => (
@@ -24,15 +26,21 @@ export const PinIcon = ({ filled }: { filled?: boolean }) => (
 );
 
 export const ListIcon = () => (
-  <svg {...base}><path d="M3 4.5h10M3 8h10M3 11.5h10" /></svg>
+  <svg {...base}>
+    <path d="M3 4.5h10M3 8h10M3 11.5h10" />
+  </svg>
 );
 
 export const NavLeftIcon = () => (
-  <svg {...base} width="18" height="18"><path d="M10 3.4L5.4 8 10 12.6" /></svg>
+  <svg {...base} width="18" height="18">
+    <path d="M10 3.4L5.4 8 10 12.6" />
+  </svg>
 );
 
 export const NavRightIcon = () => (
-  <svg {...base} width="18" height="18"><path d="M6 3.4L10.6 8 6 12.6" /></svg>
+  <svg {...base} width="18" height="18">
+    <path d="M6 3.4L10.6 8 6 12.6" />
+  </svg>
 );
 
 export const PopOutIcon = () => (
@@ -43,7 +51,9 @@ export const PopOutIcon = () => (
 );
 
 export const CloseIcon = () => (
-  <svg {...base}><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6" /></svg>
+  <svg {...base}>
+    <path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6" />
+  </svg>
 );
 
 export const InfoIcon = () => (
@@ -86,11 +96,15 @@ export const CheckboxIcon = () => (
 );
 
 export const IndentIcon = () => (
-  <svg {...base}><path d="M7 4h7M7 8h7M7 12h7M2 5.6L4.6 8 2 10.4" /></svg>
+  <svg {...base}>
+    <path d="M7 4h7M7 8h7M7 12h7M2 5.6L4.6 8 2 10.4" />
+  </svg>
 );
 
 export const OutdentIcon = () => (
-  <svg {...base}><path d="M7 4h7M7 8h7M7 12h7M4.6 5.6L2 8l2.6 2.4" /></svg>
+  <svg {...base}>
+    <path d="M7 4h7M7 8h7M7 12h7M4.6 5.6L2 8l2.6 2.4" />
+  </svg>
 );
 
 export const ImageIcon = () => (
@@ -111,7 +125,9 @@ export const GearIcon = () => (
 );
 
 export const BackIcon = () => (
-  <svg {...base}><path d="M10 3.2L5.2 8 10 12.8" /></svg>
+  <svg {...base}>
+    <path d="M10 3.2L5.2 8 10 12.8" />
+  </svg>
 );
 
 export const TrashIcon = () => (

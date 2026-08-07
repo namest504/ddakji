@@ -42,7 +42,10 @@ export function useNoteDocument(initialNoteId: string, guard: SaveGuard) {
       .finally(() => {
         // 창은 visible:false로 생성된다 — 내용을 그린 뒤 표시해 흰 화면 플래시 제거
         const win = getCurrentWindow();
-        win.show().then(() => win.setFocus()).catch(() => {});
+        win
+          .show()
+          .then(() => win.setFocus())
+          .catch(() => {});
       });
   }, [noteId]);
 

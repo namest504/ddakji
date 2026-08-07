@@ -53,14 +53,24 @@ import type { Note, NoteMeta } from "../lib/api";
 import * as winMod from "@tauri-apps/api/window";
 import NoteApp from "./NoteApp";
 
-const win = (winMod as unknown as { __win: Record<string, ReturnType<typeof vi.fn>> & { movedCb?: MovedCb } }).__win;
+const win = (
+  winMod as unknown as { __win: Record<string, ReturnType<typeof vi.fn>> & { movedCb?: MovedCb } }
+).__win;
 
 const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note => ({
   meta: {
-    id, created_at: "2026-08-01T10:00:00+09:00", updated_at: "2026-08-01T10:00:00+09:00",
-    color: "yellow", font_size: 16, font_family: "system", viewer_mode: false,
-    window: { x: 0, y: 0, w: 320, h: 340 }, always_on_top: false, hidden: false,
-    group_order: 0, ...extra,
+    id,
+    created_at: "2026-08-01T10:00:00+09:00",
+    updated_at: "2026-08-01T10:00:00+09:00",
+    color: "yellow",
+    font_size: 16,
+    font_family: "system",
+    viewer_mode: false,
+    window: { x: 0, y: 0, w: 320, h: 340 },
+    always_on_top: false,
+    hidden: false,
+    group_order: 0,
+    ...extra,
   },
   body,
 });
@@ -157,7 +167,11 @@ describe("NoteApp 드래그 병합 게이트", () => {
     setupNote(mkNote("n1", "본문"));
     render(<NoteApp noteId="n1" />);
     await waitFor(() => expect(win.movedCb).toBeTruthy());
-    drag([[100, 100], [110, 100], [120, 100]]); // 누적 20px
+    drag([
+      [100, 100],
+      [110, 100],
+      [120, 100],
+    ]); // 누적 20px
     await waitFor(() => expect(api.saveMeta).toHaveBeenCalled(), { timeout: 1500 });
     expect(api.checkMerge).not.toHaveBeenCalled();
   });
@@ -167,7 +181,13 @@ describe("NoteApp 드래그 병합 게이트", () => {
     render(<NoteApp noteId="n1" />);
     await waitFor(() => expect(win.movedCb).toBeTruthy());
     // 이벤트당 10px씩 — 연속 델타 판정이라면 절대 30px를 못 넘는 패턴
-    drag([[100, 100], [110, 100], [120, 100], [130, 100], [140, 100]]); // 누적 40px
+    drag([
+      [100, 100],
+      [110, 100],
+      [120, 100],
+      [130, 100],
+      [140, 100],
+    ]); // 누적 40px
     await waitFor(() => expect(api.checkMerge).toHaveBeenCalled(), { timeout: 1500 });
   });
 });

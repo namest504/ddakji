@@ -1,7 +1,14 @@
 // jsdom에는 레이아웃 API가 없어 ProseMirror(scrollToSelection 등)가 죽는다 —
 // 컴포넌트 테스트에서 에디터를 실제 마운트하기 위한 최소 폴리필.
 const zeroRect = {
-  x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0,
+  x: 0,
+  y: 0,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  width: 0,
+  height: 0,
   toJSON: () => ({}),
 } as DOMRect;
 

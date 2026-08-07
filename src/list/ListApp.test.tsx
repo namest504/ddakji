@@ -24,10 +24,18 @@ import ListApp from "./ListApp";
 
 const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note => ({
   meta: {
-    id, created_at: "2026-08-01T10:00:00+09:00", updated_at: "2026-08-01T10:00:00+09:00",
-    color: "yellow", font_size: 16, font_family: "system", viewer_mode: false,
-    window: { x: 0, y: 0, w: 320, h: 340 }, always_on_top: false, hidden: false,
-    group_order: 0, ...extra,
+    id,
+    created_at: "2026-08-01T10:00:00+09:00",
+    updated_at: "2026-08-01T10:00:00+09:00",
+    color: "yellow",
+    font_size: 16,
+    font_family: "system",
+    viewer_mode: false,
+    window: { x: 0, y: 0, w: 320, h: 340 },
+    always_on_top: false,
+    hidden: false,
+    group_order: 0,
+    ...extra,
   },
   body,
 });

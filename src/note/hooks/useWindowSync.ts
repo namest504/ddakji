@@ -41,7 +41,12 @@ export function useWindowSync(noteId: string): boolean {
       if (dragDist <= DRAG_THRESHOLD) return;
       dragDist = 0;
       // 다른 노트 위에 충분히 겹치게 "드래그해서" 놓였을 때만 합친다
-      api.checkMerge().then((merged) => { if (!merged) setMergeHint(false); }).catch(() => {});
+      api
+        .checkMerge()
+        .then((merged) => {
+          if (!merged) setMergeHint(false);
+        })
+        .catch(() => {});
     };
     const scheduleSave = () => {
       clearTimeout(saveTimer);
@@ -56,7 +61,10 @@ export function useWindowSync(noteId: string): boolean {
       const now = Date.now();
       if (now - lastPreview > PREVIEW_INTERVAL) {
         lastPreview = now;
-        api.mergePreview().then(setMergeHint).catch(() => {});
+        api
+          .mergePreview()
+          .then(setMergeHint)
+          .catch(() => {});
       }
       window.clearTimeout(previewClear);
       previewClear = window.setTimeout(() => setMergeHint(false), PREVIEW_LINGER);

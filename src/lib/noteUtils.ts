@@ -25,7 +25,7 @@ export function filterNotes(notes: Note[], query: string): Note[] {
   if (!q) return notes;
   // 본문 외에 사용자 지정 제목도 검색 대상 (#67)
   return notes.filter(
-    (n) => n.body.toLowerCase().includes(q) || (n.meta.title ?? "").toLowerCase().includes(q)
+    (n) => n.body.toLowerCase().includes(q) || (n.meta.title ?? "").toLowerCase().includes(q),
   );
 }
 
@@ -78,12 +78,19 @@ export function noteTitle(note: Note): string {
   // 이미지 전용 줄은 건너뛰고 첫 텍스트 줄에서 제목을 파생한다 (#66)
   const line = note.body
     .split("\n")
-    .map((l) => l.trim().replace(/!\[[^\]]*\]\([^)]*\)/g, "").trim())
+    .map((l) =>
+      l
+        .trim()
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .trim(),
+    )
     .find((l) => l.length > 0);
   if (!line) return "(빈 노트)";
-  return line
-    .replace(/^(#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+|\[[ xX]\]\s+)+/, "") // 체크박스 마커 포함 (#66)
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // 링크는 텍스트만
-    .replace(/[*_`~]/g, "")
-    .trim() || "(빈 노트)";
+  return (
+    line
+      .replace(/^(#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+|\[[ xX]\]\s+)+/, "") // 체크박스 마커 포함 (#66)
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // 링크는 텍스트만
+      .replace(/[*_`~]/g, "")
+      .trim() || "(빈 노트)"
+  );
 }

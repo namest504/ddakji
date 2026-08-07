@@ -22,7 +22,10 @@ export function useImageInsert({ noteId, editorRef, guard }: Options) {
       if (!ed) return;
       // pos가 있으면 드롭 지점에, 없으면 현재 커서에
       if (pos !== undefined) {
-        ed.chain().focus().insertContentAt(pos, { type: "image", attrs: { src: rel } }).run();
+        ed.chain()
+          .focus()
+          .insertContentAt(pos, { type: "image", attrs: { src: rel } })
+          .run();
       } else {
         ed.chain().focus().setImage({ src: rel }).run();
       }

@@ -1,10 +1,10 @@
 [package]
-name = "stickdown"
-version = "0.1.4"
+name = "ddakji"
+version = "0.1.5"
 edition = "2021"
 
 [lib]
-name = "stickdown_lib"
+name = "ddakji_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

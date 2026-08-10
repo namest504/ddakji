@@ -56,6 +56,9 @@ export default function DetailView({ noteId, onBack }: { noteId: string; onBack:
           <div className="settings-row link" onClick={() => api.openNote(noteId)}>
             노트 열기
           </div>
+          <div className="settings-row link" onClick={() => api.revealNote(noteId)}>
+            파일 위치 열기
+          </div>
         </div>
 
         <div className="group-label">정보</div>

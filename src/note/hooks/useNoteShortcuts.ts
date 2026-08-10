@@ -17,7 +17,7 @@ interface Handlers {
  * | Ctrl+휠, Ctrl+± | 글씨 크기 |
  * | Alt+←/→ | 모음집 이전/다음 노트 |
  * | Ctrl+N / W / L | 새 노트 / 닫기 / 목록 |
- * | Ctrl+Shift+P | 새 창으로 꺼내기 |
+ * | Ctrl+Shift+P | 모음집에서 꺼내기 (노트가 모음집에서 빠져 단독 창이 된다) |
  */
 export function useNoteShortcuts({ changeFont, navigate, popOut, flushBody }: Handlers) {
   useEffect(() => {

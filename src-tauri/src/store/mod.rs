@@ -9,7 +9,7 @@ pub use paths::{move_storage, resolve_data_root};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use paths::{migrate_uuid_filenames, new_file_id, validate_ext, validate_id};
+use paths::{new_file_id, validate_ext, validate_id};
 
 use crate::{Error, Result};
 
@@ -22,7 +22,6 @@ impl Store {
     pub fn new(root: &Path) -> Result<Store> {
         fs::create_dir_all(root.join("notes"))?;
         fs::create_dir_all(root.join("assets"))?;
-        migrate_uuid_filenames(root);
         // settings.json이 없거나 파손이면 기본값 — 노트 접근을 막지 않는다
         let settings = fs::read_to_string(root.join("settings.json"))
             .ok()
@@ -62,6 +61,17 @@ impl Store {
 
     fn note_path(&self, id: &str) -> PathBuf {
         self.notes_dir().join(format!("{id}.md"))
+    }
+
+    /// 노트 파일의 실제 경로 — "탐색기에서 보기"용 (#98). 없으면 NoteNotFound.
+    pub fn note_file(&self, id: &str) -> Result<PathBuf> {
+        validate_id(id)?;
+        let p = self.note_path(id);
+        if p.is_file() {
+            Ok(p)
+        } else {
+            Err(Error::NoteNotFound)
+        }
     }
 
     fn write_atomic(&self, note: &Note) -> Result<()> {
@@ -144,6 +154,7 @@ impl Store {
             .map(|g| self.next_group_order(g))
             .unwrap_or(0);
         let mut note = self.load(id).ok_or(Error::NoteNotFound)?;
+        let old_group = note.meta.group.clone();
         let m = &mut note.meta;
         if let Some(v) = &patch.color {
             m.color = v.clone();
@@ -183,7 +194,29 @@ impl Store {
             m.group_order = v;
         }
         self.write_atomic(&note)?;
+        // 이 노트가 모음집에서 빠졌다면(해제·이적) 혼자 남은 모음집은 해제한다 (#77)
+        if let Some(og) = old_group {
+            if note.meta.group.as_deref() != Some(og.as_str()) {
+                self.dissolve_if_single(&og)?;
+            }
+        }
         Ok(note)
+    }
+
+    /// 멤버가 1명뿐인 모음집은 모음집이 아니다 — 자동 해제 (#77 룰3).
+    /// "모음집 = 창 하나, 넘기기는 그 창에서만" 불변식의 데이터 쪽 반쪽.
+    fn dissolve_if_single(&self, group: &str) -> Result<()> {
+        let members = self.group_notes(group);
+        if members.len() == 1 {
+            self.save_meta(
+                &members[0].meta.id,
+                &MetaPatch {
+                    group: Some(String::new()),
+                    ..Default::default()
+                },
+            )?;
+        }
+        Ok(())
     }
 
     fn next_group_order(&self, group: &str) -> u32 {
@@ -273,10 +306,15 @@ impl Store {
 
     pub fn delete(&self, id: &str) -> Result<()> {
         validate_id(id)?;
+        let group = self.load(id).and_then(|n| n.meta.group);
         fs::remove_file(self.note_path(id)).map_err(Error::note_io)?;
         let assets = self.root.join("assets").join(id);
         if assets.exists() {
             fs::remove_dir_all(assets)?;
+        }
+        // 삭제로 혼자 남은 모음집도 해제 (#77 룰3)
+        if let Some(g) = group {
+            self.dissolve_if_single(&g)?;
         }
         Ok(())
     }
@@ -536,6 +574,123 @@ mod tests {
     }
 
     #[test]
+    fn clearing_one_of_two_members_dissolves_group() {
+        // #77 룰3: 멤버 1명뿐인 모음집은 자동 해제
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        let b = s.create().unwrap();
+        for id in [&a.meta.id, &b.meta.id] {
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("둘".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        s.save_meta(
+            &a.meta.id,
+            &MetaPatch {
+                group: Some(String::new()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            s.load(&b.meta.id).unwrap().meta.group,
+            None,
+            "혼자 남으면 해제"
+        );
+        assert!(s.group_names().is_empty());
+    }
+
+    #[test]
+    fn clearing_one_of_three_members_keeps_group() {
+        let (_d, s) = store();
+        let ids: Vec<String> = (0..3).map(|_| s.create().unwrap().meta.id).collect();
+        for id in &ids {
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("셋".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        s.save_meta(
+            &ids[0],
+            &MetaPatch {
+                group: Some(String::new()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(s.group_notes("셋").len(), 2, "둘 남으면 유지");
+    }
+
+    #[test]
+    fn moving_member_to_other_group_dissolves_old_pair() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        let b = s.create().unwrap();
+        let c = s.create().unwrap();
+        for id in [&a.meta.id, &b.meta.id] {
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("옛".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        s.save_meta(
+            &c.meta.id,
+            &MetaPatch {
+                group: Some("새".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // a를 새 그룹으로 이적 → 옛 그룹엔 b 혼자 → 해제
+        s.save_meta(
+            &a.meta.id,
+            &MetaPatch {
+                group: Some("새".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(s.load(&b.meta.id).unwrap().meta.group, None);
+        assert_eq!(s.group_names(), vec!["새".to_string()]);
+    }
+
+    #[test]
+    fn deleting_member_dissolves_pair() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        let b = s.create().unwrap();
+        for id in [&a.meta.id, &b.meta.id] {
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("둘".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        s.delete(&a.meta.id).unwrap();
+        assert_eq!(
+            s.load(&b.meta.id).unwrap().meta.group,
+            None,
+            "삭제로 혼자 남아도 해제"
+        );
+    }
+
+    #[test]
     fn merge_missing_note_errors() {
         let (_d, s) = store();
         let t = s.create().unwrap();
@@ -615,24 +770,6 @@ mod tests {
     }
 
     #[test]
-    fn migration_leaves_ids_stable_across_restarts() {
-        // 개명 마이그레이션은 멱등 — 재시작마다 파일명이 또 바뀌면 안 된다
-        let d = TempDir::new().unwrap();
-        fs::create_dir_all(d.path().join("notes")).unwrap();
-        let old_id = "0198aaaa-bbbb-4ccc-8ddd-eeeeffff0001";
-        fs::write(
-            d.path().join("notes").join(format!("{old_id}.md")),
-            format!("---\nid: {old_id}\ncreated_at: \"2026-08-01T09:30:00+09:00\"\n---\n본문"),
-        )
-        .unwrap();
-        let s = Store::new(d.path()).unwrap();
-        let id1 = s.list()[0].meta.id.clone();
-        drop(s);
-        let s2 = Store::new(d.path()).unwrap();
-        assert_eq!(s2.list()[0].meta.id, id1, "재마이그레이션에도 id 유지");
-    }
-
-    #[test]
     fn import_markdown_file_creates_note_with_body() {
         let (_d, s) = store();
         let src = _d.path().join("vim-cheatsheet.md");
@@ -655,6 +792,20 @@ mod tests {
         fs::write(&bin, [0xff, 0xfe, 0x00, 0x80]).unwrap();
         assert!(s.import_markdown_file(&bin).is_err());
         assert!(s.list().is_empty(), "실패 시 빈 노트를 남기지 않는다");
+    }
+
+    #[test]
+    fn note_file_returns_real_path_or_not_found() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        let p = s.note_file(&n.meta.id).unwrap();
+        assert!(p.is_file());
+        assert!(p.ends_with(format!("{}.md", n.meta.id)));
+        assert!(matches!(
+            s.note_file("20990101-000000-abcdef"),
+            Err(Error::NoteNotFound)
+        ));
+        assert!(matches!(s.note_file("../evil"), Err(Error::Invalid(_))));
     }
 
     #[test]
@@ -748,47 +899,6 @@ mod tests {
         );
         assert_eq!(g[0].meta.id, a.meta.id);
         assert_eq!(s.group_names(), vec!["모음".to_string()]);
-    }
-
-    #[test]
-    fn migrates_uuid_filenames_with_assets_and_body_refs() {
-        let d = TempDir::new().unwrap();
-        let notes = d.path().join("notes");
-        let assets = d
-            .path()
-            .join("assets")
-            .join("0198aaaa-bbbb-4ccc-8ddd-eeeeffff0000");
-        fs::create_dir_all(&notes).unwrap();
-        fs::create_dir_all(&assets).unwrap();
-        fs::write(assets.join("img.png"), b"png").unwrap();
-        let old_id = "0198aaaa-bbbb-4ccc-8ddd-eeeeffff0000";
-        let content = format!(
-            "---\nid: {old_id}\ncreated_at: \"2026-08-01T09:30:00+09:00\"\n---\n![](assets/{old_id}/img.png)"
-        );
-        fs::write(notes.join(format!("{old_id}.md")), content).unwrap();
-
-        let s = Store::new(d.path()).unwrap();
-        let list = s.list();
-        assert_eq!(list.len(), 1);
-        let n = &list[0];
-        assert!(
-            n.meta.id.starts_with("20260801-093000-"),
-            "created_at 기반 개명: {}",
-            n.meta.id
-        );
-        assert!(
-            n.body.contains(&format!("assets/{}/img.png", n.meta.id)),
-            "본문 참조 갱신"
-        );
-        assert!(
-            d.path()
-                .join("assets")
-                .join(&n.meta.id)
-                .join("img.png")
-                .exists(),
-            "에셋 폴더 개명"
-        );
-        assert!(!notes.join(format!("{old_id}.md")).exists());
     }
 
     #[test]

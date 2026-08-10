@@ -11,7 +11,7 @@ type StoreState<'a> = State<'a, Mutex<Store>>;
 /// 마지막으로 본(포커스한) 노트 id — Alt-Tab 썸네일 미리보기용 (세션 한정)
 pub struct LastViewed(pub Mutex<Option<String>>);
 
-/// 식별자 폴더(%APPDATA%/com.stickdown.app) — storage-path.txt 포인터 저장 위치
+/// 식별자 폴더(%APPDATA%/com.ddakji.app) — storage-path.txt 포인터 저장 위치
 pub struct IdDir(pub std::path::PathBuf);
 
 /// 창 label → 표시 중인 노트 id (#25 그룹 넘기기로 창-노트가 동적이 됨)
@@ -70,11 +70,20 @@ pub async fn delete_note(
             win.destroy()?;
         }
     }
+    // 모음집 멤버였다면 남은 창들의 멤버 목록·점이 갱신되도록 (자동 해제 포함)
+    use tauri::Emitter;
+    let _ = app.emit("groups-changed", ());
     Ok(())
 }
 
 #[tauri::command]
-pub async fn open_note(app: AppHandle, store: StoreState<'_>, id: String) -> Result<()> {
+pub async fn open_note(
+    app: AppHandle,
+    store: StoreState<'_>,
+    wn: State<'_, WindowNotes>,
+    id: String,
+) -> Result<()> {
+    use tauri::Emitter;
     let note = {
         let s = lock(&store)?;
         s.save_meta(
@@ -85,6 +94,30 @@ pub async fn open_note(app: AppHandle, store: StoreState<'_>, id: String) -> Res
             },
         )?
     };
+    // 모음집 멤버는 새 창을 만들지 않는다 — 모음집 창이 그 멤버로 전환된다
+    // (#77 룰4). 단, 이 노트 자체가 이미 창에 있으면 그 창을 포커스(기존 동작).
+    if let Some(g) = note.meta.group.clone() {
+        let member_ids: std::collections::HashSet<String> = {
+            let s = lock(&store)?;
+            s.group_notes(&g).into_iter().map(|n| n.meta.id).collect()
+        };
+        let group_win = lock(&wn.0)?
+            .iter()
+            .find(|(_, nid)| **nid != id && member_ids.contains(*nid))
+            .map(|(l, _)| l.clone());
+        let self_open = lock(&wn.0)?.values().any(|nid| *nid == id);
+        if !self_open {
+            if let Some(label) = group_win {
+                if let Some(w) = app.get_webview_window(&label) {
+                    lock(&wn.0)?.insert(label.clone(), id);
+                    let _ = w.emit_to(label, "switch-note", &note);
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                    return Ok(());
+                }
+            }
+        }
+    }
     Ok(windows::open_note_window(&app, &note)?)
 }
 
@@ -408,11 +441,10 @@ pub async fn check_merge(
     Ok(true)
 }
 
-/// 새 창으로 꺼내기 (#74): 현재 메모가 새 창으로 분리되고, 이 창은 그룹의
-/// 다음 멤버(창 없는 멤버 우선)로 전환된다 — 반환된 노트를 프런트가 표시.
-/// 매핑을 먼저 다음 멤버로 바꾼 뒤 새 창을 만들어, 같은 메모가 두 창에
-/// 보이는 순간을 만들지 않는다. 나머지 멤버가 전부 열려 있으면 전환할 곳이
-/// 없으므로 다음 멤버 창을 포커스만 하고 None.
+/// 모음집에서 꺼내기 (#77): 현재 노트를 **모음집에서 제외**해 단독 새 창으로
+/// 분리하고, 이 창은 다음 멤버로 전환된다 — 반환된 노트를 프런트가 표시.
+/// 꺼낸 창은 무소속이므로 넘기기 UI가 사라진다 — "모음집 하나 = 창 하나,
+/// 넘기기는 그 창에서만"의 불변식. 남은 멤버가 1명이면 모음집도 해제된다(룰3).
 #[tauri::command]
 pub async fn pop_out(
     app: AppHandle,
@@ -420,51 +452,53 @@ pub async fn pop_out(
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
 ) -> Result<Option<Note>> {
+    use tauri::Emitter;
     let label = window.label().to_string();
     let current_id = lock(&wn.0)?
         .get(&label)
         .cloned()
         .ok_or(Error::WindowNotMapped)?;
-    let (cur, members) = {
+    let members = {
         let s = lock(&store)?;
         let cur = s.load(&current_id).ok_or(Error::NoteNotFound)?;
         let Some(g) = cur.meta.group.clone() else {
             return Ok(None);
         };
-        let ns = s.group_notes(&g);
-        (cur, ns)
+        s.group_notes(&g)
     };
     if members.len() < 2 {
         return Ok(None);
     }
     let mapped: std::collections::HashSet<String> = lock(&wn.0)?.values().cloned().collect();
-    let Some(next) = pop_out_next(&members, &current_id, &mapped).cloned() else {
-        // 전부 창이 있으면 다음 노트의 창으로 포커스
-        let idx = members
-            .iter()
-            .position(|n| n.meta.id == current_id)
-            .unwrap_or(0);
-        let next_id = members[(idx + 1) % members.len()].meta.id.clone();
-        let target_label = lock(&wn.0)?
-            .iter()
-            .find(|(_, id)| **id == next_id)
-            .map(|(l, _)| l.clone());
-        if let Some(l) = target_label {
-            if let Some(w) = app.get_webview_window(&l) {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
-        }
+    let next = pop_out_next(&members, &current_id, &mapped).map(|n| n.meta.id.clone());
+    // 1) 현재 노트를 모음집에서 제외 — 혼자 남는 모음집은 Store가 자동 해제(룰3).
+    //    꺼낸 뒤 상태는 다시 읽는다 (해제 여부가 메타에 반영되도록).
+    let (popped, next) = {
+        let s = lock(&store)?;
+        s.save_meta(
+            &current_id,
+            &MetaPatch {
+                group: Some(String::new()),
+                ..Default::default()
+            },
+        )?;
+        let popped = s.load(&current_id).ok_or(Error::NoteNotFound)?;
+        let next = next.and_then(|id| s.load(&id));
+        (popped, next)
+    };
+    let _ = app.emit("groups-changed", ());
+    let Some(next) = next else {
+        // (비정상 상태 방어) 전환할 멤버가 없으면 이 창이 그대로 단독 창이 된다
         return Ok(None);
     };
-    // 1) 이 창을 다음 멤버로 전환 — 매핑을 먼저 바꿔야 아래 open_note_window의
-    //    중복 검사가 현재 메모를 "이미 이 창에 있음"으로 오인하지 않는다
+    // 2) 이 창을 다음 멤버로 전환 — 매핑을 먼저 바꿔야 아래 open_note_window의
+    //    중복 검사가 꺼낸 노트를 "이미 이 창에 있음"으로 오인하지 않는다
     lock(&wn.0)?.insert(label, next.meta.id.clone());
-    // 2) 현재 메모를 옆에 어긋난 새 창으로
-    let mut popped = cur.clone();
-    popped.meta.window.x = cur.meta.window.x + 28.0;
-    popped.meta.window.y = cur.meta.window.y + 28.0;
-    crate::windows::open_note_window(&app, &popped)?;
+    // 3) 꺼낸 노트를 옆에 어긋난 단독 창으로
+    let mut popped_win = popped.clone();
+    popped_win.meta.window.x = popped.meta.window.x + 28.0;
+    popped_win.meta.window.y = popped.meta.window.y + 28.0;
+    crate::windows::open_note_window(&app, &popped_win)?;
     Ok(Some(next))
 }
 
@@ -484,6 +518,13 @@ pub fn pop_out_next<'a>(
 #[tauri::command]
 pub fn list_system_fonts() -> Vec<String> {
     crate::fonts::list_system_fonts()
+}
+
+/// 노트 파일을 선택한 채 탐색기를 연다 (#98) — open_data_dir처럼 Rust 직접 호출
+#[tauri::command]
+pub fn reveal_note(store: StoreState, id: String) -> Result<()> {
+    let path = lock(&store)?.note_file(&id)?;
+    tauri_plugin_opener::reveal_item_in_dir(path).map_err(|e| Error::External(e.to_string()))
 }
 
 #[tauri::command]

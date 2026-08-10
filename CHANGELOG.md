@@ -7,6 +7,13 @@
 
 ## [Unreleased]
 
+### 추가
+
+- **`ddakji-cli`** — 노트를 명령줄에서 다루는 도구
+  (`list/get/add/append/edit/set/delete/groups/merge`, `--json`, stdin 입력).
+  GUI와 같은 저장소 규칙(순서 부여·자동 해제·통째 병합)이 그대로 적용되며,
+  포터블 zip에 함께 들어갑니다 ([#12], [docs/cli.md](docs/cli.md))
+
 ## [0.1.5] - 2026-08-10
 
 ### 추가
@@ -106,6 +113,7 @@
 [0.1.4]: https://github.com/namest504/ddakji/releases/tag/v0.1.4
 [0.1.3]: https://github.com/namest504/ddakji/releases/tag/v0.1.3
 [0.1.2]: https://github.com/namest504/ddakji/releases/tag/v0.1.2
+[#12]: https://github.com/namest504/ddakji/issues/12
 [#66]: https://github.com/namest504/ddakji/issues/66
 [#67]: https://github.com/namest504/ddakji/issues/67
 [#68]: https://github.com/namest504/ddakji/pull/68

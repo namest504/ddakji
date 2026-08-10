@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-08-10
+
 ### 추가
 
 - 자세히 보기에 **파일 위치 열기** — 노트의 실제 `.md` 파일을 탐색기에서
@@ -99,7 +101,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.4...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.5...develop
+[0.1.5]: https://github.com/namest504/ddakji/releases/tag/v0.1.5
 [0.1.4]: https://github.com/namest504/ddakji/releases/tag/v0.1.4
 [0.1.3]: https://github.com/namest504/ddakji/releases/tag/v0.1.3
 [0.1.2]: https://github.com/namest504/ddakji/releases/tag/v0.1.2

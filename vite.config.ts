@@ -11,5 +11,5 @@ export default defineConfig({
     // cargo가 target/에 쓰는 파일을 워처가 건드리면 Windows에서 EBUSY로 죽는다
     watch: { ignored: ["**/src-tauri/**"] },
   },
-  test: { environment: "jsdom" },
+  test: { environment: "jsdom", setupFiles: ["./vitest.setup.ts"] },
 });

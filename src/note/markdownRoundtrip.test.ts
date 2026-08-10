@@ -3,6 +3,7 @@ import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
+import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "tiptap-markdown";
 
 // 에디터가 마크다운을 읽고 다시 직렬화했을 때 의미가 보존되는지 (QA #2 대체).
@@ -13,13 +14,14 @@ const roundtrip = (src: string): string => {
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
+      TableKit.configure({ table: { resizable: false } }),
       Image,
       Markdown.configure({ html: true }),
     ],
     content: src,
   });
-  const out = (ed.storage as { markdown?: { getMarkdown: () => string } })
-    .markdown?.getMarkdown() ?? "";
+  const out =
+    (ed.storage as { markdown?: { getMarkdown: () => string } }).markdown?.getMarkdown() ?? "";
   ed.destroy();
   return out;
 };
@@ -106,5 +108,35 @@ describe("마크다운 왕복 보존", () => {
     const out = roundtrip("> 인용문\n\n---");
     expect(out).toContain("> 인용문");
     expect(out).toMatch(/---|\*\*\*/);
+  });
+
+  it("순서 목록", () => {
+    const out = roundtrip("1. 첫째\n2. 둘째");
+    expect(out).toMatch(/1\.\s+첫째/);
+    expect(out).toMatch(/2\.\s+둘째/);
+  });
+
+  it("링크 텍스트와 주소", () => {
+    const out = roundtrip("[문서](https://example.com/a?b=1)");
+    expect(out).toContain("[문서]");
+    expect(out).toContain("https://example.com/a?b=1");
+  });
+
+  it("중첩 체크박스 구조", () => {
+    const out = roundtrip("- [ ] 상위\n  - [x] 하위");
+    expect(out).toContain("[ ] 상위");
+    expect(out).toMatch(/\n\s+- \[x\] 하위/);
+  });
+
+  it("GFM 표 — 헤더·셀·구조 보존 (#71)", () => {
+    const out = roundtrip(
+      "| 입력 | 동작 |\n| --- | --- |\n| `Esc` | 노멀 모드 |\n| `i` | 커서 앞 입력 |",
+    );
+    expect(out).toContain("| 입력 | 동작 |");
+    expect(out).toMatch(/\| ---+ \| ---+ \|/);
+    expect(out).toContain("노멀 모드");
+    expect(out).toContain("커서 앞 입력");
+    // 셀 안 인라인 코드도 유지
+    expect(out).toContain("`Esc`");
   });
 });

@@ -3,17 +3,44 @@ import { invoke } from "@tauri-apps/api/core";
 export type NoteColor = "yellow" | "green" | "pink" | "purple" | "blue" | "gray" | "charcoal";
 // 프리셋 3종 외의 문자열은 사용자 지정 폰트명 (커스텀 폰트)
 export type FontFamily = "system" | "serif" | "mono" | (string & {});
-export interface WindowBounds { x: number; y: number; w: number; h: number }
+export interface WindowBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 export interface NoteMeta {
-  id: string; created_at: string; updated_at: string;
-  color: NoteColor; font_size: number; font_family: FontFamily; viewer_mode: boolean;
-  window: WindowBounds; always_on_top: boolean; hidden: boolean;
-  group?: string | null; group_order: number;
+  id: string;
+  created_at: string;
+  updated_at: string;
+  color: NoteColor;
+  font_size: number;
+  font_family: FontFamily;
+  viewer_mode: boolean;
+  window: WindowBounds;
+  always_on_top: boolean;
+  hidden: boolean;
+  group?: string | null;
+  group_order: number;
   title?: string | null;
 }
-export interface Note { meta: NoteMeta; body: string }
-export type MetaPatch = Partial<Pick<NoteMeta,
-  "color" | "font_size" | "font_family" | "viewer_mode" | "always_on_top" | "hidden" | "window" | "group_order">> & {
+export interface Note {
+  meta: NoteMeta;
+  body: string;
+}
+export type MetaPatch = Partial<
+  Pick<
+    NoteMeta,
+    | "color"
+    | "font_size"
+    | "font_family"
+    | "viewer_mode"
+    | "always_on_top"
+    | "hidden"
+    | "window"
+    | "group_order"
+  >
+> & {
   /** 빈 문자열 = 그룹 해제 */
   group?: string;
   /** 빈 문자열 = 제목 해제(본문 파생으로 복귀) */
@@ -38,6 +65,7 @@ export const saveImage = (id: string, ext: string, bytes: Uint8Array) =>
   invoke<string>("save_image", { id, ext, bytes: Array.from(bytes) });
 export const importImage = (id: string, path: string) =>
   invoke<string>("import_image", { id, path });
+export const importMarkdown = (path: string) => invoke<Note>("import_markdown", { path });
 export const dataRoot = () => invoke<string>("data_root");
 export const getSettings = () => invoke<Settings>("get_settings");
 export const openDataDir = () => invoke<void>("open_data_dir");
@@ -49,7 +77,8 @@ export const navTo = (id: string) => invoke<Note | null>("nav_to", { id });
 export const groupMembers = (id: string) => invoke<string[]>("group_members", { id });
 export const checkMerge = () => invoke<boolean>("check_merge");
 export const mergePreview = () => invoke<boolean>("merge_preview");
-export const popOut = () => invoke<void>("pop_out");
+// 현재 노트가 새 창으로 분리되고, 이 창이 표시할 다음 멤버가 반환된다 (#74)
+export const popOut = () => invoke<Note | null>("pop_out");
 export const listGroups = () => invoke<string[]>("list_groups");
 export const getLastViewed = () => invoke<Note | null>("get_last_viewed");
 export const saveSettings = (settings: Settings) => invoke<void>("save_settings", { settings });

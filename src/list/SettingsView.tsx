@@ -24,8 +24,13 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     api.getSettings().then(setSettings);
-    api.dataRoot().then(setRootPath).catch(() => {});
-    getVersion().then(setVersion).catch(() => {});
+    api
+      .dataRoot()
+      .then(setRootPath)
+      .catch(() => {});
+    getVersion()
+      .then(setVersion)
+      .catch(() => {});
     import("@tauri-apps/plugin-autostart")
       .then(({ isEnabled }) => isEnabled().then(setAutostart))
       .catch(() => {});
@@ -51,7 +56,10 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
 
   const togglePicker = () => {
     if (!showPicker && sysFonts === null) {
-      api.listSystemFonts().then(setSysFonts).catch(() => setSysFonts([]));
+      api
+        .listSystemFonts()
+        .then(setSysFonts)
+        .catch(() => setSysFonts([]));
     }
     setShowPicker(!showPicker);
   };
@@ -73,14 +81,20 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
   return (
     <div className="list settings">
       <div className="list-header">
-        <button className="icon-btn" title="뒤로" onClick={onBack}><BackIcon /></button>
+        <button className="icon-btn" title="뒤로" onClick={onBack}>
+          <BackIcon />
+        </button>
         <span className="settings-title">설정</span>
       </div>
       <div className="list-items">
         <div className="inset-group">
           <div className="settings-row" onClick={toggleAutostart}>
             <span>부팅 시 시작</span>
-            <span className={"switch" + (autostart ? " on" : "")} role="switch" aria-checked={autostart}>
+            <span
+              className={"switch" + (autostart ? " on" : "")}
+              role="switch"
+              aria-checked={autostart}
+            >
               <span className="knob" />
             </span>
           </div>
@@ -90,9 +104,18 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           <div className="settings-row">
             <span>테마</span>
             <span className="seg">
-              {([["system", "시스템"], ["light", "라이트"], ["dark", "다크"]] as const).map(([k, label]) => (
-                <button key={k} className={settings.theme === k ? "active" : ""}
-                  onClick={() => patch({ theme: k })}>
+              {(
+                [
+                  ["system", "시스템"],
+                  ["light", "라이트"],
+                  ["dark", "다크"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  className={settings.theme === k ? "active" : ""}
+                  onClick={() => patch({ theme: k })}
+                >
                   {label}
                 </button>
               ))}
@@ -106,9 +129,12 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
             <span>색상</span>
             <span className="swatch-row">
               {COLORS.map((c) => (
-                <button key={c} data-color={c}
+                <button
+                  key={c}
+                  data-color={c}
                   className={"swatch" + (settings.default_color === c ? " selected" : "")}
-                  onClick={() => patch({ default_color: c })} />
+                  onClick={() => patch({ default_color: c })}
+                />
               ))}
             </span>
           </div>
@@ -116,16 +142,22 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
             <span>폰트</span>
             <span className="seg wrap">
               {FONTS.map((f) => (
-                <button key={f.key} style={{ fontFamily: fontStack(f.key) }}
+                <button
+                  key={f.key}
+                  style={{ fontFamily: fontStack(f.key) }}
                   className={settings.default_font_family === f.key ? "active" : ""}
-                  onClick={() => patch({ default_font_family: f.key })}>
+                  onClick={() => patch({ default_font_family: f.key })}
+                >
                   {f.label}
                 </button>
               ))}
               {settings.favorite_fonts.map((f) => (
-                <button key={f} style={{ fontFamily: fontStack(f) }}
+                <button
+                  key={f}
+                  style={{ fontFamily: fontStack(f) }}
                   className={settings.default_font_family === f ? "active" : ""}
-                  onClick={() => patch({ default_font_family: f })}>
+                  onClick={() => patch({ default_font_family: f })}
+                >
                   {f}
                 </button>
               ))}
@@ -134,9 +166,21 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           <div className="settings-row">
             <span>글씨 크기</span>
             <span className="stepper">
-              <button onClick={() => patch({ default_font_size: clampFontSize(settings.default_font_size - 1) })}>−</button>
+              <button
+                onClick={() =>
+                  patch({ default_font_size: clampFontSize(settings.default_font_size - 1) })
+                }
+              >
+                −
+              </button>
               <b>{settings.default_font_size}</b>
-              <button onClick={() => patch({ default_font_size: clampFontSize(settings.default_font_size + 1) })}>＋</button>
+              <button
+                onClick={() =>
+                  patch({ default_font_size: clampFontSize(settings.default_font_size + 1) })
+                }
+              >
+                ＋
+              </button>
             </span>
           </div>
         </div>
@@ -146,7 +190,9 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           {settings.favorite_fonts.map((f) => (
             <div key={f} className="settings-row">
               <span style={{ fontFamily: fontStack(f) }}>{f}</span>
-              <button className="icon-btn" title="제거" onClick={() => removeFavorite(f)}>−</button>
+              <button className="icon-btn" title="제거" onClick={() => removeFavorite(f)}>
+                −
+              </button>
             </div>
           ))}
           <div className="settings-row link" onClick={togglePicker}>
@@ -154,16 +200,26 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           </div>
           {showPicker && (
             <div className="font-picker">
-              <input className="font-custom" placeholder="폰트 검색…" value={fontQuery}
-                onChange={(e) => setFontQuery(e.target.value)} autoFocus />
+              <input
+                className="font-custom"
+                placeholder="폰트 검색…"
+                value={fontQuery}
+                onChange={(e) => setFontQuery(e.target.value)}
+                autoFocus
+              />
               <div className="font-list">
                 {sysFonts === null && <div className="font-item">불러오는 중…</div>}
-                {sysFonts?.filter((f) => f.toLowerCase().includes(fontQuery.trim().toLowerCase()))
+                {sysFonts
+                  ?.filter((f) => f.toLowerCase().includes(fontQuery.trim().toLowerCase()))
                   .map((f) => (
-                    <div key={f}
-                      className={"font-item" + (settings.favorite_fonts.includes(f) ? " added" : "")}
+                    <div
+                      key={f}
+                      className={
+                        "font-item" + (settings.favorite_fonts.includes(f) ? " added" : "")
+                      }
                       style={{ fontFamily: fontStack(f) }}
-                      onClick={() => addFavorite(f)}>
+                      onClick={() => addFavorite(f)}
+                    >
                       {f}
                     </div>
                   ))}
@@ -180,16 +236,26 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           <div className="settings-row">
             <span className="row-dim path-text">{rootPath}</span>
           </div>
-          <div className="settings-row link" onClick={openData}>데이터 폴더 열기</div>
-          <div className="settings-row link" onClick={async () => {
-            const { open, ask } = await import("@tauri-apps/plugin-dialog");
-            const dir = await open({ directory: true, title: "새 저장 폴더 선택" });
-            if (typeof dir !== "string") return;
-            const ok = await ask(`데이터를 다음 위치로 이동하고 앱을 다시 시작합니다:\n${dir}`, {
-              title: "저장 위치 변경", kind: "warning", okLabel: "이동", cancelLabel: "취소",
-            });
-            if (ok) await api.setStoragePath(dir);
-          }}>저장 위치 변경…</div>
+          <div className="settings-row link" onClick={openData}>
+            데이터 폴더 열기
+          </div>
+          <div
+            className="settings-row link"
+            onClick={async () => {
+              const { open, ask } = await import("@tauri-apps/plugin-dialog");
+              const dir = await open({ directory: true, title: "새 저장 폴더 선택" });
+              if (typeof dir !== "string") return;
+              const ok = await ask(`데이터를 다음 위치로 이동하고 앱을 다시 시작합니다:\n${dir}`, {
+                title: "저장 위치 변경",
+                kind: "warning",
+                okLabel: "이동",
+                cancelLabel: "취소",
+              });
+              if (ok) await api.setStoragePath(dir);
+            }}
+          >
+            저장 위치 변경…
+          </div>
         </div>
 
         <div className="inset-group">
@@ -197,11 +263,18 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
             <span>버전</span>
             <span className="row-dim">{version}</span>
           </div>
-          <div className="settings-row link" onClick={async () => {
-            const { openUrl } = await import("@tauri-apps/plugin-opener");
-            await openUrl(`${REPO_URL}/blob/main/docs/usage.md`);
-          }}>사용법 보기</div>
-          <div className="settings-row link" onClick={openRepo}>GitHub</div>
+          <div
+            className="settings-row link"
+            onClick={async () => {
+              const { openUrl } = await import("@tauri-apps/plugin-opener");
+              await openUrl(`${REPO_URL}/blob/main/docs/usage.md`);
+            }}
+          >
+            사용법 보기
+          </div>
+          <div className="settings-row link" onClick={openRepo}>
+            GitHub
+          </div>
         </div>
       </div>
     </div>

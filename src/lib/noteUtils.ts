@@ -9,9 +9,10 @@ const FONT_STACKS: Record<string, string> = {
 
 export const FONT_PRESETS = ["system", "serif", "mono"] as const;
 
-// 프리셋이 아닌 값은 사용자가 설치한 폰트명으로 취급한다 (예: "JetBrains Mono")
+// 프리셋이 아닌 값은 사용자가 설치한 폰트명으로 취급한다 (예: "JetBrains Mono").
+// 자유 입력이므로 따옴표는 걷어내 CSS 폰트 스택이 깨지지 않게 한다.
 export const fontStack = (f: FontFamily): string =>
-  FONT_STACKS[f] ?? `"${f}", "Malgun Gothic", sans-serif`;
+  FONT_STACKS[f] ?? `"${String(f).replace(/"/g, "")}", "Malgun Gothic", sans-serif`;
 
 export const clampFontSize = (n: number) => Math.min(40, Math.max(10, Math.round(n)));
 
@@ -22,7 +23,10 @@ export const hasMoreBelow = (scrollHeight: number, scrollTop: number, clientHeig
 export function filterNotes(notes: Note[], query: string): Note[] {
   const q = query.trim().toLowerCase();
   if (!q) return notes;
-  return notes.filter((n) => n.body.toLowerCase().includes(q));
+  // 본문 외에 사용자 지정 제목도 검색 대상 (#67)
+  return notes.filter(
+    (n) => n.body.toLowerCase().includes(q) || (n.meta.title ?? "").toLowerCase().includes(q),
+  );
 }
 
 // 목록의 수정시각 표시: 방금/N분 전/N시간 전 → 하루 전/이틀 전/N일 전 → 날짜 명시
@@ -71,7 +75,22 @@ export function plainPreview(body: string): string {
 export function noteTitle(note: Note): string {
   const custom = note.meta.title?.trim();
   if (custom) return custom;
-  const line = note.body.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
+  // 이미지 전용 줄은 건너뛰고 첫 텍스트 줄에서 제목을 파생한다 (#66)
+  const line = note.body
+    .split("\n")
+    .map((l) =>
+      l
+        .trim()
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .trim(),
+    )
+    .find((l) => l.length > 0);
   if (!line) return "(빈 노트)";
-  return line.replace(/^(#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+)+/, "").replace(/[*_`~]/g, "").trim() || "(빈 노트)";
+  return (
+    line
+      .replace(/^(#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+|\[[ xX]\]\s+)+/, "") // 체크박스 마커 포함 (#66)
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // 링크는 텍스트만
+      .replace(/[*_`~]/g, "")
+      .trim() || "(빈 노트)"
+  );
 }

@@ -63,7 +63,7 @@ export default function Toolbar(p: Props) {
         <GroupIcon />
       </button>
       {p.canPopOut && (
-        <button title="새 창으로 꺼내기 (Ctrl+Shift+P)" onClick={p.onPopOut}>
+        <button title="모음집에서 꺼내기 (Ctrl+Shift+P)" onClick={p.onPopOut}>
           <PopOutIcon />
         </button>
       )}

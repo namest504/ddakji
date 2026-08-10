@@ -19,7 +19,13 @@ vi.mock("@tauri-apps/api/window", () => {
     }),
     onResized: vi.fn().mockResolvedValue(() => {}),
     onFocusChanged: vi.fn().mockResolvedValue(() => {}),
+    listen: vi.fn().mockImplementation((name: string, cb: (e: { payload: unknown }) => void) => {
+      const w = win as { events?: Record<string, (e: { payload: unknown }) => void> };
+      w.events = { ...(w.events ?? {}), [name]: cb };
+      return Promise.resolve(() => {});
+    }),
     movedCb: undefined as MovedCb | undefined,
+    events: undefined as Record<string, (e: { payload: unknown }) => void> | undefined,
   };
   return { getCurrentWindow: () => win, __win: win };
 });
@@ -54,7 +60,12 @@ import * as winMod from "@tauri-apps/api/window";
 import NoteApp from "./NoteApp";
 
 const win = (
-  winMod as unknown as { __win: Record<string, ReturnType<typeof vi.fn>> & { movedCb?: MovedCb } }
+  winMod as unknown as {
+    __win: Record<string, ReturnType<typeof vi.fn>> & {
+      movedCb?: MovedCb;
+      events?: Record<string, (e: { payload: unknown }) => void>;
+    };
+  }
 ).__win;
 
 const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note => ({
@@ -90,6 +101,7 @@ const setupNote = (note: Note, members: string[] = []) => {
 beforeEach(() => {
   vi.clearAllMocks();
   win.movedCb = undefined;
+  win.events = undefined;
 });
 afterEach(cleanup);
 
@@ -200,7 +212,7 @@ describe("NoteApp 팝아웃 (#74)", () => {
     vi.mocked(api.listNotes).mockResolvedValue([cur, next]);
     vi.mocked(api.popOut).mockResolvedValue(next);
     render(<NoteApp noteId="n1" />);
-    fireEvent.click(await screen.findByTitle("새 창으로 꺼내기 (Ctrl+Shift+P)"));
+    fireEvent.click(await screen.findByTitle("모음집에서 꺼내기 (Ctrl+Shift+P)"));
     await waitFor(() => expect(api.popOut).toHaveBeenCalled());
     // 같은 메모가 두 창에 남지 않도록, 기존 창이 다음 멤버로 넘어간다
     await screen.findByText("다음 메모 내용");
@@ -211,9 +223,23 @@ describe("NoteApp 팝아웃 (#74)", () => {
     setupNote(cur, ["n1", "n2"]);
     vi.mocked(api.popOut).mockResolvedValue(null);
     render(<NoteApp noteId="n1" />);
-    fireEvent.click(await screen.findByTitle("새 창으로 꺼내기 (Ctrl+Shift+P)"));
+    fireEvent.click(await screen.findByTitle("모음집에서 꺼내기 (Ctrl+Shift+P)"));
     await waitFor(() => expect(api.popOut).toHaveBeenCalled());
     expect(screen.getByText("현재 메모")).toBeTruthy();
+  });
+});
+
+describe("NoteApp 창 전환 이벤트 (#77 룰4)", () => {
+  it("switch-note 이벤트를 받으면 이 창이 그 노트로 전환된다", async () => {
+    // 목록에서 모음집 멤버를 열면 백엔드가 새 창 대신 모음집 창을 전환시킨다
+    const cur = mkNote("n1", "모음집 창 본문", { group: "모음" });
+    const other = mkNote("n2", "전환된 멤버 본문", { group: "모음", group_order: 1 });
+    setupNote(cur, ["n1", "n2"]);
+    vi.mocked(api.listNotes).mockResolvedValue([cur, other]);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.events?.["switch-note"]).toBeTruthy());
+    act(() => win.events!["switch-note"]({ payload: other }));
+    await screen.findByText("전환된 멤버 본문");
   });
 });
 

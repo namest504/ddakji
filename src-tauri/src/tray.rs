@@ -7,9 +7,8 @@ use tauri_plugin_autostart::ManagerExt;
 pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     let new_note = MenuItemBuilder::with_id("new", "새 노트").build(app)?;
     let list = MenuItemBuilder::with_id("list", "노트 목록").build(app)?;
-    // 그룹 멤버까지 전부 개별 창으로 여는 명시적 동작 — 암묵 복원(두 번째 실행·
-    // Alt-Tab)은 show_all_notes가 접힘을 유지한다 (#69)
-    let show_all = MenuItemBuilder::with_id("show_all", "모든 노트 펼치기").build(app)?;
+    // "모든 노트 펼치기"는 "모음집 하나 = 창 하나" 불변식(#77)과 모순이라 제거됨.
+    let show_all = MenuItemBuilder::with_id("show_all", "모든 노트 표시").build(app)?;
     let autostart = CheckMenuItemBuilder::with_id("autostart", "부팅 시 시작")
         .checked(app.autolaunch().is_enabled().unwrap_or(false))
         .build(app)?;
@@ -42,7 +41,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
                 let _ = crate::windows::open_list_window(app);
             }
             "show_all" => {
-                let _ = crate::expand_all_notes(app);
+                let _ = crate::show_all_notes(app);
             }
             "autostart" => {
                 let al = app.autolaunch();

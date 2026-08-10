@@ -17,7 +17,7 @@ pub mod tray;
 pub mod windows;
 
 pub use error::{Error, Result};
-pub use session::{expand_all_notes, show_all_notes};
+pub use session::show_all_notes;
 
 use std::sync::Mutex;
 use store::{MetaPatch, Store};

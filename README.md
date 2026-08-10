@@ -34,6 +34,9 @@ Markdown sticky notes for Windows.
     npm test              # 프론트 테스트
     cargo test --manifest-path src-tauri/Cargo.toml   # Rust 테스트
 
+기여 방법·확인 명령·코드 방향은 **[CONTRIBUTING.md](CONTRIBUTING.md)**,
+버전별 변경은 **[CHANGELOG.md](CHANGELOG.md)**를 봐주세요.
+
 ## 데이터 위치
 
 `%APPDATA%/StickDown/notes/*.md` — 평문 마크다운 + YAML 프론트매터.

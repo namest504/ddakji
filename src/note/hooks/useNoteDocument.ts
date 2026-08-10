@@ -95,6 +95,21 @@ export function useNoteDocument(initialNoteId: string, guard: SaveGuard) {
     setNoteId(n.meta.id);
   }, []);
 
+  // 백엔드가 이 창을 다른 노트로 전환시키는 경로 (#77 룰4 — 목록에서 모음집
+  // 멤버를 열면 새 창 대신 모음집 창이 그 멤버로 전환된다)
+  useEffect(() => {
+    let un: (() => void) | null = null;
+    getCurrentWindow()
+      .listen<Note>("switch-note", (e) => switchTo(e.payload, "next"))
+      .then((f) => {
+        un = f;
+      })
+      .catch(() => {});
+    return () => {
+      if (un) un();
+    };
+  }, [switchTo]);
+
   return {
     noteId,
     note,

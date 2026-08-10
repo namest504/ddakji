@@ -7,6 +7,14 @@
 
 ## [Unreleased]
 
+### 변경
+
+- 모음집 규칙 정리 ([#77]): **모음집 하나는 창 하나로만 표시**되고 넘기기는 그
+  창에서만 됩니다. 꺼내기(↗/`Ctrl+Shift+P`)는 노트를 **모음집에서 제외**해 단독
+  창으로 만들고, 멤버가 하나만 남으면 모음집이 자동 해제됩니다. 목록에서
+  모음집 멤버를 열면 새 창 대신 모음집 창이 그 노트로 전환됩니다. 트레이
+  "모든 노트 펼치기"는 이 규칙과 모순이라 제거했습니다.
+
 ## [0.1.4] - 2026-08-10
 
 ### 추가
@@ -93,6 +101,7 @@
 [#71]: https://github.com/namest504/stickdown/issues/71
 [#72]: https://github.com/namest504/stickdown/issues/72
 [#74]: https://github.com/namest504/stickdown/issues/74
+[#77]: https://github.com/namest504/stickdown/issues/77
 [#78]: https://github.com/namest504/stickdown/issues/78
 [#79]: https://github.com/namest504/stickdown/pull/79
 [#80]: https://github.com/namest504/stickdown/pull/80

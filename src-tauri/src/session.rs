@@ -59,17 +59,8 @@ pub fn restore_notes<'a>(notes: &[&'a Note], open_ids: &HashSet<String>) -> Vec<
 }
 
 /// 두 번째 실행·Alt-Tab 복귀: 전 노트를 표시하되 모음집은 접힘 유지 (#69).
-/// 그룹까지 전부 펼치던 이전 동작이 "재시작하면 그룹이 풀린다"의 재발 원인이었다.
+/// "모음집 하나 = 창 하나" 불변식(#77)에 따라 그룹을 펼치는 경로는 없다.
 pub fn show_all_notes(app: &tauri::AppHandle) -> Result<()> {
-    show_notes(app, false)
-}
-
-/// 트레이 "모든 노트 펼치기": 그룹 멤버까지 전부 개별 창으로 — 명시적 의도만
-pub fn expand_all_notes(app: &tauri::AppHandle) -> Result<()> {
-    show_notes(app, true)
-}
-
-fn show_notes(app: &tauri::AppHandle, expand_groups: bool) -> Result<()> {
     let s = app.state::<Mutex<Store>>();
     let mut notes: Vec<Note> = {
         let store = s.lock().unwrap();
@@ -96,12 +87,7 @@ fn show_notes(app: &tauri::AppHandle, expand_groups: bool) -> Result<()> {
         .and_then(|wn| wn.0.lock().ok().map(|m| m.values().cloned().collect()))
         .unwrap_or_default();
     let refs: Vec<&Note> = notes.iter().collect();
-    let selected = if expand_groups {
-        refs
-    } else {
-        restore_notes(&refs, &open_ids)
-    };
-    for n in selected {
+    for n in restore_notes(&refs, &open_ids) {
         windows::open_note_window(app, n)?;
     }
     Ok(())

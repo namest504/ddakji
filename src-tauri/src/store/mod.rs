@@ -9,7 +9,7 @@ pub use paths::{move_storage, resolve_data_root};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use paths::{migrate_uuid_filenames, new_file_id, validate_ext, validate_id};
+use paths::{new_file_id, validate_ext, validate_id};
 
 use crate::{Error, Result};
 
@@ -22,7 +22,6 @@ impl Store {
     pub fn new(root: &Path) -> Result<Store> {
         fs::create_dir_all(root.join("notes"))?;
         fs::create_dir_all(root.join("assets"))?;
-        migrate_uuid_filenames(root);
         // settings.json이 없거나 파손이면 기본값 — 노트 접근을 막지 않는다
         let settings = fs::read_to_string(root.join("settings.json"))
             .ok()
@@ -771,24 +770,6 @@ mod tests {
     }
 
     #[test]
-    fn migration_leaves_ids_stable_across_restarts() {
-        // 개명 마이그레이션은 멱등 — 재시작마다 파일명이 또 바뀌면 안 된다
-        let d = TempDir::new().unwrap();
-        fs::create_dir_all(d.path().join("notes")).unwrap();
-        let old_id = "0198aaaa-bbbb-4ccc-8ddd-eeeeffff0001";
-        fs::write(
-            d.path().join("notes").join(format!("{old_id}.md")),
-            format!("---\nid: {old_id}\ncreated_at: \"2026-08-01T09:30:00+09:00\"\n---\n본문"),
-        )
-        .unwrap();
-        let s = Store::new(d.path()).unwrap();
-        let id1 = s.list()[0].meta.id.clone();
-        drop(s);
-        let s2 = Store::new(d.path()).unwrap();
-        assert_eq!(s2.list()[0].meta.id, id1, "재마이그레이션에도 id 유지");
-    }
-
-    #[test]
     fn import_markdown_file_creates_note_with_body() {
         let (_d, s) = store();
         let src = _d.path().join("vim-cheatsheet.md");
@@ -918,47 +899,6 @@ mod tests {
         );
         assert_eq!(g[0].meta.id, a.meta.id);
         assert_eq!(s.group_names(), vec!["모음".to_string()]);
-    }
-
-    #[test]
-    fn migrates_uuid_filenames_with_assets_and_body_refs() {
-        let d = TempDir::new().unwrap();
-        let notes = d.path().join("notes");
-        let assets = d
-            .path()
-            .join("assets")
-            .join("0198aaaa-bbbb-4ccc-8ddd-eeeeffff0000");
-        fs::create_dir_all(&notes).unwrap();
-        fs::create_dir_all(&assets).unwrap();
-        fs::write(assets.join("img.png"), b"png").unwrap();
-        let old_id = "0198aaaa-bbbb-4ccc-8ddd-eeeeffff0000";
-        let content = format!(
-            "---\nid: {old_id}\ncreated_at: \"2026-08-01T09:30:00+09:00\"\n---\n![](assets/{old_id}/img.png)"
-        );
-        fs::write(notes.join(format!("{old_id}.md")), content).unwrap();
-
-        let s = Store::new(d.path()).unwrap();
-        let list = s.list();
-        assert_eq!(list.len(), 1);
-        let n = &list[0];
-        assert!(
-            n.meta.id.starts_with("20260801-093000-"),
-            "created_at 기반 개명: {}",
-            n.meta.id
-        );
-        assert!(
-            n.body.contains(&format!("assets/{}/img.png", n.meta.id)),
-            "본문 참조 갱신"
-        );
-        assert!(
-            d.path()
-                .join("assets")
-                .join(&n.meta.id)
-                .join("img.png")
-                .exists(),
-            "에셋 폴더 개명"
-        );
-        assert!(!notes.join(format!("{old_id}.md")).exists());
     }
 
     #[test]

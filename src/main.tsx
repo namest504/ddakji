@@ -26,7 +26,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     ) : view === "stub" ? (
       <StubPreview />
     ) : (
-      <div>stickdown</div>
+      <div>ddakji</div>
     )}
   </React.StrictMode>,
 );

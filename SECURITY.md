@@ -12,13 +12,13 @@
 ## 취약점 제보
 
 공개 이슈로 올리지 마시고,
-[Security Advisory](https://github.com/namest504/stickdown/security/advisories/new)로
+[Security Advisory](https://github.com/namest504/ddakji/security/advisories/new)로
 비공개 제보해 주세요. 확인 후 수정 계획을 회신드립니다.
 
 ## 알아두실 점
 
-stickdown은 **로컬 전용** 앱입니다. 노트는 사용자 PC의
-`%APPDATA%\StickDown`(또는 설정에서 지정한 경로)에 평문 마크다운으로 저장되며,
+ddakji은 **로컬 전용** 앱입니다. 노트는 사용자 PC의
+`%APPDATA%\Ddakji`(또는 설정에서 지정한 경로)에 평문 마크다운으로 저장되며,
 네트워크로 전송되거나 암호화되지 않습니다. 민감한 정보를 담는 용도로는
 디스크 암호화(BitLocker 등)를 함께 쓰시길 권합니다.
 

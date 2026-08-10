@@ -1,4 +1,4 @@
-//! stickdown — 마크다운 스티키 노트.
+//! ddakji — 마크다운 스티키 노트.
 //!
 //! 이 파일은 컴포지션 루트다: 플러그인·커맨드·창 이벤트를 배선하기만 하고,
 //! 도메인 로직은 각 모듈이 갖는다.
@@ -66,7 +66,7 @@ pub fn run() {
         .setup(setup)
         .on_window_event(on_window_event)
         .build(tauri::generate_context!())
-        .expect("error while running stickdown")
+        .expect("error while running ddakji")
         .run(|_app, event| {
             if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
                 // 창이 전부 닫혀도(숨김이 아니라 destroy로 전부 사라져도) 트레이 상주를 위해
@@ -82,7 +82,7 @@ pub fn run() {
 /// 앱 상태 준비 + 첫 창 배치. 실패하면 앱이 뜨지 않는다.
 fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let id_dir = app.path().app_data_dir()?;
-    // 기본 %APPDATA%/StickDown (충돌 시 식별자 폴더), 설정으로 변경 가능
+    // 기본 %APPDATA%/Ddakji (충돌 시 식별자 폴더), 설정으로 변경 가능
     let root = store::resolve_data_root(&id_dir);
     let store = Store::new(&root)?;
     let notes = store.list();

@@ -88,7 +88,7 @@ const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note =
 
 const setupNote = (note: Note, members: string[] = []) => {
   vi.mocked(api.listNotes).mockResolvedValue([note]);
-  vi.mocked(api.dataRoot).mockResolvedValue("C:/data/StickDown");
+  vi.mocked(api.dataRoot).mockResolvedValue("C:/data/Ddakji");
   vi.mocked(api.saveBody).mockResolvedValue(note);
   vi.mocked(api.saveMeta).mockResolvedValue(note);
   vi.mocked(api.groupMembers).mockResolvedValue(members);

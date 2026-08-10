@@ -11,7 +11,7 @@ type StoreState<'a> = State<'a, Mutex<Store>>;
 /// 마지막으로 본(포커스한) 노트 id — Alt-Tab 썸네일 미리보기용 (세션 한정)
 pub struct LastViewed(pub Mutex<Option<String>>);
 
-/// 식별자 폴더(%APPDATA%/com.stickdown.app) — storage-path.txt 포인터 저장 위치
+/// 식별자 폴더(%APPDATA%/com.ddakji.app) — storage-path.txt 포인터 저장 위치
 pub struct IdDir(pub std::path::PathBuf);
 
 /// 창 label → 표시 중인 노트 id (#25 그룹 넘기기로 창-노트가 동적이 됨)

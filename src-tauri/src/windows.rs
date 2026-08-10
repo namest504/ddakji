@@ -96,7 +96,7 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
         &label,
         WebviewUrl::App(format!("index.html?note={}", m.id).into()),
     )
-    .title("stickdown")
+    .title("ddakji")
     .decorations(false)
     // Tauri 드롭 핸들러가 웹뷰 드래그 이벤트를 가로채 에디터 내부 이미지 드래그가
     // 막힌다 — 끄고 파일 드롭도 에디터(HTML5)가 처리한다
@@ -134,7 +134,7 @@ fn apply_glass(win: &tauri::WebviewWindow) {
 /// Alt-Tab/작업표시줄용 대표 창. 화면 밖에 상주하며 앱 항목을 하나로 유지한다 —
 /// 사용자가 Alt-Tab이나 작업표시줄 아이콘으로 이 창을 활성화하면(Focused)
 /// lib.rs가 모든 노트를 표시한다. 노트 창이 여럿이어도 Alt-Tab엔 이 창 하나만 보인다.
-pub const STUB_LABEL: &str = "stickdown-main";
+pub const STUB_LABEL: &str = "ddakji-main";
 
 pub fn ensure_main_stub(app: &AppHandle) -> tauri::Result<()> {
     if app.get_webview_window(STUB_LABEL).is_some() {
@@ -145,7 +145,7 @@ pub fn ensure_main_stub(app: &AppHandle) -> tauri::Result<()> {
         STUB_LABEL,
         WebviewUrl::App("index.html?view=stub".into()),
     )
-    .title("stickdown")
+    .title("ddakji")
     .decorations(false)
     .inner_size(260.0, 180.0)
     .position(-30000.0, -30000.0)
@@ -168,7 +168,7 @@ pub fn open_list_window(app: &AppHandle) -> tauri::Result<()> {
         return Ok(());
     }
     WebviewWindowBuilder::new(app, "list", WebviewUrl::App("index.html?view=list".into()))
-        .title("stickdown — 노트 목록")
+        .title("ddakji — 노트 목록")
         .inner_size(360.0, 480.0)
         .min_inner_size(280.0, 320.0)
         .visible(false)

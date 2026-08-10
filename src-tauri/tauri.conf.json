@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "stickdown",
+  "productName": "ddakji",
   "version": "0.1.4",
-  "identifier": "com.stickdown.app",
+  "identifier": "com.ddakji.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

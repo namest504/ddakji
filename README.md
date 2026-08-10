@@ -1,6 +1,6 @@
-# stickdown
+# ddakji
 
-[![ci](https://github.com/namest504/stickdown/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/namest504/stickdown/actions/workflows/ci.yml)
+[![ci](https://github.com/namest504/ddakji/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/namest504/ddakji/actions/workflows/ci.yml)
 
 Markdown sticky notes for Windows.
 
@@ -21,8 +21,8 @@ Markdown sticky notes for Windows.
 
 ## 설치 (Windows)
 
-[Releases](../../releases)에서 최신 `stickdown_x.y.z_x64-setup.exe`(설치형) 또는
-`stickdown-x.y.z-portable-x64.zip`(포터블) 다운로드 후 실행.
+[Releases](../../releases)에서 최신 `ddakji_x.y.z_x64-setup.exe`(설치형) 또는
+`ddakji-x.y.z-portable-x64.zip`(포터블) 다운로드 후 실행.
 
 ## 사용법
 
@@ -42,7 +42,7 @@ Markdown sticky notes for Windows.
 
 ## 데이터 위치
 
-`%APPDATA%/StickDown/notes/*.md` — 평문 마크다운 + YAML 프론트매터.
+`%APPDATA%/Ddakji/notes/*.md` — 평문 마크다운 + YAML 프론트매터.
 파일명은 생성 시각 기반(`20260805-134024-a1b2c3.md`), 이미지는 `assets/<노트id>/`에 원본 저장.
 저장 위치는 설정에서 변경할 수 있습니다.
 
@@ -54,4 +54,4 @@ Tauri 2 · React · TypeScript · TipTap
 
 라이브 마크다운 편집 · 체크박스 · 색상 변경:
 
-![stickdown 데모 — 헤딩·체크박스 자동 변환, 클릭 토글, 색상 변경](docs/assets/demo.gif)
+![ddakji 데모 — 헤딩·체크박스 자동 변환, 클릭 토글, 색상 변경](docs/assets/demo.gif)

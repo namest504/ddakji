@@ -18,7 +18,7 @@ export default function StubPreview() {
     return () => clearInterval(t);
   }, []);
 
-  if (!note) return <div className="stub-empty">stickdown</div>;
+  if (!note) return <div className="stub-empty">ddakji</div>;
   const m = note.meta;
   return (
     <div

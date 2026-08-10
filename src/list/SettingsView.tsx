@@ -11,7 +11,7 @@ const FONTS: { key: FontFamily; label: string }[] = [
   { key: "serif", label: "세리프" },
   { key: "mono", label: "고정폭" },
 ];
-const REPO_URL = "https://github.com/namest504/stickdown";
+const REPO_URL = "https://github.com/namest504/ddakji";
 
 export default function SettingsView({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);

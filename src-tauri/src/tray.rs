@@ -24,7 +24,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id("main")
         .icon(app.default_window_icon().expect("icon configured").clone())
-        .tooltip("stickdown")
+        .tooltip("ddakji")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id().as_ref() {
             "new" => {

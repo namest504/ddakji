@@ -7,6 +7,11 @@
 
 ## [Unreleased]
 
+### 추가
+
+- 자세히 보기에 **파일 위치 열기** — 노트의 실제 `.md` 파일을 탐색기에서
+  선택한 채 엽니다 ([#98])
+
 ### 변경
 
 - 모음집 규칙 정리 ([#77]): **모음집 하나는 창 하나로만 표시**되고 넘기기는 그
@@ -103,6 +108,7 @@
 [#74]: https://github.com/namest504/stickdown/issues/74
 [#77]: https://github.com/namest504/stickdown/issues/77
 [#78]: https://github.com/namest504/stickdown/issues/78
+[#98]: https://github.com/namest504/stickdown/issues/98
 [#79]: https://github.com/namest504/stickdown/pull/79
 [#80]: https://github.com/namest504/stickdown/pull/80
 [#81]: https://github.com/namest504/stickdown/pull/81

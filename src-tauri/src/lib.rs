@@ -50,6 +50,7 @@ pub fn run() {
             commands::get_settings,
             commands::save_settings,
             commands::open_data_dir,
+            commands::reveal_note,
             commands::list_system_fonts,
             commands::set_last_viewed,
             commands::get_last_viewed,

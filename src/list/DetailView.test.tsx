@@ -5,6 +5,7 @@ vi.mock("../lib/api", () => ({
   listNotes: vi.fn(),
   openNote: vi.fn(),
   saveMeta: vi.fn(),
+  revealNote: vi.fn(),
 }));
 
 import * as api from "../lib/api";
@@ -63,5 +64,13 @@ describe("DetailView", () => {
     render(<DetailView noteId="a" onBack={() => {}} />);
     fireEvent.click(await screen.findByText("노트 열기"));
     expect(api.openNote).toHaveBeenCalledWith("a");
+  });
+
+  it("파일 위치 열기 행은 탐색기 열기를 요청한다 (#98)", async () => {
+    vi.mocked(api.listNotes).mockResolvedValue([mkNote("a", "본문")]);
+    vi.mocked(api.revealNote).mockResolvedValue(undefined);
+    render(<DetailView noteId="a" onBack={() => {}} />);
+    fireEvent.click(await screen.findByText("파일 위치 열기"));
+    expect(api.revealNote).toHaveBeenCalledWith("a");
   });
 });

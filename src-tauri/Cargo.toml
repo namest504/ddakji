@@ -2,6 +2,8 @@
 name = "ddakji"
 version = "0.1.5"
 edition = "2021"
+# 바이너리가 둘(ddakji, ddakji-cli)이라 tauri build가 메인을 특정하지 못한다
+default-run = "ddakji"
 
 [lib]
 name = "ddakji_lib"

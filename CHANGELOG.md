@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-08-10
+
 ### 추가
 
 - 마크다운 **표**를 표로 렌더링 — 좁은 창에서는 표 영역만 가로 스크롤 ([#71])
@@ -80,7 +82,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/stickdown/compare/v0.1.3...develop
+[unreleased]: https://github.com/namest504/stickdown/compare/v0.1.4...develop
+[0.1.4]: https://github.com/namest504/stickdown/releases/tag/v0.1.4
 [0.1.3]: https://github.com/namest504/stickdown/releases/tag/v0.1.3
 [0.1.2]: https://github.com/namest504/stickdown/releases/tag/v0.1.2
 [#66]: https://github.com/namest504/stickdown/issues/66

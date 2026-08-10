@@ -8,6 +8,7 @@
 //! - [`windows`] 창 생성·배치 규칙, [`commands`] 프런트에 노출되는 API
 //! - [`error`] 프런트와의 에러 계약 (`NOTE_NOT_FOUND` 마커 포함)
 
+pub mod bridge;
 pub mod commands;
 pub mod error;
 pub mod fonts;
@@ -97,6 +98,8 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
         std::collections::HashMap::new(),
     )));
     tray::create_tray(app.handle())?;
+    // 외부 변경 브리지 (#12) — CLI 등 밖에서 바뀐 파일을 이벤트로 번역
+    bridge::spawn(app.handle().clone());
     // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)
     windows::ensure_main_stub(app.handle())?;
     if notes.is_empty() {

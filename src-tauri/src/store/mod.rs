@@ -6,16 +6,32 @@ mod paths;
 pub use model::{next_new_group_name, MetaPatch, Note, NoteMeta, Settings, WindowBounds};
 pub use paths::{move_storage, resolve_data_root};
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::SystemTime;
 
 use paths::{new_file_id, validate_ext, validate_id};
 
 use crate::{Error, Result};
 
+/// 외부(CLI·동기화 등)에서 바뀐 노트 — [`Store::external_changes`]의 결과 (#12)
+#[derive(Debug, PartialEq, Eq)]
+pub enum ExternalChange {
+    /// 새로 생겼거나 내용이 바뀐 노트 id
+    Changed(String),
+    /// 밖에서 삭제된 노트 id
+    Removed(String),
+}
+
 pub struct Store {
     root: PathBuf,
     settings: Settings,
+    /// 앱이 아는 디스크 상태 (id → mtime). 우리가 쓴 파일은 즉시 반영되므로,
+    /// 디스크와의 차이는 곧 **외부 변경**이다 (#12 외부 변경 브리지).
+    /// updated_at이 아니라 mtime을 쓰는 이유: save_meta는 updated_at을 바꾸지 않는다.
+    disk_state: Mutex<HashMap<String, SystemTime>>,
 }
 
 impl Store {
@@ -27,10 +43,72 @@ impl Store {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
-        Ok(Store {
+        let store = Store {
             root: root.to_path_buf(),
             settings,
-        })
+            disk_state: Mutex::new(HashMap::new()),
+        };
+        // 시작 시점의 디스크가 기준선 — 이후 우리가 쓰지 않은 차이만 외부 변경
+        *store.disk_lock() = store.scan_disk();
+        Ok(store)
+    }
+
+    fn disk_lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, SystemTime>> {
+        // 내부 뮤텍스 — 패닉 오염 시에도 스냅숏은 계속 쓸 수 있다
+        self.disk_state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// notes/ 의 현재 (id → mtime)
+    fn scan_disk(&self) -> HashMap<String, SystemTime> {
+        let mut map = HashMap::new();
+        let Ok(rd) = fs::read_dir(self.notes_dir()) else {
+            return map;
+        };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.extension().map(|x| x == "md") != Some(true) {
+                continue;
+            }
+            let (Some(id), Ok(meta)) = (p.file_stem().and_then(|s| s.to_str()), e.metadata())
+            else {
+                continue;
+            };
+            if let Ok(mtime) = meta.modified() {
+                map.insert(id.to_string(), mtime);
+            }
+        }
+        map
+    }
+
+    /// 마지막 확인 이후의 **외부** 변경 목록 — 우리가 쓴 파일은 나오지 않는다.
+    /// 호출 시 스냅숏이 현재 디스크로 갱신되므로 같은 변경이 두 번 나오지 않는다.
+    pub fn external_changes(&self) -> Vec<ExternalChange> {
+        let current = self.scan_disk();
+        let mut known = self.disk_lock();
+        let mut out = Vec::new();
+        for (id, mtime) in &current {
+            if known.get(id) != Some(mtime) {
+                out.push(ExternalChange::Changed(id.clone()));
+            }
+        }
+        for id in known.keys() {
+            if !current.contains_key(id) {
+                out.push(ExternalChange::Removed(id.clone()));
+            }
+        }
+        *known = current;
+        out
+    }
+
+    /// 우리가 방금 쓴 파일을 스냅숏에 반영 — 외부 변경으로 오인 방지
+    fn mark_written(&self, id: &str) {
+        if let Ok(meta) = fs::metadata(self.note_path(id)) {
+            if let Ok(mtime) = meta.modified() {
+                self.disk_lock().insert(id.to_string(), mtime);
+            }
+        }
     }
 
     pub fn settings(&self) -> Settings {
@@ -81,6 +159,7 @@ impl Store {
         let tmp = path.with_extension(format!("md.{}.tmp", tmp_id));
         fs::write(&tmp, note.to_file_string())?;
         fs::rename(&tmp, &path)?;
+        self.mark_written(&note.meta.id);
         Ok(())
     }
 
@@ -308,6 +387,7 @@ impl Store {
         validate_id(id)?;
         let group = self.load(id).and_then(|n| n.meta.group);
         fs::remove_file(self.note_path(id)).map_err(Error::note_io)?;
+        self.disk_lock().remove(id);
         let assets = self.root.join("assets").join(id);
         if assets.exists() {
             fs::remove_dir_all(assets)?;
@@ -792,6 +872,73 @@ mod tests {
         fs::write(&bin, [0xff, 0xfe, 0x00, 0x80]).unwrap();
         assert!(s.import_markdown_file(&bin).is_err());
         assert!(s.list().is_empty(), "실패 시 빈 노트를 남기지 않는다");
+    }
+
+    #[test]
+    fn own_writes_are_not_external_changes() {
+        // 자기 쓰기(생성·본문·메타·병합의 내부 다단계 쓰기)는 감지 대상이 아니다
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        s.save_body(&n.meta.id, "본문").unwrap();
+        s.save_meta(
+            &n.meta.id,
+            &MetaPatch {
+                color: Some("blue".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let t = s.create().unwrap();
+        s.merge_note_groups(&n.meta.id, &t.meta.id).unwrap();
+        assert!(s.external_changes().is_empty());
+    }
+
+    #[test]
+    fn direct_file_write_is_detected_once() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        assert!(s.external_changes().is_empty());
+        std::thread::sleep(std::time::Duration::from_millis(20)); // mtime 구분
+        fs::write(
+            s.notes_dir().join(format!("{}.md", n.meta.id)),
+            format!("---\nid: {}\n---\n외부 수정", n.meta.id),
+        )
+        .unwrap();
+        assert_eq!(
+            s.external_changes(),
+            vec![ExternalChange::Changed(n.meta.id.clone())]
+        );
+        assert!(s.external_changes().is_empty(), "같은 변경은 한 번만");
+    }
+
+    #[test]
+    fn external_new_and_removed_files_are_detected() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        let _ = s.external_changes();
+        fs::write(s.notes_dir().join("29990101-000001-abcdef.md"), "새 파일").unwrap();
+        fs::remove_file(s.notes_dir().join(format!("{}.md", n.meta.id))).unwrap();
+        let mut ch = s.external_changes();
+        ch.sort_by_key(|c| format!("{c:?}"));
+        assert_eq!(
+            ch,
+            vec![
+                ExternalChange::Changed("29990101-000001-abcdef".into()),
+                ExternalChange::Removed(n.meta.id.clone()),
+            ]
+        );
+    }
+
+    #[test]
+    fn startup_baseline_reports_no_changes() {
+        // 재시작 직후 기존 파일들이 전부 "외부 변경"으로 쏟아지면 안 된다
+        let d = TempDir::new().unwrap();
+        {
+            let s = Store::new(d.path()).unwrap();
+            s.create().unwrap();
+        }
+        let s2 = Store::new(d.path()).unwrap();
+        assert!(s2.external_changes().is_empty());
     }
 
     #[test]

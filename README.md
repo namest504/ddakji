@@ -1,5 +1,7 @@
 # stickdown
 
+[![ci](https://github.com/namest504/stickdown/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/namest504/stickdown/actions/workflows/ci.yml)
+
 Markdown sticky notes for Windows.
 
 마크다운 기반 위젯형 스티키 노트. Win11 Sticky Notes를 대체하면서
@@ -9,7 +11,8 @@ Markdown sticky notes for Windows.
 
 - 노트별 독립 위젯 창 (프레임 없음, 노트별 항상-위 고정)
 - 라이브 마크다운 편집: 문법을 타이핑하면 즉시 렌더, 서식 단축키·하단 서식 바
-- 체크박스(클릭 토글)·중첩 목록(Tab), 이미지 붙여넣기/드롭/드래그 재배치
+- 체크박스(클릭 토글)·중첩 목록(Tab)·GFM 표(좁은 창은 표만 가로 스크롤), 이미지 붙여넣기/드롭/드래그 재배치
+- 기존 `.md` 파일 가져오기(다중 선택), 마크다운 텍스트 붙여넣으면 서식 적용
 - **모음집**: 관련 노트를 묶어 한 창에서 넘겨보기 — 드래그로 합치기, Alt+←→/화살표/점 인디케이터
 - 배경색 7종·노트별 폰트(설치 폰트 조회), 시스템 다크/라이트 추종, 반투명 글라스 창
 - 노트 목록(모음집 섹션·상대시간·자세히 보기), 검색, 설정(저장 위치 변경 포함)

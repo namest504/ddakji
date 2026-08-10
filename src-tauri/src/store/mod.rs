@@ -64,6 +64,17 @@ impl Store {
         self.notes_dir().join(format!("{id}.md"))
     }
 
+    /// 노트 파일의 실제 경로 — "탐색기에서 보기"용 (#98). 없으면 NoteNotFound.
+    pub fn note_file(&self, id: &str) -> Result<PathBuf> {
+        validate_id(id)?;
+        let p = self.note_path(id);
+        if p.is_file() {
+            Ok(p)
+        } else {
+            Err(Error::NoteNotFound)
+        }
+    }
+
     fn write_atomic(&self, note: &Note) -> Result<()> {
         let path = self.note_path(&note.meta.id);
         // Use unique tmp name to avoid concurrent write conflicts
@@ -800,6 +811,20 @@ mod tests {
         fs::write(&bin, [0xff, 0xfe, 0x00, 0x80]).unwrap();
         assert!(s.import_markdown_file(&bin).is_err());
         assert!(s.list().is_empty(), "실패 시 빈 노트를 남기지 않는다");
+    }
+
+    #[test]
+    fn note_file_returns_real_path_or_not_found() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        let p = s.note_file(&n.meta.id).unwrap();
+        assert!(p.is_file());
+        assert!(p.ends_with(format!("{}.md", n.meta.id)));
+        assert!(matches!(
+            s.note_file("20990101-000000-abcdef"),
+            Err(Error::NoteNotFound)
+        ));
+        assert!(matches!(s.note_file("../evil"), Err(Error::Invalid(_))));
     }
 
     #[test]

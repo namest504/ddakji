@@ -520,6 +520,13 @@ pub fn list_system_fonts() -> Vec<String> {
     crate::fonts::list_system_fonts()
 }
 
+/// 노트 파일을 선택한 채 탐색기를 연다 (#98) — open_data_dir처럼 Rust 직접 호출
+#[tauri::command]
+pub fn reveal_note(store: StoreState, id: String) -> Result<()> {
+    let path = lock(&store)?.note_file(&id)?;
+    tauri_plugin_opener::reveal_item_in_dir(path).map_err(|e| Error::External(e.to_string()))
+}
+
 #[tauri::command]
 pub fn open_data_dir(store: StoreState) -> Result<()> {
     // 프런트의 opener open_path는 경로 스코프 권한이 따로 필요해 실패한다(#15 QA) —

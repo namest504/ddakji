@@ -24,8 +24,18 @@ import { useWindowSync } from "./hooks/useWindowSync";
 export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   const { saveError, guard, retry } = useSaveGuard();
   const doc = useNoteDocument(initialNoteId, guard);
-  const { noteId, note, setNote, slide, flushBody, onBodyChange, patchMeta, changeFont, switchTo } =
-    doc;
+  const {
+    noteId,
+    note,
+    rev,
+    setNote,
+    slide,
+    flushBody,
+    onBodyChange,
+    patchMeta,
+    changeFont,
+    switchTo,
+  } = doc;
   const base = useDataRoot();
 
   const { members, navigate, jumpTo, popOut } = useGroupNavigation({
@@ -108,7 +118,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       )}
       <div key={noteId} className={"content" + (slide ? ` slide-${slide}` : "")} ref={contentRef}>
         <RichEditor
-          key={noteId}
+          key={`${noteId}#${rev}`}
           body={note.body}
           base={base}
           onChange={onBodyChange}

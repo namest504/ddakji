@@ -243,6 +243,27 @@ describe("NoteApp 창 전환 이벤트 (#77 룰4)", () => {
   });
 });
 
+describe("NoteApp 외부 변경 리로드 (#12)", () => {
+  it("note-updated 이벤트를 받으면 에디터 본문이 교체된다", async () => {
+    // CLI 등 밖에서 바뀐 파일 → 브리지가 이 창으로 note-updated를 보낸다
+    setupNote(mkNote("n1", "원래 본문"));
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.events?.["note-updated"]).toBeTruthy());
+    act(() => win.events!["note-updated"]({ payload: mkNote("n1", "CLI가 바꾼 본문") }));
+    await screen.findByText("CLI가 바꾼 본문");
+  });
+
+  it("다른 노트에 대한 이벤트는 무시한다", async () => {
+    setupNote(mkNote("n1", "내 본문"));
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.events?.["note-updated"]).toBeTruthy());
+    act(() => win.events!["note-updated"]({ payload: mkNote("n2", "남의 본문") }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText("남의 본문")).toBeNull();
+    expect(screen.getByText("내 본문")).toBeTruthy();
+  });
+});
+
 describe("NoteApp 단축키", () => {
   it("Ctrl+N은 새 노트, Ctrl+L은 목록", async () => {
     setupNote(mkNote("n1", "본문"));

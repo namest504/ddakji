@@ -159,16 +159,21 @@ type Rect = (f64, f64, f64, f64);
 /// 합치기 후보: (창 label, 노트 id, 겹침 비율, 대상 사각형)
 type MergeCandidate = (String, String, f64, Rect);
 
-/// 이동한 창(a)이 대상 창(b)과 겹치는 비율 — a 면적 기준 0.0~1.0
+/// 두 창이 겹치는 비율 — **둘 중 작은 창** 면적 기준 0.0~1.0 (#78).
+///
+/// 이동한 창 면적을 분모로 쓰면 큰 창을 작은 창 위에 완전히 덮어도 비율이
+/// 면적비(작은창/큰창)에 머물러 병합이 발동하지 않는다. 작은 면적 기준이면
+/// 어느 쪽을 끌든 같은 판정이 된다.
 pub fn overlap_ratio(a: Rect, b: Rect) -> f64 {
     let (ax, ay, aw, ah) = a;
     let (bx, by, bw, bh) = b;
     let iw = (ax + aw).min(bx + bw) - ax.max(bx);
     let ih = (ay + ah).min(by + bh) - ay.max(by);
-    if iw <= 0.0 || ih <= 0.0 || aw <= 0.0 || ah <= 0.0 {
+    let denom = (aw * ah).min(bw * bh);
+    if iw <= 0.0 || ih <= 0.0 || denom <= 0.0 {
         return 0.0;
     }
-    (iw * ih) / (aw * ah)
+    (iw * ih) / denom
 }
 
 /// 드래그 합치기 시 새 그룹 이름 — "새 그룹 {번호}" 순번 자동 부여
@@ -526,13 +531,25 @@ mod tests {
     }
 
     #[test]
-    fn overlap_contained_windows() {
-        // 작은 창이 큰 창 안에 완전히 들어가면 (이동한 창 면적 기준) 100%
+    fn overlap_is_symmetric_for_contained_windows() {
+        // #78 회귀: 큰 창을 작은 창 위에 완전히 덮어도, 작은 창을 큰 창에
+        // 넣어도 같은 100% — 어느 쪽을 끌든 병합 판정이 동일해야 한다
         let small = (10.0, 10.0, 50.0, 50.0);
         let big = (0.0, 0.0, 200.0, 200.0);
         assert!((overlap_ratio(small, big) - 1.0).abs() < 1e-9);
-        // 큰 창을 작은 창 위에 놓으면 작은 창 면적 / 큰 창 면적
-        assert!((overlap_ratio(big, small) - (50.0 * 50.0) / (200.0 * 200.0)).abs() < 1e-9);
+        assert!((overlap_ratio(big, small) - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn dragging_big_window_onto_small_note_reaches_merge_threshold() {
+        // #78 재현 시나리오: 큰 창(400×500)을 작은 노트(220×160) 위로 —
+        // 작은 창의 60% 이상을 덮으면 흡수돼야 한다
+        let big = (0.0, 0.0, 400.0, 500.0);
+        let small_mostly_covered = (300.0, 400.0, 220.0, 160.0); // 100×100 겹침
+        let r = overlap_ratio(big, small_mostly_covered);
+        assert!(r < 0.6, "일부만 걸치면 아직 병합 아님: {r}");
+        let small_under_big = (150.0, 300.0, 220.0, 160.0); // 완전히 큰 창 안
+        assert!((overlap_ratio(big, small_under_big) - 1.0).abs() < 1e-9);
     }
 
     #[test]

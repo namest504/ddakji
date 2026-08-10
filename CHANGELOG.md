@@ -29,6 +29,8 @@
   그리던 것이 원인이며, 모음집 이동(`Alt+←/→`)에도 잠재해 있었습니다 ([#74])
 - 모음집 창을 다른 노트 위로 드래그해도 합쳐지지 않던 문제(누적 이동 거리로 판정)
 - 모음집끼리 겹치면 **모음집 전체**가 대상 모음집으로 통합됩니다
+- 큰 창을 작은 노트 위에 놓으면 흡수되지 않던 문제 — 겹침 판정을 두 창 중
+  작은 창 면적 기준으로 바꿔 어느 쪽을 끌든 같게 ([#78])
 - 노트 목록 제목에서 체크박스 마커가 남고 이미지 문법이 그대로 노출되던 문제 ([#66])
 - 창을 좁히면 본문이 잘리던 문제, 코드 블록이 줄바꿈되어 복사가 어렵던 문제
 
@@ -88,6 +90,7 @@
 [#71]: https://github.com/namest504/stickdown/issues/71
 [#72]: https://github.com/namest504/stickdown/issues/72
 [#74]: https://github.com/namest504/stickdown/issues/74
+[#78]: https://github.com/namest504/stickdown/issues/78
 [#79]: https://github.com/namest504/stickdown/pull/79
 [#80]: https://github.com/namest504/stickdown/pull/80
 [#81]: https://github.com/namest504/stickdown/pull/81

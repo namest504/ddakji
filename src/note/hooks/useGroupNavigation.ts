@@ -30,16 +30,26 @@ export function useGroupNavigation({ noteId, flushBody, switchTo, setNote }: Opt
           const n = all.find((x) => x.meta.id === noteId);
           if (!n) return;
           setNote((prev) => (prev ? { ...prev, meta: n.meta } : prev));
-          if (n.meta.group) api.groupMembers(noteId).then(setMembers).catch(() => {});
+          if (n.meta.group)
+            api
+              .groupMembers(noteId)
+              .then(setMembers)
+              .catch(() => {});
           else setMembers([]);
         })
         .catch(() => {});
     };
     refresh();
     import("@tauri-apps/api/event")
-      .then(({ listen }) => listen("groups-changed", refresh).then((f) => { un = f; }))
+      .then(({ listen }) =>
+        listen("groups-changed", refresh).then((f) => {
+          un = f;
+        }),
+      )
       .catch(() => {});
-    return () => { if (un) un(); };
+    return () => {
+      if (un) un();
+    };
   }, [noteId, setNote]);
 
   const navigate = useCallback(
@@ -47,7 +57,9 @@ export function useGroupNavigation({ noteId, flushBody, switchTo, setNote }: Opt
       flushBody();
       api
         .navGroup(dir)
-        .then((n) => { if (n) switchTo(n, dir === 1 ? "next" : "prev"); })
+        .then((n) => {
+          if (n) switchTo(n, dir === 1 ? "next" : "prev");
+        })
         .catch(() => {});
     },
     [flushBody, switchTo],
@@ -56,7 +68,12 @@ export function useGroupNavigation({ noteId, flushBody, switchTo, setNote }: Opt
   const jumpTo = useCallback(
     (id: string, dirHint: "next" | "prev") => {
       flushBody();
-      api.navTo(id).then((n) => { if (n) switchTo(n, dirHint); }).catch(() => {});
+      api
+        .navTo(id)
+        .then((n) => {
+          if (n) switchTo(n, dirHint);
+        })
+        .catch(() => {});
     },
     [flushBody, switchTo],
   );
@@ -64,7 +81,12 @@ export function useGroupNavigation({ noteId, flushBody, switchTo, setNote }: Opt
   // 현재 메모가 새 창으로 나가고, 이 창은 다음 멤버로 전환된다 (#74)
   const popOut = useCallback(() => {
     flushBody();
-    api.popOut().then((n) => { if (n) switchTo(n, "next"); }).catch(() => {});
+    api
+      .popOut()
+      .then((n) => {
+        if (n) switchTo(n, "next");
+      })
+      .catch(() => {});
   }, [flushBody, switchTo]);
 
   return { members, navigate, jumpTo, popOut };

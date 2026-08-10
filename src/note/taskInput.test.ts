@@ -4,7 +4,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskList } from "@tiptap/extension-list";
 import { Markdown } from "tiptap-markdown";
-import { TaskItemSafe } from "./RichEditor";
+import { TaskItemSafe } from "./extensions";
 
 // 실제 타이핑 시뮬레이션: handleTextInput을 거쳐 입력 룰까지 발동시킨다 (#39 재현 경로)
 const makeEditor = () =>

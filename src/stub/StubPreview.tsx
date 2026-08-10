@@ -8,7 +8,11 @@ import { fontStack, noteTitle, plainPreview } from "../lib/noteUtils";
 export default function StubPreview() {
   const [note, setNote] = useState<Note | null>(null);
   useEffect(() => {
-    const load = () => api.getLastViewed().then(setNote).catch(() => {});
+    const load = () =>
+      api
+        .getLastViewed()
+        .then(setNote)
+        .catch(() => {});
     load();
     const t = setInterval(load, 2000);
     return () => clearInterval(t);
@@ -17,8 +21,11 @@ export default function StubPreview() {
   if (!note) return <div className="stub-empty">stickdown</div>;
   const m = note.meta;
   return (
-    <div className="note stub-preview" data-color={m.color}
-      style={{ fontFamily: fontStack(m.font_family) }}>
+    <div
+      className="note stub-preview"
+      data-color={m.color}
+      style={{ fontFamily: fontStack(m.font_family) }}
+    >
       <div className="stub-title">{noteTitle(note)}</div>
       <div className="stub-body">{plainPreview(note.body).slice(0, 600)}</div>
     </div>

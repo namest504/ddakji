@@ -118,11 +118,17 @@ mod startup_tests {
         meta.group_order = order;
         meta.created_at = created.into();
         meta.hidden = hidden;
-        Note { meta, body: String::new() }
+        Note {
+            meta,
+            body: String::new(),
+        }
     }
 
     fn ids(notes: &[Note]) -> Vec<&str> {
-        startup_notes(notes).iter().map(|n| n.meta.id.as_str()).collect()
+        startup_notes(notes)
+            .iter()
+            .map(|n| n.meta.id.as_str())
+            .collect()
     }
 
     #[test]

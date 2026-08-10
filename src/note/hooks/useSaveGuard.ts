@@ -7,7 +7,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
  */
 export function closeIfGone(e: unknown): boolean {
   if (e === "NOTE_NOT_FOUND") {
-    getCurrentWindow().destroy().catch(() => {});
+    getCurrentWindow()
+      .destroy()
+      .catch(() => {});
     return true;
   }
   return false;
@@ -25,7 +27,7 @@ export function useSaveGuard() {
   const [saveError, setSaveError] = useState(false);
   const failed = useRef<{ key: string; run: () => void } | null>(null);
 
-  const guard = useCallback(<T,>(key: string, op: () => Promise<T>) => {
+  const guard = useCallback(<T>(key: string, op: () => Promise<T>) => {
     const run = () => {
       op()
         .then(() => {

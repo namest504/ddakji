@@ -20,8 +20,8 @@ const roundtrip = (src: string): string => {
     ],
     content: src,
   });
-  const out = (ed.storage as { markdown?: { getMarkdown: () => string } })
-    .markdown?.getMarkdown() ?? "";
+  const out =
+    (ed.storage as { markdown?: { getMarkdown: () => string } }).markdown?.getMarkdown() ?? "";
   ed.destroy();
   return out;
 };
@@ -129,7 +129,9 @@ describe("마크다운 왕복 보존", () => {
   });
 
   it("GFM 표 — 헤더·셀·구조 보존 (#71)", () => {
-    const out = roundtrip("| 입력 | 동작 |\n| --- | --- |\n| `Esc` | 노멀 모드 |\n| `i` | 커서 앞 입력 |");
+    const out = roundtrip(
+      "| 입력 | 동작 |\n| --- | --- |\n| `Esc` | 노멀 모드 |\n| `i` | 커서 앞 입력 |",
+    );
     expect(out).toContain("| 입력 | 동작 |");
     expect(out).toMatch(/\| ---+ \| ---+ \|/);
     expect(out).toContain("노멀 모드");

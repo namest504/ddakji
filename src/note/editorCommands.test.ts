@@ -4,7 +4,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskList } from "@tiptap/extension-list";
 import { Markdown } from "tiptap-markdown";
-import { TaskItemSafe } from "./RichEditor";
+import { TaskItemSafe } from "./extensions";
 
 // 서식 바 버튼이 실제로 부르는 명령(FormatBar.tsx)과 입력 룰의 회귀 테스트.
 // 에디터 구성은 RichEditor와 동일 (assetImage 제외 — 경로 변환은 무관).

@@ -23,8 +23,8 @@ pub fn list_system_fonts() -> Vec<String> {
 
     let mut set = BTreeSet::new();
     for hive in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
-        let key = RegKey::predef(hive)
-            .open_subkey(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts");
+        let key =
+            RegKey::predef(hive).open_subkey(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts");
         if let Ok(k) = key {
             for (name, _) in k.enum_values().flatten() {
                 for f in parse_font_entry(&name) {
@@ -41,7 +41,10 @@ pub fn list_system_fonts() -> Vec<String> {
     // 리눅스 개발 환경: fontconfig의 fc-list가 있으면 활용, 없으면 빈 목록
     use std::collections::BTreeSet;
     let mut set = BTreeSet::new();
-    if let Ok(o) = std::process::Command::new("fc-list").args([":", "family"]).output() {
+    if let Ok(o) = std::process::Command::new("fc-list")
+        .args([":", "family"])
+        .output()
+    {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             for fam in line.split(',') {
                 let f = fam.trim();
@@ -60,7 +63,10 @@ mod tests {
 
     #[test]
     fn strips_type_suffix() {
-        assert_eq!(parse_font_entry("Malgun Gothic (TrueType)"), vec!["Malgun Gothic"]);
+        assert_eq!(
+            parse_font_entry("Malgun Gothic (TrueType)"),
+            vec!["Malgun Gothic"]
+        );
         assert_eq!(parse_font_entry("Batang (OpenType)"), vec!["Batang"]);
     }
 

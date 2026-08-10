@@ -6,6 +6,7 @@ Markdown sticky notes for Windows.
 라이브 마크다운 편집 · 모음집(그룹) · 이미지 · 테마를 지원합니다.
 
 ## 기능
+
 - 노트별 독립 위젯 창 (프레임 없음, 노트별 항상-위 고정)
 - 라이브 마크다운 편집: 문법을 타이핑하면 즉시 렌더, 서식 단축키·하단 서식 바
 - 체크박스(클릭 토글)·중첩 목록(Tab), 이미지 붙여넣기/드롭/드래그 재배치
@@ -16,13 +17,16 @@ Markdown sticky notes for Windows.
 - 자동 저장, 트레이 상주, 부팅 시 시작, 단축키(Ctrl+N/W/L 등)
 
 ## 설치 (Windows)
+
 [Releases](../../releases)에서 최신 `stickdown_x.y.z_x64-setup.exe`(설치형) 또는
 `stickdown-x.y.z-portable-x64.zip`(포터블) 다운로드 후 실행.
 
 ## 사용법
+
 **[docs/usage.md](docs/usage.md)** — 툴바·서식 바, 마크다운 입력 문법, 단축키, 이미지, 설정 안내.
 
 ## 개발
+
 `main`이 안정(릴리스) 브랜치, `develop`이 개발 브랜치입니다. PR은 develop 기준으로 보내주세요.
 
     npm install
@@ -31,11 +35,13 @@ Markdown sticky notes for Windows.
     cargo test --manifest-path src-tauri/Cargo.toml   # Rust 테스트
 
 ## 데이터 위치
+
 `%APPDATA%/StickDown/notes/*.md` — 평문 마크다운 + YAML 프론트매터.
 파일명은 생성 시각 기반(`20260805-134024-a1b2c3.md`), 이미지는 `assets/<노트id>/`에 원본 저장.
 저장 위치는 설정에서 변경할 수 있습니다.
 
 ## 스택
+
 Tauri 2 · React · TypeScript · TipTap
 
 ## 데모

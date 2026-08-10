@@ -1,12 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { clampFontSize, filterNotes, fontStack, hasMoreBelow, noteTitle, plainPreview, relativeTime } from "./noteUtils";
+import {
+  clampFontSize,
+  filterNotes,
+  fontStack,
+  hasMoreBelow,
+  noteTitle,
+  plainPreview,
+  relativeTime,
+} from "./noteUtils";
 import type { Note } from "./api";
 
 const note = (id: string, body: string): Note => ({
   meta: {
-    id, created_at: "", updated_at: "", color: "yellow", font_size: 16,
-    font_family: "system", viewer_mode: false, window: { x: 0, y: 0, w: 320, h: 340 },
-    always_on_top: false, hidden: false, group_order: 0,
+    id,
+    created_at: "",
+    updated_at: "",
+    color: "yellow",
+    font_size: 16,
+    font_family: "system",
+    viewer_mode: false,
+    window: { x: 0, y: 0, w: 320, h: 340 },
+    always_on_top: false,
+    hidden: false,
+    group_order: 0,
   },
   body,
 });
@@ -23,13 +39,13 @@ describe("filterNotes", () => {
   const notes = [note("a", "장보기 목록"), note("b", "회의 메모 TODO")];
   it("empty query returns all", () => expect(filterNotes(notes, " ")).toHaveLength(2));
   it("matches case-insensitively", () => {
-    expect(filterNotes(notes, "todo").map(n => n.meta.id)).toEqual(["b"]);
+    expect(filterNotes(notes, "todo").map((n) => n.meta.id)).toEqual(["b"]);
   });
   it("사용자 지정 제목도 검색된다 (#67)", () => {
     const titled = note("c", "본문에는 다른 말");
     titled.meta.title = "주간 회의록";
-    expect(filterNotes([...notes, titled], "회의록").map(n => n.meta.id)).toEqual(["c"]);
-    expect(filterNotes([titled], "다른 말").map(n => n.meta.id)).toEqual(["c"]);
+    expect(filterNotes([...notes, titled], "회의록").map((n) => n.meta.id)).toEqual(["c"]);
+    expect(filterNotes([titled], "다른 말").map((n) => n.meta.id)).toEqual(["c"]);
   });
   it("no match returns empty", () => {
     expect(filterNotes(notes, "존재하지않는말")).toHaveLength(0);

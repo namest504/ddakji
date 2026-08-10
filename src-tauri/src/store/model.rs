@@ -4,7 +4,6 @@
 
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WindowBounds {
     pub x: f64,
@@ -304,7 +303,10 @@ mod tests {
         // 본문의 마크다운 구분선(---)이 프론트매터 종료로 오인되면 본문이 잘린다
         let meta = NoteMeta::new_default("hr-1".into());
         let body = "위 문단\n\n---\n\n아래 문단";
-        let note = Note { meta, body: body.into() };
+        let note = Note {
+            meta,
+            body: body.into(),
+        };
         let (parsed, recovered) = Note::from_file_string("hr-1", &note.to_file_string());
         assert!(!recovered);
         assert_eq!(parsed.body, body);
@@ -319,7 +321,13 @@ mod tests {
 
     #[test]
     fn next_new_group_name_fills_gaps() {
-        assert_eq!(next_new_group_name(&["새 그룹 2".into(), "새 그룹 3".into()]), "새 그룹 1");
-        assert_eq!(next_new_group_name(&["새 그룹 1".into(), "새 그룹 3".into()]), "새 그룹 2");
+        assert_eq!(
+            next_new_group_name(&["새 그룹 2".into(), "새 그룹 3".into()]),
+            "새 그룹 1"
+        );
+        assert_eq!(
+            next_new_group_name(&["새 그룹 1".into(), "새 그룹 3".into()]),
+            "새 그룹 2"
+        );
     }
 }

@@ -7,6 +7,12 @@ edition = "2021"
 name = "ddakji_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# AI·스크립트용 CLI (#12) — GUI exe는 windows 서브시스템이라 stdout이 없어
+# 콘솔 겸용이 불가능하다. Store를 lib로 공유하는 별도 바이너리.
+[[bin]]
+name = "ddakji-cli"
+path = "src/bin/cli.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -16,6 +22,8 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
 serde_json = "1"
 serde_yaml = "0.9"
 uuid = { version = "1", features = ["v4", "v7"] }

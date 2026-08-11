@@ -15,6 +15,11 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "ddakji-cli"
 path = "src/bin/cli.rs"
 
+# MCP stdio 서버 (#12) — Claude Desktop 등 외부 AI 클라이언트용
+[[bin]]
+name = "ddakji-mcp"
+path = "src/bin/mcp.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

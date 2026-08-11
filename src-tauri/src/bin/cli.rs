@@ -90,7 +90,11 @@ enum Cmd {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    let root = match cli.data_dir.clone().or_else(default_root) {
+    let root = match cli
+        .data_dir
+        .clone()
+        .or_else(ddakji_lib::store::default_data_root)
+    {
         Some(r) => r,
         None => {
             eprintln!("데이터 폴더를 찾을 수 없습니다 — --data-dir로 지정하세요");
@@ -116,13 +120,6 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-/// 앱과 동일한 데이터 루트: `<데이터 폴더>/com.ddakji.app`을 식별자 폴더로
-/// 하여 storage-path.txt 포인터와 기본 Ddakji 폴더 규칙을 그대로 따른다.
-fn default_root() -> Option<PathBuf> {
-    let id_dir = dirs::data_dir()?.join("com.ddakji.app");
-    Some(ddakji_lib::store::resolve_data_root(&id_dir))
 }
 
 /// '-'는 stdin 전체로 치환 — AI 파이프라인의 기본 입력 경로

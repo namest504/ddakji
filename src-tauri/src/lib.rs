@@ -8,6 +8,7 @@
 //! - [`windows`] 창 생성·배치 규칙, [`commands`] 프런트에 노출되는 API
 //! - [`error`] 프런트와의 에러 계약 (`NOTE_NOT_FOUND` 마커 포함)
 
+pub mod args;
 pub mod bridge;
 pub mod commands;
 pub mod error;
@@ -26,8 +27,13 @@ use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // 두 번째 실행 시: 숨겨지지 않은 노트 창 모두 표시
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // CLI의 --open 액션 (#12): 해당 노트만 열고 끝낸다
+            if let Some(id) = args::open_arg(&args) {
+                let _ = commands::open_note_by_id(app, id);
+                return;
+            }
+            // 그 외 두 번째 실행: 숨겨지지 않은 노트 창 모두 표시
             let _ = crate::show_all_notes(app);
         }))
         .plugin(tauri_plugin_autostart::init(
@@ -110,6 +116,11 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     }
     for n in session::startup_notes(&notes) {
         windows::open_note_window(app.handle(), n)?;
+    }
+    // 앱이 꺼진 상태에서 `ddakji.exe --open <id>`로 시작된 경우 (#12)
+    let argv: Vec<String> = std::env::args().collect();
+    if let Some(id) = args::open_arg(&argv) {
+        let _ = commands::open_note_by_id(app.handle(), id);
     }
     Ok(())
 }

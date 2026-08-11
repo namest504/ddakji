@@ -254,7 +254,7 @@ pub async fn nav_group(
         let Some(g) = cur.meta.group.clone() else {
             return Ok(None);
         };
-        s.group_notes(&g)
+        visible_members(s.group_notes(&g))
     };
     if notes.len() < 2 {
         return Ok(None);
@@ -280,6 +280,16 @@ pub async fn nav_group(
     Ok(Some(target))
 }
 
+/// 넘기기·점이 도는 멤버 = 숨기지 않은 멤버. 숨긴 장은 화면 세션에서 빠진
+/// 것이므로 화살표로도 점으로도 닿지 않는다 — 목록에서 열면 다시 합류한다
+/// (`open_note_by_id`가 hidden=false로 되돌린다).
+///
+/// Store::group_notes는 그대로 둔다: 모음집 해제 판정(룰3)·순서 재배치는
+/// 숨김과 무관하게 실제 멤버 전부를 봐야 한다.
+fn visible_members(members: Vec<Note>) -> Vec<Note> {
+    members.into_iter().filter(|n| !n.meta.hidden).collect()
+}
+
 #[tauri::command]
 pub fn group_members(store: StoreState, id: String) -> Result<Vec<String>> {
     let s = lock(&store)?;
@@ -289,7 +299,88 @@ pub fn group_members(store: StoreState, id: String) -> Result<Vec<String>> {
     let Some(g) = n.meta.group else {
         return Ok(vec![]);
     };
-    Ok(s.group_notes(&g).into_iter().map(|n| n.meta.id).collect())
+    Ok(visible_members(s.group_notes(&g))
+        .into_iter()
+        .map(|n| n.meta.id)
+        .collect())
+}
+
+/// 이 창이 보여 주는 노트 **하나만** 숨긴다 (Ctrl+W).
+/// 모음집이면 창은 남고 다음 멤버로 전환된다 — 브라우저의 탭 닫기와 같은 관계.
+/// 전환할 멤버가 없으면(단독 노트이거나 나머지가 전부 다른 창에 있음) None을
+/// 돌려주고, 창을 닫는 일은 프런트가 한다(기존 CloseRequested 경로 재사용).
+#[tauri::command]
+pub async fn hide_note(
+    window: tauri::WebviewWindow,
+    store: StoreState<'_>,
+    wn: State<'_, WindowNotes>,
+) -> Result<Option<Note>> {
+    let label = window.label().to_string();
+    let current_id = lock(&wn.0)?
+        .get(&label)
+        .cloned()
+        .ok_or(Error::WindowNotMapped)?;
+    let members = {
+        let s = lock(&store)?;
+        let cur = s.load(&current_id).ok_or(Error::NoteNotFound)?;
+        match cur.meta.group.clone() {
+            Some(g) => visible_members(s.group_notes(&g)),
+            None => vec![],
+        }
+    };
+    let mapped: std::collections::HashSet<String> = lock(&wn.0)?.values().cloned().collect();
+    let next = pop_out_next(&members, &current_id, &mapped).map(|n| n.meta.id.clone());
+    let next = {
+        let s = lock(&store)?;
+        s.save_meta(
+            &current_id,
+            &MetaPatch {
+                hidden: Some(true),
+                ..Default::default()
+            },
+        )?;
+        next.and_then(|id| s.load(&id))
+    };
+    let Some(next) = next else {
+        return Ok(None);
+    };
+    lock(&wn.0)?.insert(label, next.meta.id.clone());
+    Ok(Some(next))
+}
+
+/// 이 창이 든 모음집을 통째로 숨긴다 (Ctrl+Shift+W, 툴바 X).
+/// 멤버 전부에 hidden을 세우고, 창을 닫는 일은 프런트가 한다.
+/// 모음집이 아니면 이 노트 하나만 — 결과는 기존 닫기와 같다.
+#[tauri::command]
+pub async fn hide_group(
+    window: tauri::WebviewWindow,
+    store: StoreState<'_>,
+    wn: State<'_, WindowNotes>,
+) -> Result<()> {
+    let label = window.label().to_string();
+    let current_id = lock(&wn.0)?
+        .get(&label)
+        .cloned()
+        .ok_or(Error::WindowNotMapped)?;
+    let s = lock(&store)?;
+    let cur = s.load(&current_id).ok_or(Error::NoteNotFound)?;
+    let ids: Vec<String> = match cur.meta.group.clone() {
+        Some(g) => visible_members(s.group_notes(&g))
+            .into_iter()
+            .map(|n| n.meta.id)
+            .collect(),
+        None => vec![current_id],
+    };
+    for id in ids {
+        s.save_meta(
+            &id,
+            &MetaPatch {
+                hidden: Some(true),
+                ..Default::default()
+            },
+        )?;
+    }
+    Ok(())
 }
 
 /// 그룹 내 특정 노트로 점프 — nav_group과 동일한 "열려 있으면 그 창 포커스" 정책
@@ -478,7 +569,9 @@ pub async fn pop_out(
         return Ok(None);
     }
     let mapped: std::collections::HashSet<String> = lock(&wn.0)?.values().cloned().collect();
-    let next = pop_out_next(&members, &current_id, &mapped).map(|n| n.meta.id.clone());
+    // 멤버 수는 실제 멤버십으로 세되(위 guard), 이 창이 넘어갈 대상은 숨긴 장을 뺀다
+    let visible: Vec<Note> = members.iter().filter(|n| !n.meta.hidden).cloned().collect();
+    let next = pop_out_next(&visible, &current_id, &mapped).map(|n| n.meta.id.clone());
     // 1) 현재 노트를 모음집에서 제외 — 혼자 남는 모음집은 Store가 자동 해제(룰3).
     //    꺼낸 뒤 상태는 다시 읽는다 (해제 여부가 메타에 반영되도록).
     let (popped, next) = {
@@ -660,5 +753,37 @@ mod tests {
     fn none_when_current_not_in_members() {
         let m = [note("a"), note("b")];
         assert!(pop_out_next(&m, "x", &set(&[])).is_none());
+    }
+
+    fn hidden_note(id: &str) -> Note {
+        let mut n = note(id);
+        n.meta.hidden = true;
+        n
+    }
+
+    #[test]
+    fn visible_members_drops_hidden_pages() {
+        // 숨긴 장은 넘기기·점의 순환에서 빠진다 (목록에서 열면 다시 합류)
+        let ids: Vec<String> = visible_members(vec![note("a"), hidden_note("b"), note("c")])
+            .into_iter()
+            .map(|n| n.meta.id)
+            .collect();
+        assert_eq!(ids, ["a", "c"]);
+    }
+
+    #[test]
+    fn visible_members_keeps_order_and_all_visible() {
+        let ids: Vec<String> = visible_members(vec![note("a"), note("b")])
+            .into_iter()
+            .map(|n| n.meta.id)
+            .collect();
+        assert_eq!(ids, ["a", "b"]);
+    }
+
+    #[test]
+    fn hiding_the_last_visible_page_leaves_no_next() {
+        // 숨긴 뒤 전환할 장이 없으면 창까지 내려간다(프런트가 close)
+        let m = visible_members(vec![note("a"), hidden_note("b")]);
+        assert!(pop_out_next(&m, "a", &set(&["a"])).is_none());
     }
 }

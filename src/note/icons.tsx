@@ -50,6 +50,14 @@ export const PopOutIcon = () => (
   </svg>
 );
 
+// 이 장만 숨기기 — 한 장을 아래로 내려 치우는 모양 (닫기 X와 구분된다)
+export const HideIcon = () => (
+  <svg {...base}>
+    <path d="M8 2.6v6.4M5.3 6.4L8 9.1l2.7-2.7" />
+    <path d="M3.2 12.6h9.6" />
+  </svg>
+);
+
 export const CloseIcon = () => (
   <svg {...base}>
     <path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6" />

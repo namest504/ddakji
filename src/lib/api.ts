@@ -77,6 +77,10 @@ export const setStoragePath = (newPath: string) => invoke<void>("set_storage_pat
 export const navGroup = (dir: 1 | -1) => invoke<Note | null>("nav_group", { dir });
 export const navTo = (id: string) => invoke<Note | null>("nav_to", { id });
 export const groupMembers = (id: string) => invoke<string[]>("group_members", { id });
+/** 이 창의 현재 노트 하나만 숨긴다. 모음집이면 창이 전환할 다음 멤버를 돌려준다 */
+export const hideNote = () => invoke<Note | null>("hide_note");
+/** 이 창이 든 모음집을 통째로 숨긴다 (창을 닫는 일은 호출자가) */
+export const hideGroup = () => invoke<void>("hide_group");
 export const checkMerge = () => invoke<boolean>("check_merge");
 export const mergePreview = () => invoke<boolean>("merge_preview");
 // 현재 노트가 새 창으로 분리되고, 이 창이 표시할 다음 멤버가 반환된다 (#74)

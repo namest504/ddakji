@@ -9,7 +9,7 @@ import FormatBar from "./FormatBar";
 import NoteBack from "./NoteBack";
 import RichEditor from "./RichEditor";
 import { useDataRoot, useNoteDocument } from "./hooks/useNoteDocument";
-import { useGroupNavigation } from "./hooks/useGroupNavigation";
+import { useGroupNavigation, useHide } from "./hooks/useGroupNavigation";
 import { useImageInsert } from "./hooks/useImageInsert";
 import { useNoteShortcuts } from "./hooks/useNoteShortcuts";
 import { useSaveGuard } from "./hooks/useSaveGuard";
@@ -46,7 +46,8 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     setNote,
   });
   const mergeHint = useWindowSync(noteId);
-  useNoteShortcuts({ changeFont, navigate, popOut, flushBody });
+  const { hideNote, hideWindow } = useHide({ flushBody, switchTo });
+  useNoteShortcuts({ changeFont, navigate, popOut, flushBody, hideNote, hideWindow });
 
   // 서식 바는 editor 상태를, 이미지 삽입은 ref를 쓴다 (리렌더 없이 최신 인스턴스)
   const editorRef = useRef<Editor | null>(null);
@@ -106,10 +107,9 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         onFontDelta={changeFont}
         onNew={() => api.createNote()}
         onOpenList={() => api.openList()}
-        onClose={() => {
-          flushBody();
-          getCurrentWindow().close();
-        }}
+        canHideNote={inGroup}
+        onHideNote={hideNote}
+        onClose={hideWindow}
       />
       {saveError && (
         <div className="save-error">

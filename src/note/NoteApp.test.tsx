@@ -46,6 +46,8 @@ vi.mock("../lib/api", () => ({
   importImage: vi.fn(),
   dataRoot: vi.fn(),
   revealNote: vi.fn(),
+  hideNote: vi.fn(),
+  hideGroup: vi.fn(),
   groupMembers: vi.fn(),
   navGroup: vi.fn(),
   navTo: vi.fn(),
@@ -97,6 +99,8 @@ const setupNote = (note: Note, members: string[] = []) => {
   vi.mocked(api.mergePreview).mockResolvedValue(false);
   vi.mocked(api.setLastViewed).mockResolvedValue(undefined);
   vi.mocked(api.popOut).mockResolvedValue(null);
+  vi.mocked(api.hideNote).mockResolvedValue(null);
+  vi.mocked(api.hideGroup).mockResolvedValue(undefined);
 };
 
 beforeEach(() => {
@@ -300,6 +304,53 @@ describe("NoteApp 뒷면 (딱지 시안)", () => {
     fireEvent.click(screen.getByTitle("뒷면 정보"));
     fireEvent.click(screen.getByText("삭제"));
     await waitFor(() => expect(api.deleteNote).toHaveBeenCalledWith("n1"));
+  });
+});
+
+describe("NoteApp 숨기기 두 갈래", () => {
+  it("모음집에서 Ctrl+W는 이 장만 숨기고 창은 다음 장을 보여 준다", async () => {
+    const cur = mkNote("n1", "이 장 본문", { group: "모음" });
+    const next = mkNote("n2", "다음 장 본문", { group: "모음", group_order: 1 });
+    setupNote(cur, ["n1", "n2"]);
+    vi.mocked(api.listNotes).mockResolvedValue([cur, next]);
+    vi.mocked(api.hideNote).mockResolvedValue(next);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.keyDown(window, { key: "w", ctrlKey: true });
+    await waitFor(() => expect(api.hideNote).toHaveBeenCalled());
+    await screen.findByText("다음 장 본문");
+    expect(win.close).not.toHaveBeenCalled();
+  });
+
+  it("전환할 장이 없으면 Ctrl+W는 창까지 내린다", async () => {
+    setupNote(mkNote("n1", "혼자 있는 노트"));
+    vi.mocked(api.hideNote).mockResolvedValue(null);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.keyDown(window, { key: "w", ctrlKey: true });
+    await waitFor(() => expect(win.close).toHaveBeenCalled());
+  });
+
+  it("Ctrl+Shift+W는 모음집 전체를 숨기고 창을 내린다", async () => {
+    setupNote(mkNote("n1", "그룹 노트", { group: "모음" }), ["n1", "n2"]);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.keyDown(window, { key: "w", ctrlKey: true, shiftKey: true });
+    await waitFor(() => expect(api.hideGroup).toHaveBeenCalled());
+    await waitFor(() => expect(win.close).toHaveBeenCalled());
+    expect(api.hideNote).not.toHaveBeenCalled();
+  });
+
+  it("툴바의 '이 장만 숨기기'는 모음집일 때만 있다", async () => {
+    setupNote(mkNote("n1", "혼자 있는 노트"));
+    const solo = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    expect(screen.queryByTitle(/이 장만 숨기기/)).toBeNull();
+    solo.unmount();
+
+    setupNote(mkNote("n2", "그룹 노트", { group: "모음" }), ["n2", "n3"]);
+    render(<NoteApp noteId="n2" />);
+    await screen.findByTitle(/이 장만 숨기기/);
   });
 });
 

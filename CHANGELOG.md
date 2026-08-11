@@ -21,6 +21,11 @@
   앱이 켜지면서 엽니다 ([#12])
 - **`ddakji-mcp`** — MCP stdio 서버. Claude Desktop 등 AI 클라이언트가 노트를
   도구로 읽고 쓸 수 있습니다 (10개 도구, [docs/mcp.md](docs/mcp.md)) ([#12])
+- **숨기기가 두 갈래로 나뉩니다** ([#111]) — 모음집을 보는 중에 지금 이 장만
+  치울 수 있습니다. `Ctrl+W`(툴바 ↓)는 **이 장만** 숨기고 창은 다음 장으로
+  넘어가며, `Ctrl+Shift+W`(툴바 ✕)는 **창을 통째로** 숨깁니다. 브라우저의 탭
+  닫기와 창 닫기 같은 관계입니다. 숨긴 장은 모음집의 화살표·점에서도 빠지고,
+  목록에서 열면 제자리로 돌아옵니다. 파일을 지우는 것은 여전히 뒷면의 삭제뿐입니다.
 
 ## [0.1.5] - 2026-08-10
 
@@ -132,6 +137,7 @@
 [#77]: https://github.com/namest504/ddakji/issues/77
 [#78]: https://github.com/namest504/ddakji/issues/78
 [#98]: https://github.com/namest504/ddakji/issues/98
+[#111]: https://github.com/namest504/ddakji/issues/111
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

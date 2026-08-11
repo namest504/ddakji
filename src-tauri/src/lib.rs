@@ -68,6 +68,8 @@ pub fn run() {
             commands::check_merge,
             commands::merge_preview,
             commands::pop_out,
+            commands::hide_note,
+            commands::hide_group,
             commands::list_groups,
         ])
         .setup(setup)

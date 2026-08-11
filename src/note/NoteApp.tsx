@@ -86,7 +86,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
 
   return (
     <div
-      className={"note" + (mergeHint ? " merge-hint" : "") + (inGroup ? " stacked" : "")}
+      className={"note" + (mergeHint ? " merge-hint" : "")}
       data-color={m.color}
       style={{ fontSize: m.font_size, fontFamily: fontStack(m.font_family) }}
     >

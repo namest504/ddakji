@@ -1082,13 +1082,9 @@ body {
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* 모음집 = 쌓인 딱지: 오른쪽·아래 가장자리로 밑장 두 장이 비친다 (점 인디케이터 대체) */
-.note.stacked {
-  box-shadow:
-    inset -3px -3px 0 var(--accent),
-    inset -6px -6px 0 color-mix(in srgb, var(--accent) 55%, var(--paper));
-}
-/* 몇 장째인지는 오른쪽 위 카운터가 말한다 — 툴바가 열리면 그 아래 깔린다 */
+/* 모음집 표시는 오른쪽 위 카운터 하나 — 툴바가 열리면 그 아래 깔린다.
+   시안의 "쌓인 종이 가장자리"는 앱에 옮기지 않는다: 노트가 곧 창이라 밑장을
+   창 밖에 둘 수 없고, 안쪽에 그리면 쌓임이 아니라 두꺼운 테두리로 읽힌다. */
 .stack-count {
   position: absolute;
   top: 7px;

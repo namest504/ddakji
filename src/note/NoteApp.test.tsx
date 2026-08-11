@@ -107,22 +107,20 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("NoteApp 그룹 UI", () => {
-  it("무소속 노트에는 내비 화살표·쌓임 카운터가 없다", async () => {
+  it("무소속 노트에는 내비 화살표·위치 카운터가 없다", async () => {
     setupNote(mkNote("n1", "혼자 있는 노트"));
     const { container } = render(<NoteApp noteId="n1" />);
     await waitFor(() => expect(win.show).toHaveBeenCalled());
     expect(screen.queryByTitle("이전 노트 (Alt+←)")).toBeNull();
     expect(container.querySelector(".stack-count")).toBeNull();
-    expect(container.querySelector(".note")?.className).not.toContain("stacked");
   });
 
-  it("모음집 노트에는 좌우 화살표와 현재 위치 카운터, 쌓임 표시", async () => {
+  it("모음집 노트에는 좌우 화살표와 현재 위치 카운터", async () => {
     setupNote(mkNote("n1", "그룹 노트", { group: "모음" }), ["n1", "n2", "n3"]);
     const { container } = render(<NoteApp noteId="n1" />);
     await screen.findByTitle("다음 노트 (Alt+→)");
     expect(screen.getByTitle("이전 노트 (Alt+←)")).toBeTruthy();
     expect(container.querySelector(".stack-count")?.textContent).toBe("1 / 3");
-    expect(container.querySelector(".note")?.className).toContain("stacked");
   });
 
   it("오른쪽 화살표는 다음 노트로 이동을 요청한다", async () => {

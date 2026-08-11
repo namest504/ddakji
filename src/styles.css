@@ -20,8 +20,11 @@
   --note-blue-accent: #75a8bf;
   --note-gray-paper: #dbdbd6;
   --note-gray-accent: #b0b0a9;
-  --note-charcoal-paper: #37373a;
-  --note-charcoal-accent: #202023;
+  /* 차콜은 라이트 모드의 "어두운 색종이 한 장" — 다크 모드의 검정 딱지(#37373a)와
+     같은 값을 쓰면 색 선택지가 아니라 테마로 오해된다. 나머지 색종이가 따뜻한
+     계열이라 회색도 따뜻한 쪽으로 둔다. */
+  --note-charcoal-paper: #4b4741;
+  --note-charcoal-accent: #35322d;
   --note-ink: #3a3320; /* 밝은 색종이 위 잉크 — 따뜻한 근검정 */
 
   /* 다크 = 검정 딱지: 본체는 검은 종이, 색 정체성은 바가 혼자 짊어진다 */
@@ -995,7 +998,7 @@ body {
 }
 :root[data-theme="dark"] .note[data-color="charcoal"] {
   --bg: var(--note-charcoal-paper-dark);
-  --bar: color-mix(in srgb, var(--note-charcoal-accent) 90%, transparent);
+  --bar: var(--note-charcoal-accent);
 }
 
 :root[data-theme="dark"] .tiptap pre,

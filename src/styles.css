@@ -588,12 +588,14 @@ body {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* 하단 서식 바 (#18) — 상단 툴바처럼 평소엔 숨고, 하단 스트립 호버 시 나타난다 */
+/* 하단 서식 바 (#18) — 상단 툴바처럼 평소엔 숨고, 하단 스트립 호버 시 나타난다.
+   오른쪽 끝 28px는 빗금 그립 자리로 비워 둔다: 그립에 손을 뻗으면 반드시 이 바가
+   먼저 뜨므로, 겹치면 그립이 가려지거나 숨어 사실상 누를 수 없다. */
 .format-bar {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px;
+  padding: 4px 28px 4px 6px;
   background: var(--bg);
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   user-select: none;
@@ -1164,13 +1166,6 @@ body {
   outline: 2px solid var(--accent-select);
   outline-offset: -2px;
   opacity: 0.95;
-}
-/* 서식 바가 올라오면 그립은 비켜난다 — 그대로 두면 맨 오른쪽 이미지 버튼을 덮는다.
-   글을 다듬는 중에는 뒤집을 일이 없으니 자리를 내주는 쪽이 맞다. */
-.note:has(.format-bar:hover) .flip-grip,
-.note:has(.format-bar:focus-within) .flip-grip {
-  opacity: 0;
-  pointer-events: none;
 }
 
 .note-back {

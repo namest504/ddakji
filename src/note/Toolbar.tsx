@@ -2,7 +2,7 @@ import { useState } from "react";
 import * as api from "../lib/api";
 import type { FontFamily, Note, NoteColor } from "../lib/api";
 import { fontStack } from "../lib/noteUtils";
-import { CloseIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, PopOutIcon, TrashIcon } from "./icons";
+import { CloseIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, PopOutIcon } from "./icons";
 
 const COLORS: NoteColor[] = ["yellow", "green", "pink", "purple", "blue", "gray", "charcoal"];
 const FONTS: { key: FontFamily; label: string }[] = [
@@ -21,7 +21,6 @@ interface Props {
   onPin: () => void;
   onFontDelta: (d: number) => void;
   onNew: () => void;
-  onDelete: () => void;
   onOpenList: () => void;
   onClose: () => void;
 }
@@ -79,9 +78,6 @@ export default function Toolbar(p: Props) {
       </button>
       <button title="노트 목록 (Ctrl+L)" onClick={p.onOpenList}>
         <ListIcon />
-      </button>
-      <button title="삭제" onClick={p.onDelete}>
-        <TrashIcon />
       </button>
       <button title="닫기 (Ctrl+W, 트레이로 숨김)" onClick={p.onClose}>
         <CloseIcon />

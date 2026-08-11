@@ -5,37 +5,35 @@
   --font-ui: "Segoe UI", "Malgun Gothic", sans-serif;
 
   /* ── 노트 색 ──────────────────────────────────────────
-     색마다 두 값만 있으면 나머지는 파생된다.
+     딱지 = 불투명 색종이 (시안 확정 2026-08-11).
        종이(paper)  = 본체 배경 · 색상 팔레트의 동그라미
-       액센트(accent) = 상단 바 · 목록 행의 점
-     본체와 바는 Acrylic 위에 얹히는 틴트라 반투명으로 깐다. */
-  --note-yellow-paper: #fff7b1;
-  --note-yellow-accent: #f5e478;
-  --note-green-paper: #d9f7d1;
-  --note-green-accent: #b9e8ab;
-  --note-pink-paper: #ffd9e8;
-  --note-pink-accent: #f7b8d2;
-  --note-purple-paper: #e6d9f7;
-  --note-purple-accent: #cdb8ee;
-  --note-blue-paper: #d3ecf7;
-  --note-blue-accent: #aed9ec;
-  --note-gray-paper: #ececec;
-  --note-gray-accent: #d4d4d4;
-  --note-charcoal-paper: #4a4a4a;
-  --note-charcoal-accent: #3a3a3a;
-  --note-paper-alpha: 66%;
-  --note-accent-alpha: 88%;
+       액센트(accent) = 뒷면·상단 바·목록 행의 점 — 같은 색종이의 어두운 면 */
+  --note-yellow-paper: #f3dc79;
+  --note-yellow-accent: #d0b241;
+  --note-green-paper: #b5dea6;
+  --note-green-accent: #82b372;
+  --note-pink-paper: #f0b8cd;
+  --note-pink-accent: #c9849f;
+  --note-purple-paper: #c7b4e6;
+  --note-purple-accent: #9782bd;
+  --note-blue-paper: #a6d3e7;
+  --note-blue-accent: #75a8bf;
+  --note-gray-paper: #dbdbd6;
+  --note-gray-accent: #b0b0a9;
+  --note-charcoal-paper: #37373a;
+  --note-charcoal-accent: #202023;
+  --note-ink: #3a3320; /* 밝은 색종이 위 잉크 — 따뜻한 근검정 */
 
-  /* 다크에서 본체는 색과 무관한 회색이 되고, 색 정체성은 바가 혼자 짊어진다 */
-  --note-paper-dark: rgba(40, 40, 42, 0.68);
-  --note-ink-dark: #ececec;
+  /* 다크 = 검정 딱지: 본체는 검은 종이, 색 정체성은 바가 혼자 짊어진다 */
+  --note-paper-dark: #37373a;
+  --note-ink-dark: #ece9df;
   --note-yellow-bar-dark: rgba(245, 197, 24, 0.82);
   --note-green-bar-dark: rgba(94, 190, 90, 0.8);
   --note-pink-bar-dark: rgba(240, 113, 160, 0.8);
   --note-purple-bar-dark: rgba(160, 120, 220, 0.8);
   --note-blue-bar-dark: rgba(80, 160, 220, 0.8);
   --note-gray-bar-dark: rgba(150, 150, 150, 0.7);
-  --note-charcoal-paper-dark: rgba(30, 30, 32, 0.72);
+  --note-charcoal-paper-dark: #202023;
 
   /* ── 표면·잉크 ────────────────────────────────────── */
   --app-face: #f4f2e9; /* 글라스 미지원 폴백 배경 */
@@ -97,17 +95,13 @@ body,
 #root {
   height: 100%;
 }
-/* Liquid Glass: 창은 투명 + OS Acrylic 블러, 색은 CSS 반투명 틴트가 결정 */
+/* 딱지는 불투명 종이 — 창도 배경도 비치지 않는다 (Liquid Glass 폐기) */
 html,
 body {
-  background: transparent;
+  background: var(--app-face);
   overflow: hidden;
 }
-/* 글라스 미지원 플랫폼(비-Windows): 불투명 배경 폴백 */
-:root[data-glass="off"] body {
-  background: var(--app-face);
-}
-:root[data-glass="off"][data-theme="dark"] body {
+:root[data-theme="dark"] body {
   background: var(--app-face-dark);
 }
 
@@ -152,14 +146,13 @@ body {
 .note[data-color="charcoal"] {
   --paper: var(--note-charcoal-paper);
   --accent: var(--note-charcoal-accent);
-  --note-paper-alpha: 72%;
-  --note-accent-alpha: 90%;
-  color: var(--field-ink-dark);
+  color: var(--note-ink-dark);
 }
-/* 본체와 바는 종이·액센트를 반투명으로 깐 것 — 색마다 따로 적을 필요가 없다 */
+/* 본체와 바는 같은 색종이의 앞·뒷면 — 색마다 따로 적을 필요가 없다 */
 .note {
-  --bg: color-mix(in srgb, var(--paper) var(--note-paper-alpha), transparent);
-  --bar: color-mix(in srgb, var(--accent) var(--note-accent-alpha), transparent);
+  --bg: var(--paper);
+  --bar: var(--accent);
+  color: var(--note-ink);
   --ctl-ink: rgba(0, 0, 0, 0.55);
   --ctl-ink-hover: rgba(0, 0, 0, 0.8);
   --ctl-ink-active: rgba(0, 0, 0, 0.85);
@@ -1087,40 +1080,24 @@ body {
   background: rgba(255, 255, 255, 0.12);
 }
 
-.group-dots {
+/* 모음집 = 쌓인 딱지: 오른쪽·아래 가장자리로 밑장 두 장이 비친다 (점 인디케이터 대체) */
+.note.stacked {
+  box-shadow:
+    inset -3px -3px 0 var(--accent),
+    inset -6px -6px 0 color-mix(in srgb, var(--accent) 55%, var(--paper));
+}
+/* 몇 장째인지는 오른쪽 위 카운터가 말한다 — 툴바가 열리면 그 아래 깔린다 */
+.stack-count {
   position: absolute;
-  bottom: 7px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 6px;
-  z-index: var(--z-nav);
-  transition: bottom var(--dur-shift) var(--ease-ui);
-}
-/* 서식 바가 올라오면 인디케이터는 그 위로 비켜난다 */
-.note:has(.format-bar:hover) .group-dots,
-.note:has(.format-bar:focus-within) .group-dots {
-  bottom: 40px;
-}
-.group-dots button {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--r-round);
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  background: rgba(0, 0, 0, 0.25);
-}
-.group-dots button.active {
-  background: rgba(0, 0, 0, 0.65);
-}
-.note[data-color="charcoal"] .group-dots button,
-:root[data-theme="dark"] .group-dots button {
-  background: rgba(255, 255, 255, 0.3);
-}
-.note[data-color="charcoal"] .group-dots button.active,
-:root[data-theme="dark"] .group-dots button.active {
-  background: rgba(255, 255, 255, 0.85);
+  top: 7px;
+  right: 10px;
+  z-index: 1;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
 }
 
 .content.slide-next {
@@ -1148,6 +1125,99 @@ body {
     transform: none;
     opacity: 1;
   }
+}
+
+/* ── 딱지 뒷면 (딱지 시안 2026-08-11) ──
+   오른쪽 아래 빗금 모서리를 누르면 장 넘김과 같은 슬라이드로 뒷면이 나온다.
+   뒷면은 같은 색종이의 어두운 면(--accent) — 정보와 삭제의 제자리. */
+.flip-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  z-index: var(--z-nav);
+  opacity: 0.3;
+  transition: opacity var(--dur-fade) var(--ease-ui);
+}
+/* 빗금은 리사이즈 그립과 같은 문법 — 모서리 삼각형만 남기고 대각선으로 자른다 */
+.flip-grip::before {
+  content: "";
+  position: absolute;
+  inset: 8px 5px 5px 8px;
+  background: repeating-linear-gradient(135deg, transparent 0 2.8px, currentColor 2.8px 4px);
+  -webkit-mask: linear-gradient(135deg, transparent 52%, #000 52%);
+  mask: linear-gradient(135deg, transparent 52%, #000 52%);
+}
+.note:hover .flip-grip {
+  opacity: 0.55;
+}
+.flip-grip:hover {
+  opacity: 0.95;
+}
+.flip-grip:focus-visible {
+  outline: 2px solid var(--accent-select);
+  outline-offset: -2px;
+  opacity: 0.95;
+}
+
+.note-back {
+  background: var(--accent);
+  padding: 34px 16px 16px;
+  gap: 9px;
+  font-size: 13px;
+}
+.back-title {
+  font-weight: 700;
+  font-size: 12px;
+  opacity: 0.6;
+  letter-spacing: 0.04em;
+}
+.back-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.back-k {
+  opacity: 0.6;
+  min-width: 56px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.back-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+}
+.note-back button {
+  border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  background: transparent;
+  color: inherit;
+  border-radius: var(--r-btn);
+  padding: 6px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+}
+.note-back button:hover {
+  background: var(--ctl-face-hover);
+}
+/* 되돌릴 수 없는 동작은 점선 테두리로 한 번 더 긴장을 준다 (시안) */
+.note-back .back-danger {
+  border-style: dashed;
+}
+.note-back .back-danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+/* 다크 = 검정 딱지: 뒷면도 검은 종이의 어두운 면 */
+:root[data-theme="dark"] .note-back {
+  background: var(--note-charcoal-accent);
 }
 
 /* ── 목록 그룹·선택 묶기 (#25 G3) ── */

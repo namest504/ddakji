@@ -45,6 +45,7 @@ vi.mock("../lib/api", () => ({
   saveImage: vi.fn(),
   importImage: vi.fn(),
   dataRoot: vi.fn(),
+  revealNote: vi.fn(),
   groupMembers: vi.fn(),
   navGroup: vi.fn(),
   navTo: vi.fn(),
@@ -106,23 +107,22 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("NoteApp 그룹 UI", () => {
-  it("무소속 노트에는 내비 화살표·점이 없다", async () => {
+  it("무소속 노트에는 내비 화살표·쌓임 카운터가 없다", async () => {
     setupNote(mkNote("n1", "혼자 있는 노트"));
     const { container } = render(<NoteApp noteId="n1" />);
     await waitFor(() => expect(win.show).toHaveBeenCalled());
     expect(screen.queryByTitle("이전 노트 (Alt+←)")).toBeNull();
-    expect(container.querySelector(".group-dots")).toBeNull();
+    expect(container.querySelector(".stack-count")).toBeNull();
+    expect(container.querySelector(".note")?.className).not.toContain("stacked");
   });
 
-  it("모음집 노트에는 좌우 화살표와 멤버 수만큼의 점, 현재 위치 표시", async () => {
+  it("모음집 노트에는 좌우 화살표와 현재 위치 카운터, 쌓임 표시", async () => {
     setupNote(mkNote("n1", "그룹 노트", { group: "모음" }), ["n1", "n2", "n3"]);
     const { container } = render(<NoteApp noteId="n1" />);
     await screen.findByTitle("다음 노트 (Alt+→)");
     expect(screen.getByTitle("이전 노트 (Alt+←)")).toBeTruthy();
-    const dots = container.querySelectorAll(".group-dots button");
-    expect(dots).toHaveLength(3);
-    expect(dots[0].className).toContain("active");
-    expect(dots[1].className).not.toContain("active");
+    expect(container.querySelector(".stack-count")?.textContent).toBe("1 / 3");
+    expect(container.querySelector(".note")?.className).toContain("stacked");
   });
 
   it("오른쪽 화살표는 다음 노트로 이동을 요청한다", async () => {
@@ -261,6 +261,44 @@ describe("NoteApp 외부 변경 리로드 (#12)", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText("남의 본문")).toBeNull();
     expect(screen.getByText("내 본문")).toBeTruthy();
+  });
+});
+
+describe("NoteApp 뒷면 (딱지 시안)", () => {
+  it("빗금 그립을 누르면 뒷면 정보가 나오고, 다시 누르면 앞면으로 돌아온다", async () => {
+    setupNote(mkNote("n1", "앞면 본문", { group: "모음" }), ["n1", "n2"]);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(screen.getByText("만든 날")).toBeTruthy();
+    expect(screen.getByText("모음")).toBeTruthy();
+    expect(screen.getByText("n1.md")).toBeTruthy();
+    // 뒷면에서는 넘기기 화살표가 숨는다
+    expect(screen.queryByTitle("다음 노트 (Alt+→)")).toBeNull();
+    fireEvent.click(screen.getByTitle("앞면으로"));
+    await screen.findByText("앞면 본문");
+  });
+
+  it("뒷면의 파일 위치 열기는 revealNote를 부른다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    vi.mocked(api.revealNote).mockResolvedValue(undefined);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    fireEvent.click(screen.getByText("파일 위치 열기"));
+    expect(api.revealNote).toHaveBeenCalledWith("n1");
+  });
+
+  it("뒷면의 삭제는 확인 후 deleteNote를 부른다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    const { ask } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(ask).mockResolvedValue(true);
+    vi.mocked(api.deleteNote).mockResolvedValue(undefined);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    fireEvent.click(screen.getByText("삭제"));
+    await waitFor(() => expect(api.deleteNote).toHaveBeenCalledWith("n1"));
   });
 });
 

@@ -1165,10 +1165,18 @@ body {
   outline-offset: -2px;
   opacity: 0.95;
 }
+/* 서식 바가 올라오면 그립은 비켜난다 — 그대로 두면 맨 오른쪽 이미지 버튼을 덮는다.
+   글을 다듬는 중에는 뒤집을 일이 없으니 자리를 내주는 쪽이 맞다. */
+.note:has(.format-bar:hover) .flip-grip,
+.note:has(.format-bar:focus-within) .flip-grip {
+  opacity: 0;
+  pointer-events: none;
+}
 
 .note-back {
   background: var(--accent);
-  padding: 34px 16px 16px;
+  /* 상단 32px는 오버레이 툴바 자리 — 툴바가 뜰 때 본문이 밀리지 않도록 같은 값으로 맞춘다 */
+  padding: 32px 16px 16px;
   gap: 9px;
   font-size: 13px;
 }

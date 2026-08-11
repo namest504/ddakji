@@ -79,15 +79,23 @@ pub async fn delete_note(
 #[tauri::command]
 pub async fn open_note(
     app: AppHandle,
-    store: StoreState<'_>,
-    wn: State<'_, WindowNotes>,
+    _store: StoreState<'_>,
+    _wn: State<'_, WindowNotes>,
     id: String,
 ) -> Result<()> {
+    open_note_by_id(&app, &id)
+}
+
+/// 노트 창 열기/포커스 — 모음집 멤버는 모음집 창을 전환한다(#77 룰4).
+/// 목록의 커맨드와 CLI `--open`(single-instance argv, #12) 경로가 공유한다.
+pub fn open_note_by_id(app: &AppHandle, id: &str) -> Result<()> {
     use tauri::Emitter;
+    let store = app.state::<Mutex<Store>>();
+    let wn = app.state::<WindowNotes>();
     let note = {
         let s = lock(&store)?;
         s.save_meta(
-            &id,
+            id,
             &MetaPatch {
                 hidden: Some(false),
                 ..Default::default()
@@ -103,13 +111,13 @@ pub async fn open_note(
         };
         let group_win = lock(&wn.0)?
             .iter()
-            .find(|(_, nid)| **nid != id && member_ids.contains(*nid))
+            .find(|(_, nid)| nid.as_str() != id && member_ids.contains(*nid))
             .map(|(l, _)| l.clone());
-        let self_open = lock(&wn.0)?.values().any(|nid| *nid == id);
+        let self_open = lock(&wn.0)?.values().any(|nid| nid == id);
         if !self_open {
             if let Some(label) = group_win {
                 if let Some(w) = app.get_webview_window(&label) {
-                    lock(&wn.0)?.insert(label.clone(), id);
+                    lock(&wn.0)?.insert(label.clone(), id.to_string());
                     let _ = w.emit_to(label, "switch-note", &note);
                     let _ = w.show();
                     let _ = w.set_focus();
@@ -118,7 +126,7 @@ pub async fn open_note(
             }
         }
     }
-    Ok(windows::open_note_window(&app, &note)?)
+    Ok(windows::open_note_window(app, &note)?)
 }
 
 #[tauri::command]

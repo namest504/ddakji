@@ -50,6 +50,9 @@ enum Cmd {
         color: Option<String>,
         #[arg(long)]
         title: Option<String>,
+        /// 만든 노트를 앱 창으로 바로 연다
+        #[arg(long)]
+        open: bool,
     },
     /// 기존 노트 끝에 본문 덧붙이기
     Append {
@@ -77,6 +80,8 @@ enum Cmd {
     },
     /// 노트 삭제 (모음집에 1명 남으면 자동 해제)
     Delete { id: String },
+    /// 노트를 앱 창으로 연다 — 실행 중인 앱에 전달하고, 없으면 앱을 시작
+    Open { id: String },
     /// 모음집 이름 목록
     Groups,
     /// moved 노트(와 그 모음집 전체)를 target의 모음집으로 통합
@@ -165,6 +170,7 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
             group,
             color,
             title,
+            open,
         } => {
             let body = read_body(body)?;
             let note = store.create().map_err(|e| e.to_string())?;
@@ -178,11 +184,19 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
                 ..Default::default()
             };
             let note = apply_patch(store, &note.meta.id, patch)?.unwrap_or(note);
+            if open {
+                launch_gui(&note.meta.id)?;
+            }
             if json {
                 to_json(&note)
             } else {
                 Ok(note.meta.id)
             }
+        }
+        Cmd::Open { id } => {
+            store.load(&id).ok_or("NOTE_NOT_FOUND")?;
+            launch_gui(&id)?;
+            Ok(String::new())
         }
         Cmd::Append { id, text } => {
             let text = read_body(text)?;
@@ -264,6 +278,35 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
     }
 }
 
+/// GUI 실행 파일 — CLI와 같은 폴더의 ddakji(.exe)
+fn gui_exe() -> Result<std::path::PathBuf, String> {
+    let name = if cfg!(windows) {
+        "ddakji.exe"
+    } else {
+        "ddakji"
+    };
+    let exe = std::env::current_exe()
+        .map_err(|e| e.to_string())?
+        .parent()
+        .ok_or("실행 경로를 알 수 없습니다")?
+        .join(name);
+    if exe.is_file() {
+        Ok(exe)
+    } else {
+        Err(format!("GUI 실행 파일이 없습니다: {}", exe.display()))
+    }
+}
+
+/// 앱에 `--open <id>` 전달 — 떠 있으면 single-instance로 그 인스턴스가
+/// 처리하고(#12), 없으면 앱이 켜지면서 처리한다. 응답은 기다리지 않는다.
+fn launch_gui(id: &str) -> Result<(), String> {
+    std::process::Command::new(gui_exe()?)
+        .args(["--open", id])
+        .spawn()
+        .map_err(|e| format!("앱 실행 실패: {e}"))?;
+    Ok(())
+}
+
 /// 패치에 내용이 있을 때만 저장 — Some(저장된 노트) / None(패치 비었음 아님, 실패)
 fn apply_patch(store: &Store, id: &str, patch: MetaPatch) -> Result<Option<Note>, String> {
     let empty = patch.group.is_none() && patch.color.is_none() && patch.title.is_none();
@@ -313,6 +356,7 @@ mod tests {
                 group: None,
                 color: None,
                 title: None,
+                open: false,
             },
             false,
         )
@@ -344,6 +388,7 @@ mod tests {
                 group: Some("업무".into()),
                 color: Some("blue".into()),
                 title: None,
+                open: false,
             },
             false,
         )
@@ -355,6 +400,7 @@ mod tests {
                 group: Some("업무".into()),
                 color: None,
                 title: None,
+                open: false,
             },
             false,
         )
@@ -430,6 +476,29 @@ mod tests {
         .unwrap();
         assert_eq!(out, "새 그룹 1");
         assert_eq!(s.load(&a).unwrap().meta.group.as_deref(), Some("새 그룹 1"));
+    }
+
+    #[test]
+    fn open_missing_note_fails_before_launching_gui() {
+        let (_d, s) = store();
+        let e = run(
+            &s,
+            Cmd::Open {
+                id: "20990101-000000-abcdef".into(),
+            },
+            false,
+        )
+        .unwrap_err();
+        assert_eq!(e, "NOTE_NOT_FOUND");
+    }
+
+    #[test]
+    fn open_without_gui_binary_reports_clearly() {
+        // 테스트 바이너리 옆에는 ddakji(.exe)가 없다 — 명확한 에러여야 한다
+        let (_d, s) = store();
+        let id = add(&s, "열 노트");
+        let e = run(&s, Cmd::Open { id }, false).unwrap_err();
+        assert!(e.contains("GUI 실행 파일이 없습니다"), "{e}");
     }
 
     #[test]

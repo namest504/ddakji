@@ -41,10 +41,10 @@ jobs:
         shell: pwsh
         env:
           TAG: ${{ github.ref_name }}
-        # CLI(ddakji-cli.exe)는 tauri-action 빌드에 포함되지 않으므로 별도 빌드
+        # CLI·MCP 바이너리는 tauri-action 빌드에 포함되지 않으므로 별도 빌드
         run: |
-          cargo build --release --manifest-path src-tauri/Cargo.toml --bin ddakji-cli
-          Compress-Archive -Path src-tauri/target/release/ddakji.exe, src-tauri/target/release/ddakji-cli.exe -DestinationPath "ddakji-$env:TAG-portable-x64.zip" -Force
+          cargo build --release --manifest-path src-tauri/Cargo.toml --bin ddakji-cli --bin ddakji-mcp
+          Compress-Archive -Path src-tauri/target/release/ddakji.exe, src-tauri/target/release/ddakji-cli.exe, src-tauri/target/release/ddakji-mcp.exe -DestinationPath "ddakji-$env:TAG-portable-x64.zip" -Force
       - name: Upload portable zip to release
         shell: pwsh
         env:

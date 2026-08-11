@@ -44,3 +44,5 @@ ddakji-cli append 20260810-171234-7b71ea "- [ ] 내일 할 일"
 ## 종료 코드
 
 성공 0, 실패 1 (메시지는 stderr). 없는 노트는 `NOTE_NOT_FOUND`.
+
+MCP 클라이언트(Claude Desktop 등) 연동은 [docs/mcp.md](mcp.md)를 보세요.

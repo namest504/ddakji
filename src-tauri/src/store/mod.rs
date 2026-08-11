@@ -4,7 +4,7 @@ mod model;
 mod paths;
 
 pub use model::{next_new_group_name, MetaPatch, Note, NoteMeta, Settings, WindowBounds};
-pub use paths::{move_storage, resolve_data_root};
+pub use paths::{default_data_root, move_storage, resolve_data_root};
 
 use std::collections::HashMap;
 use std::fs;

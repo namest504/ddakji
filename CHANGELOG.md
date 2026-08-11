@@ -19,6 +19,8 @@
 - `ddakji-cli open <id>`·`add --open` — 노트를 앱 창으로 바로 엽니다. 앱이
   떠 있으면 그 앱이 처리하고(모음집 멤버는 모음집 창 전환), 꺼져 있으면
   앱이 켜지면서 엽니다 ([#12])
+- **`ddakji-mcp`** — MCP stdio 서버. Claude Desktop 등 AI 클라이언트가 노트를
+  도구로 읽고 쓸 수 있습니다 (10개 도구, [docs/mcp.md](docs/mcp.md)) ([#12])
 
 ## [0.1.5] - 2026-08-10
 

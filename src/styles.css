@@ -1082,20 +1082,43 @@ body {
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* 모음집 표시는 오른쪽 위 카운터 하나 — 툴바가 열리면 그 아래 깔린다.
+/* 모음집 위치 표시는 점 — 누르면 그 장으로 바로 간다.
    시안의 "쌓인 종이 가장자리"는 앱에 옮기지 않는다: 노트가 곧 창이라 밑장을
    창 밖에 둘 수 없고, 안쪽에 그리면 쌓임이 아니라 두꺼운 테두리로 읽힌다. */
-.stack-count {
+.group-dots {
   position: absolute;
-  top: 7px;
-  right: 10px;
-  z-index: 1;
-  font-size: 11px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.45;
-  pointer-events: none;
-  user-select: none;
+  bottom: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: var(--z-nav);
+  transition: bottom var(--dur-shift) var(--ease-ui);
+}
+/* 서식 바가 올라오면 인디케이터는 그 위로 비켜난다 */
+.note:has(.format-bar:hover) .group-dots,
+.note:has(.format-bar:focus-within) .group-dots {
+  bottom: 40px;
+}
+.group-dots button {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-round);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.25);
+}
+.group-dots button.active {
+  background: rgba(0, 0, 0, 0.65);
+}
+.note[data-color="charcoal"] .group-dots button,
+:root[data-theme="dark"] .group-dots button {
+  background: rgba(255, 255, 255, 0.3);
+}
+.note[data-color="charcoal"] .group-dots button.active,
+:root[data-theme="dark"] .group-dots button.active {
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .content.slide-next {

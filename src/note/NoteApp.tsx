@@ -39,7 +39,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   } = doc;
   const base = useDataRoot();
 
-  const { members, navigate, popOut } = useGroupNavigation({
+  const { members, navigate, jumpTo, popOut } = useGroupNavigation({
     noteId,
     flushBody,
     switchTo,
@@ -69,7 +69,6 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   if (!note || base === null) return null;
   const m = note.meta;
   const inGroup = members.length > 1;
-  const pos = members.indexOf(noteId) + 1;
 
   const onDelete = async () => {
     // window.confirm은 WebView2가 웹뷰 영역 안에 그려서 작은 노트 창에서는
@@ -162,8 +161,17 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         </div>
       )}
       {inGroup && !flipped && (
-        <div className="stack-count" aria-label={`모음집 ${pos} / ${members.length}`}>
-          {pos} / {members.length}
+        <div className="group-dots" aria-hidden={false}>
+          {members.map((id, i) => (
+            <button
+              key={id}
+              className={id === noteId ? "active" : ""}
+              title={`${i + 1} / ${members.length}`}
+              onClick={() => {
+                if (id !== noteId) jumpTo(id, i > members.indexOf(noteId) ? "next" : "prev");
+              }}
+            />
+          ))}
         </div>
       )}
       {!flipped && <FormatBar editor={editor} onAddImage={pickImage} />}

@@ -107,20 +107,23 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("NoteApp 그룹 UI", () => {
-  it("무소속 노트에는 내비 화살표·위치 카운터가 없다", async () => {
+  it("무소속 노트에는 내비 화살표·점이 없다", async () => {
     setupNote(mkNote("n1", "혼자 있는 노트"));
     const { container } = render(<NoteApp noteId="n1" />);
     await waitFor(() => expect(win.show).toHaveBeenCalled());
     expect(screen.queryByTitle("이전 노트 (Alt+←)")).toBeNull();
-    expect(container.querySelector(".stack-count")).toBeNull();
+    expect(container.querySelector(".group-dots")).toBeNull();
   });
 
-  it("모음집 노트에는 좌우 화살표와 현재 위치 카운터", async () => {
+  it("모음집 노트에는 좌우 화살표와 멤버 수만큼의 점, 현재 위치 표시", async () => {
     setupNote(mkNote("n1", "그룹 노트", { group: "모음" }), ["n1", "n2", "n3"]);
     const { container } = render(<NoteApp noteId="n1" />);
     await screen.findByTitle("다음 노트 (Alt+→)");
     expect(screen.getByTitle("이전 노트 (Alt+←)")).toBeTruthy();
-    expect(container.querySelector(".stack-count")?.textContent).toBe("1 / 3");
+    const dots = container.querySelectorAll(".group-dots button");
+    expect(dots).toHaveLength(3);
+    expect(dots[0].className).toContain("active");
+    expect(dots[1].className).not.toContain("active");
   });
 
   it("오른쪽 화살표는 다음 노트로 이동을 요청한다", async () => {

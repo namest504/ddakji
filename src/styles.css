@@ -899,6 +899,41 @@ body {
   color: var(--l-dim);
 }
 
+/* ── 휴지통 (#112) ── */
+.list-header .spacer {
+  flex: 1;
+}
+.trash-empty,
+.trash-action {
+  border: 0;
+  background: var(--l-field);
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--r-ctl);
+  padding: 4px 10px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.trash-empty:hover,
+.trash-action:hover {
+  background: var(--l-hover);
+}
+/* 되돌릴 수 없는 동작은 평소엔 조용히, 손이 닿으면 위험색으로 */
+.trash-action.danger {
+  background: transparent;
+  color: var(--l-dim);
+}
+.trash-action.danger:hover {
+  background: transparent;
+  color: var(--danger);
+  text-decoration: underline;
+}
+.trash-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
 /* 설정 화면 */
 .settings-title {
   font-weight: 600;

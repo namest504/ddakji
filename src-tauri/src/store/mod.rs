@@ -3,7 +3,9 @@
 mod model;
 mod paths;
 
-pub use model::{next_new_group_name, MetaPatch, Note, NoteMeta, Settings, WindowBounds};
+pub use model::{
+    next_new_group_name, MetaPatch, Note, NoteMeta, Settings, TrashedNote, WindowBounds,
+};
 pub use paths::{default_data_root, move_storage, resolve_data_root};
 
 use std::collections::HashMap;
@@ -38,6 +40,7 @@ impl Store {
     pub fn new(root: &Path) -> Result<Store> {
         fs::create_dir_all(root.join("notes"))?;
         fs::create_dir_all(root.join("assets"))?;
+        fs::create_dir_all(root.join("trash"))?;
         // settings.json이 없거나 파손이면 기본값 — 노트 접근을 막지 않는다
         let settings = fs::read_to_string(root.join("settings.json"))
             .ok()
@@ -383,20 +386,115 @@ impl Store {
         v
     }
 
+    pub fn trash_dir(&self) -> PathBuf {
+        self.root.join("trash")
+    }
+
+    /// 노트 시각 표기와 같은 형식(RFC3339 로컬) — 프런트가 같은 포매터를 쓴다
+    fn iso8601_now_of(t: SystemTime) -> String {
+        chrono::DateTime::<chrono::Local>::from(t).to_rfc3339()
+    }
+
+    fn trash_path(&self, id: &str) -> PathBuf {
+        self.trash_dir().join(format!("{id}.md"))
+    }
+
+    /// 삭제 = **휴지통으로 이동**. 파일을 지우지 않으므로 어떤 경로로 지웠든
+    /// (뒷면 삭제·목록·CLI·MCP) 되돌릴 수 있다 — 안전망을 호출부마다 두지 않고
+    /// 저장 계층 한 곳에 둔다.
+    ///
+    /// `list()`는 `notes/`만 훑으므로 옮기는 것만으로 앱 전체에서 사라진다.
+    /// 에셋은 그대로 둔다 — 복원하면 이미지도 함께 돌아와야 한다. 실제 파기는
+    /// [`Store::purge`]에서 한다.
     pub fn delete(&self, id: &str) -> Result<()> {
         validate_id(id)?;
         let group = self.load(id).and_then(|n| n.meta.group);
-        fs::remove_file(self.note_path(id)).map_err(Error::note_io)?;
-        self.disk_lock().remove(id);
-        let assets = self.root.join("assets").join(id);
-        if assets.exists() {
-            fs::remove_dir_all(assets)?;
+        fs::create_dir_all(self.trash_dir())?;
+        let dest = self.trash_path(id);
+        // 같은 id가 이미 휴지통에 있으면(밖에서 되살렸다 다시 지운 경우) 덮어쓴다
+        fs::rename(self.note_path(id), &dest).map_err(Error::note_io)?;
+        // 지운 시각은 스키마를 늘리지 않고 mtime으로 남긴다 — rename은 mtime을
+        // 보존하므로 여기서 덮어써야 "언제 지웠는지"가 된다
+        if let Ok(f) = fs::File::options().write(true).open(&dest) {
+            let _ = f.set_modified(SystemTime::now());
         }
+        self.disk_lock().remove(id);
         // 삭제로 혼자 남은 모음집도 해제 (#77 룰3)
         if let Some(g) = group {
             self.dissolve_if_single(&g)?;
         }
         Ok(())
+    }
+
+    /// 휴지통 목록 — 최근에 지운 것부터.
+    pub fn list_trash(&self) -> Vec<TrashedNote> {
+        let mut v: Vec<TrashedNote> = fs::read_dir(self.trash_dir())
+            .map(|rd| {
+                rd.filter_map(|e| e.ok())
+                    .filter(|e| e.path().extension().map(|x| x == "md").unwrap_or(false))
+                    .filter_map(|e| {
+                        let path = e.path();
+                        let id = path.file_stem()?.to_str()?.to_string();
+                        let content = fs::read_to_string(&path).ok()?;
+                        let (note, _) = Note::from_file_string(&id, &content);
+                        let deleted_at = e
+                            .metadata()
+                            .and_then(|m| m.modified())
+                            .map(Self::iso8601_now_of)
+                            .unwrap_or_default();
+                        Some(TrashedNote { note, deleted_at })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        v.sort_by(|a, b| b.deleted_at.cmp(&a.deleted_at));
+        v
+    }
+
+    /// 휴지통에서 되살린다. 지운 사이에 모음집이 해제됐을 수 있으므로(룰3),
+    /// 돌아갈 모음집에 다른 멤버가 없으면 무소속으로 되돌린다 — 혼자뿐인
+    /// 유령 모음집이 되살아나지 않게.
+    pub fn restore(&self, id: &str) -> Result<Note> {
+        validate_id(id)?;
+        fs::create_dir_all(self.notes_dir())?;
+        fs::rename(self.trash_path(id), self.note_path(id)).map_err(Error::note_io)?;
+        let note = self.load(id).ok_or(Error::NoteNotFound)?;
+        if let Some(g) = note.meta.group.clone() {
+            if self.group_notes(&g).len() < 2 {
+                return self.save_meta(
+                    id,
+                    &MetaPatch {
+                        group: Some(String::new()),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+        Ok(note)
+    }
+
+    /// 영구 삭제 — 여기서만 파일이 실제로 사라진다(에셋 포함).
+    pub fn purge(&self, id: &str) -> Result<()> {
+        validate_id(id)?;
+        fs::remove_file(self.trash_path(id)).map_err(Error::note_io)?;
+        let assets = self.root.join("assets").join(id);
+        if assets.exists() {
+            fs::remove_dir_all(assets)?;
+        }
+        Ok(())
+    }
+
+    pub fn empty_trash(&self) -> Result<usize> {
+        let ids: Vec<String> = self
+            .list_trash()
+            .into_iter()
+            .map(|t| t.note.meta.id)
+            .collect();
+        let n = ids.len();
+        for id in ids {
+            self.purge(&id)?;
+        }
+        Ok(n)
     }
 
     pub fn save_asset(&self, note_id: &str, ext: &str, bytes: &[u8]) -> Result<String> {
@@ -1138,14 +1236,126 @@ mod tests {
     }
 
     #[test]
-    fn delete_removes_note_and_assets() {
+    fn delete_moves_to_trash_and_keeps_assets() {
+        // 삭제는 파기가 아니라 이동 — 어떤 경로로 지웠든 되돌릴 수 있어야 한다
         let (_d, s) = store();
         let n = s.create().unwrap();
         let rel = s.save_asset(&n.meta.id, "png", b"fakepng").unwrap();
         assert!(rel.starts_with(&format!("assets/{}/", n.meta.id)));
         s.delete(&n.meta.id).unwrap();
-        assert!(s.load(&n.meta.id).is_none());
+        assert!(s.load(&n.meta.id).is_none(), "목록에서는 사라진다");
+        assert!(s.trash_dir().join(format!("{}.md", n.meta.id)).exists());
+        assert!(
+            _d.path().join("assets").join(&n.meta.id).exists(),
+            "복원하면 이미지도 함께 돌아와야 하므로 에셋은 남긴다"
+        );
+    }
+
+    #[test]
+    fn restore_brings_the_note_back_with_its_body() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        s.save_body(&n.meta.id, "지워졌다 돌아온 본문").unwrap();
+        s.delete(&n.meta.id).unwrap();
+        let back = s.restore(&n.meta.id).unwrap();
+        assert_eq!(back.body.trim(), "지워졌다 돌아온 본문");
+        assert_eq!(
+            s.load(&n.meta.id).unwrap().body.trim(),
+            "지워졌다 돌아온 본문"
+        );
+        assert!(s.list_trash().is_empty());
+    }
+
+    #[test]
+    fn trash_lists_newest_first_with_deleted_at() {
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        let b = s.create().unwrap();
+        s.delete(&a.meta.id).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        s.delete(&b.meta.id).unwrap();
+        let t = s.list_trash();
+        assert_eq!(t.len(), 2);
+        assert_eq!(t[0].note.meta.id, b.meta.id, "최근에 지운 것이 위로");
+        assert!(!t[0].deleted_at.is_empty(), "지운 시각이 붙는다");
+    }
+
+    #[test]
+    fn purge_is_the_only_path_that_erases_files() {
+        let (_d, s) = store();
+        let n = s.create().unwrap();
+        s.save_asset(&n.meta.id, "png", b"fakepng").unwrap();
+        s.delete(&n.meta.id).unwrap();
+        s.purge(&n.meta.id).unwrap();
+        assert!(s.list_trash().is_empty());
+        assert!(!s.trash_dir().join(format!("{}.md", n.meta.id)).exists());
         assert!(!_d.path().join("assets").join(&n.meta.id).exists());
+    }
+
+    #[test]
+    fn empty_trash_purges_everything_and_reports_count() {
+        let (_d, s) = store();
+        for _ in 0..3 {
+            let n = s.create().unwrap();
+            s.delete(&n.meta.id).unwrap();
+        }
+        assert_eq!(s.empty_trash().unwrap(), 3);
+        assert!(s.list_trash().is_empty());
+    }
+
+    #[test]
+    fn restore_does_not_resurrect_a_group_of_one() {
+        // 지운 사이에 모음집이 해제됐다면(룰3) 되살아난 노트는 무소속이어야 한다
+        let (_d, s) = store();
+        let a = s.create().unwrap();
+        let b = s.create().unwrap();
+        for id in [&a.meta.id, &b.meta.id] {
+            s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some("둘".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        s.delete(&a.meta.id).unwrap();
+        assert_eq!(
+            s.load(&b.meta.id).unwrap().meta.group,
+            None,
+            "혼자 남아 해제"
+        );
+        let back = s.restore(&a.meta.id).unwrap();
+        assert_eq!(
+            back.meta.group, None,
+            "돌아와도 유령 모음집을 만들지 않는다"
+        );
+    }
+
+    #[test]
+    fn restoring_into_a_live_group_keeps_membership() {
+        let (_d, s) = store();
+        let ids: Vec<String> = (0..3)
+            .map(|_| {
+                let n = s.create().unwrap();
+                s.save_meta(
+                    &n.meta.id,
+                    &MetaPatch {
+                        group: Some("셋".into()),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+                n.meta.id
+            })
+            .collect();
+        s.delete(&ids[0]).unwrap();
+        let back = s.restore(&ids[0]).unwrap();
+        assert_eq!(
+            back.meta.group.as_deref(),
+            Some("셋"),
+            "둘 이상 남아 있으면 유지"
+        );
     }
 
     #[test]
@@ -1189,8 +1399,10 @@ mod tests {
         for entry in root_entries {
             let path = entry.unwrap().path();
             if path.is_dir() {
+                let name = path.file_name().unwrap();
                 assert!(
-                    path.file_name().unwrap() == "notes" || path.file_name().unwrap() == "assets"
+                    name == "notes" || name == "assets" || name == "trash",
+                    "저장소 루트에는 정해진 폴더만 생긴다: {name:?}"
                 );
             }
         }

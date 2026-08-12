@@ -78,7 +78,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     // window.confirm은 WebView2가 웹뷰 영역 안에 그려서 작은 노트 창에서는
     // 버튼이 잘려 진행이 불가능하다 (#11) — OS 네이티브 다이얼로그를 쓴다.
     const { ask } = await import("@tauri-apps/plugin-dialog");
-    const ok = await ask("이 노트를 삭제할까요? 되돌릴 수 없습니다.", {
+    const ok = await ask("이 노트를 휴지통으로 보낼까요? 휴지통에서 되돌릴 수 있습니다.", {
       title: "노트 삭제",
       kind: "warning",
       okLabel: "삭제",

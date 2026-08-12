@@ -58,7 +58,18 @@ export const listNotes = () => invoke<Note[]>("list_notes");
 export const createNote = () => invoke<Note>("create_note");
 export const saveBody = (id: string, body: string) => invoke<Note>("save_body", { id, body });
 export const saveMeta = (id: string, patch: MetaPatch) => invoke<Note>("save_meta", { id, patch });
+/** 삭제 = 휴지통으로 이동. 파일은 남고 목록에서만 사라진다 (#112) */
 export const deleteNote = (id: string) => invoke<void>("delete_note", { id });
+/** 휴지통 항목 — 노트 원본과 지운 시각 */
+export interface TrashedNote {
+  note: Note;
+  deleted_at: string;
+}
+export const listTrash = () => invoke<TrashedNote[]>("list_trash");
+export const restoreNote = (id: string) => invoke<Note>("restore_note", { id });
+/** 영구 삭제 — 되돌릴 수 없는 유일한 지점 */
+export const purgeNote = (id: string) => invoke<void>("purge_note", { id });
+export const emptyTrash = () => invoke<number>("empty_trash");
 export const openNote = (id: string) => invoke<void>("open_note", { id });
 export const openList = () => invoke<void>("open_list");
 export const saveImage = (id: string, ext: string, bytes: Uint8Array) =>

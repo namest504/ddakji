@@ -114,6 +114,35 @@ pub async fn delete_note(
     Ok(())
 }
 
+/// 휴지통 목록 — 최근에 지운 것부터.
+#[tauri::command]
+pub fn list_trash(store: StoreState) -> Result<Vec<crate::store::TrashedNote>> {
+    Ok(lock(&store)?.list_trash())
+}
+
+/// 휴지통에서 되살린다. 창을 새로 열지는 않는다 — 목록에 돌아오고, 여느
+/// 노트처럼 목록에서 열면 된다.
+#[tauri::command]
+pub async fn restore_note(app: AppHandle, store: StoreState<'_>, id: String) -> Result<Note> {
+    use tauri::Emitter;
+    let note = lock(&store)?.restore(&id)?;
+    // 되살아난 노트가 모음집 멤버일 수 있다 — 열린 창들의 멤버 목록·점 갱신
+    let _ = app.emit("groups-changed", ());
+    Ok(note)
+}
+
+/// 영구 삭제 — 되돌릴 수 없는 유일한 지점.
+#[tauri::command]
+pub fn purge_note(store: StoreState, id: String) -> Result<()> {
+    lock(&store)?.purge(&id)
+}
+
+/// 휴지통 비우기 — 지운 개수를 돌려준다.
+#[tauri::command]
+pub fn empty_trash(store: StoreState) -> Result<usize> {
+    lock(&store)?.empty_trash()
+}
+
 #[tauri::command]
 pub async fn open_note(
     app: AppHandle,

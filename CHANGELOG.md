@@ -27,6 +27,12 @@
   닫기와 창 닫기 같은 관계입니다. 숨긴 장은 모음집의 화살표·점에서도 빠지고,
   목록에서 열면 제자리로 돌아옵니다. 파일을 지우는 것은 여전히 뒷면의 삭제뿐입니다.
 
+- **휴지통** ([#112]) — 삭제가 파일을 지우는 대신 **휴지통으로 옮깁니다.** 노트
+  뒷면의 삭제든, 목록의 휴지통 아이콘이든, `ddakji-cli delete`·MCP든 어느
+  경로로 지워도 되돌릴 수 있습니다. 목록 창의 휴지통에서 **복원**하거나
+  **영구 삭제**·**비우기**를 할 수 있고, 파일이 실제로 사라지는 것은 이 두
+  가지뿐입니다. 이미지도 휴지통에 있는 동안 함께 보관됩니다.
+
 ### 수정
 
 - 모음집의 노트 한 장을 **삭제하면 모음집 전체가 화면에서 사라지던 문제** ([#111]) —
@@ -145,6 +151,7 @@
 [#78]: https://github.com/namest504/ddakji/issues/78
 [#98]: https://github.com/namest504/ddakji/issues/98
 [#111]: https://github.com/namest504/ddakji/issues/111
+[#112]: https://github.com/namest504/ddakji/issues/112
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

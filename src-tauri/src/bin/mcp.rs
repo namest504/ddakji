@@ -136,7 +136,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "delete_note",
-            "description": "노트를 삭제한다 (되돌릴 수 없음 — 사용자가 명시적으로 요청한 경우에만)",
+            "description": "노트를 휴지통으로 보낸다 (앱의 휴지통에서 복원 가능 — 그래도 사용자가 명시적으로 요청한 경우에만)",
             "inputSchema": { "type": "object", "properties": { "id": id_prop }, "required": ["id"] },
         },
         {

@@ -232,10 +232,19 @@ body {
   border: 1.6px solid currentColor;
   display: inline-block;
 }
+/* 폰트·모음집 이름 버튼: 이름이 길어도 한 줄로 두고 넘치면 말줄임.
+   `.toolbar button`의 height:24px 고정 때문에 두 줄이 되면 글자가 잘려 나간다. */
 .font-row button {
   min-width: auto;
+  max-width: 100%;
   padding: 3px 10px;
   font-size: 12px;
+  display: block;
+  height: auto;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .font-custom {
   flex: 1;
@@ -295,15 +304,38 @@ body {
   left: 0;
   right: 0;
   display: flex;
+  /* 항목이 늘어나면(폰트 추가·모음집 추가) 줄을 바꾼다. 한 줄로 두면 flex가
+     항목을 찌그러뜨려 글자가 잘린다 — 노트 창은 좁아서 금방 그렇게 된다. */
+  flex-wrap: wrap;
   gap: 6px;
   padding: 8px;
   z-index: var(--z-pop);
   align-items: center;
+  /* 노트 창이 곧 뷰포트다 — 툴바(32px)를 뺀 나머지가 팝오버가 쓸 수 있는 높이 */
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   /* 팝오버는 불투명 메뉴 패널 — 반투명이면 뒤 본문이 비쳐 읽기 어렵다 */
   background: var(--pop-face);
   box-shadow: 0 5px 16px rgba(0, 0, 0, 0.22);
   border-radius: 0 0 var(--r-card) var(--r-card);
   color: var(--pop-ink);
+}
+/* 버튼·색 견본은 줄어들지 않는다 — 넘치면 줄을 바꾸지 찌그러지지 않는다 */
+.color-row button,
+.color-row .swatch {
+  flex: none;
+}
+.color-row::-webkit-scrollbar {
+  width: 6px;
+}
+.color-row::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--r-glyph);
+}
+.note[data-color="charcoal"] .color-row::-webkit-scrollbar-thumb,
+:root[data-theme="dark"] .color-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
 }
 .note[data-color="charcoal"] .color-row,
 :root[data-theme="dark"] .color-row {

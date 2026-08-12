@@ -305,6 +305,24 @@ describe("NoteApp 뒷면 (딱지 시안)", () => {
     fireEvent.click(screen.getByText("삭제"));
     await waitFor(() => expect(api.deleteNote).toHaveBeenCalledWith("n1"));
   });
+
+  it("모음집에서 뒷면 삭제 후 넘겨받은 장은 앞면으로 보인다", async () => {
+    // 회귀: 삭제하면 창이 파괴돼 모음집 전체가 사라졌다. 이제 창은 다음 장으로
+    // 넘어오는데, 뒤집힌 상태가 남아 남의 뒷면부터 보이면 안 된다.
+    const cur = mkNote("n1", "지울 장", { group: "모음" });
+    const next = mkNote("n2", "남는 장 본문", { group: "모음", group_order: 1 });
+    setupNote(cur, ["n1", "n2"]);
+    vi.mocked(api.listNotes).mockResolvedValue([cur, next]);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.events?.["switch-note"]).toBeTruthy());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(screen.getByText("만든 날")).toBeTruthy();
+    // 백엔드가 삭제 후 이 창을 다음 멤버로 넘긴다
+    act(() => win.events!["switch-note"]({ payload: next }));
+    await screen.findByText("남는 장 본문");
+    expect(screen.queryByText("만든 날")).toBeNull();
+    expect(win.destroy).not.toHaveBeenCalled();
+  });
 });
 
 describe("NoteApp 숨기기 두 갈래", () => {

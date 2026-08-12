@@ -60,18 +60,56 @@ pub async fn delete_note(
     wn: State<'_, WindowNotes>,
     id: String,
 ) -> Result<()> {
+    use tauri::Emitter;
+    // 이 노트를 보여 주던 창과, 그 창이 넘겨받을 다음 멤버를 **삭제 전에** 정한다.
+    // 지우고 나면 이 노트가 어느 모음집이었는지 알 수 없다.
+    let (label, mapped) = {
+        let m = lock(&wn.0)?;
+        let label = m
+            .iter()
+            .find(|(_, nid)| **nid == id)
+            .map(|(l, _)| l.clone());
+        (
+            label,
+            m.values()
+                .cloned()
+                .collect::<std::collections::HashSet<_>>(),
+        )
+    };
+    let next_id = if label.is_some() {
+        let s = lock(&store)?;
+        match s.load(&id).and_then(|n| n.meta.group) {
+            Some(g) => pop_out_next(&visible_members(s.group_notes(&g)), &id, &mapped)
+                .map(|n| n.meta.id.clone()),
+            None => None,
+        }
+    } else {
+        None
+    };
+
     lock(&store)?.delete(&id)?;
-    let label = lock(&wn.0)?
-        .iter()
-        .find(|(_, nid)| **nid == id)
-        .map(|(l, _)| l.clone());
+
     if let Some(l) = label {
-        if let Some(win) = app.get_webview_window(&l) {
-            win.destroy()?;
+        // 삭제 뒤 상태를 다시 읽는다 — 혼자 남은 모음집은 해제되어(룰3) 메타가 바뀐다
+        let next = next_id.and_then(|nid| lock(&store).ok().and_then(|s| s.load(&nid)));
+        match next {
+            // 모음집 하나 = 창 하나(룰4)다. 한 장을 지웠다고 창을 없애면 모음집
+            // 전체가 화면에서 사라지므로, 창은 다음 장에게 넘긴다 (pop_out과 같은 규약).
+            Some(next) => {
+                lock(&wn.0)?.insert(l.clone(), next.meta.id.clone());
+                if let Some(win) = app.get_webview_window(&l) {
+                    let _ = win.emit_to(&l, "switch-note", &next);
+                }
+            }
+            // 넘길 장이 없으면(단독 노트) 창까지 정리한다
+            None => {
+                if let Some(win) = app.get_webview_window(&l) {
+                    win.destroy()?;
+                }
+            }
         }
     }
     // 모음집 멤버였다면 남은 창들의 멤버 목록·점이 갱신되도록 (자동 해제 포함)
-    use tauri::Emitter;
     let _ = app.emit("groups-changed", ());
     Ok(())
 }
@@ -778,6 +816,20 @@ mod tests {
             .map(|n| n.meta.id)
             .collect();
         assert_eq!(ids, ["a", "b"]);
+    }
+
+    #[test]
+    fn deleting_a_member_hands_the_window_to_the_next_page() {
+        // 회귀: 모음집 하나 = 창 하나라, 한 장을 지웠다고 창을 파괴하면 모음집
+        // 전체가 화면에서 사라진다. 창은 남은 장에게 넘어가야 한다.
+        let m = [note("a"), note("b"), note("c")];
+        assert_eq!(pop_out_next(&m, "b", &set(&["b"])).unwrap().meta.id, "c");
+    }
+
+    #[test]
+    fn deleting_a_solo_note_has_no_next_so_the_window_goes() {
+        let m: [Note; 0] = [];
+        assert!(pop_out_next(&m, "a", &set(&["a"])).is_none());
     }
 
     #[test]

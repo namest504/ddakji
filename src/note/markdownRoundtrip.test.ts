@@ -99,6 +99,23 @@ describe("마크다운 왕복 보존", () => {
     expect(out).toContain('width="240"');
   });
 
+  it("alt의 따옴표가 속성 경계를 만들지 않는다", () => {
+    // 붙여넣기·가져오기·CLI로 무엇이든 들어온다. 이스케이프하지 않으면
+    // alt="x" onerror="boom" 처럼 없던 속성이 생긴 꼴로 다시 읽힌다
+    const out = roundtrip(
+      '<img src="assets/a/i.png" alt="x&quot; onerror=&quot;boom" width="120">',
+    );
+    expect(out).toContain('width="120"');
+    expect(out).not.toContain('" onerror="');
+    expect(out).toContain("&quot; onerror=&quot;");
+  });
+
+  it("괄호·공백이 든 경로도 다시 읽으면 그대로다", () => {
+    // 링크 문법이 경로 중간에서 끊기면 두 번째 왕복에서 경로가 달라진다
+    const once = roundtrip("![](<assets/a b(1)/i.png>)");
+    expect(roundtrip(once)).toBe(once);
+  });
+
   it("style로 들어온 폭도 읽는다", () => {
     const out = roundtrip('<img src="assets/abc/img.png" style="width: 180px">');
     expect(out).toContain('width="180"');

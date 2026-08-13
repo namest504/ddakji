@@ -37,6 +37,20 @@ export const TaskItemSafe = TaskItem.extend({
 });
 
 /**
+ * 직렬화용 이스케이프.
+ *
+ * alt·title·경로는 사용자가 붙여넣은 마크다운이나 가져온 `.md`, CLI·MCP를 통해
+ * 무엇이든 들어올 수 있다. 그대로 끼워 넣으면 따옴표 하나에 속성이 갈라지고,
+ * 대괄호 하나에 링크 문법이 깨진다 — 다시 읽을 때 엉뚱한 문서가 된다.
+ */
+const escAttr = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escAlt = (s: string) => s.replace(/([[\]\\])/g, "\\$1");
+const escTitle = (s: string) => s.replace(/(["\\])/g, "\\$1");
+/** 공백·괄호가 든 경로는 꺾쇠로 감싸야 링크가 거기서 끊기지 않는다 */
+const mdSrc = (s: string) => (/[\s()<>]/.test(s) ? `<${s.replace(/([<>\\])/g, "\\$1")}>` : s);
+
+/**
  * 크기를 기억하는 이미지 (#113).
  *
  * 노트는 평문 마크다운으로 저장되는데 `![](경로)`에는 크기를 담을 자리가 없다.
@@ -72,12 +86,14 @@ export const ResizableImage = Image.extend({
           const src = String(node.attrs.src ?? "");
           const alt = String(node.attrs.alt ?? "");
           const title = node.attrs.title ? String(node.attrs.title) : "";
-          const width = node.attrs.width;
-          if (width) {
-            const t = title ? ` title="${title}"` : "";
-            state.write(`<img src="${src}" alt="${alt}"${t} width="${String(width)}">`);
+          const width = Number(node.attrs.width);
+          if (Number.isFinite(width) && width > 0) {
+            const t = title ? ` title="${escAttr(title)}"` : "";
+            state.write(
+              `<img src="${escAttr(src)}" alt="${escAttr(alt)}"${t} width="${String(Math.round(width))}">`,
+            );
           } else {
-            state.write(`![${alt}](${src}${title ? ` "${title}"` : ""})`);
+            state.write(`![${escAlt(alt)}](${mdSrc(src)}${title ? ` "${escTitle(title)}"` : ""})`);
           }
           state.closeBlock(node);
         },

@@ -19,6 +19,11 @@ pub fn primary_button_down() -> Option<bool> {
     imp::primary_button_down()
 }
 
+/// 지금 커서가 있는 화면 좌표(물리 픽셀). 알 수 없는 플랫폼은 `None`.
+pub fn cursor_pos() -> Option<(f64, f64)> {
+    imp::cursor_pos()
+}
+
 /// 드래그가 끝날 때까지(주 버튼이 떨어질 때까지) 기다린다.
 ///
 /// - `true`  — 놓였다. 이제 위치를 재고 판정해도 된다
@@ -55,11 +60,22 @@ mod imp {
             Some(GetAsyncKeyState(vk.0 as i32) as u16 & 0x8000 != 0)
         }
     }
+
+    pub fn cursor_pos() -> Option<(f64, f64)> {
+        unsafe {
+            let mut p = windows::Win32::Foundation::POINT::default();
+            windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut p).ok()?;
+            Some((p.x as f64, p.y as f64))
+        }
+    }
 }
 
 #[cfg(not(windows))]
 mod imp {
     pub fn primary_button_down() -> Option<bool> {
+        None
+    }
+    pub fn cursor_pos() -> Option<(f64, f64)> {
         None
     }
 }

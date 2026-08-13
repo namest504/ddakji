@@ -277,24 +277,27 @@ pub fn data_root(store: StoreState) -> Result<String> {
 /// 창 사각형 (x, y, w, h) — 물리 픽셀
 type Rect = (f64, f64, f64, f64);
 
-/// 합치기 후보: (창 label, 노트 id, 겹침 비율, 대상 사각형)
-type MergeCandidate = (String, String, f64, Rect);
-
-/// 두 창이 겹치는 비율 — **둘 중 작은 창** 면적 기준 0.0~1.0 (#78).
+/// 커서가 놓인 지점이 어느 창 위인지 — 합치기의 유일한 기준 (#115).
 ///
-/// 이동한 창 면적을 분모로 쓰면 큰 창을 작은 창 위에 완전히 덮어도 비율이
-/// 면적비(작은창/큰창)에 머물러 병합이 발동하지 않는다. 작은 면적 기준이면
-/// 어느 쪽을 끌든 같은 판정이 된다.
-pub fn overlap_ratio(a: Rect, b: Rect) -> f64 {
-    let (ax, ay, aw, ah) = a;
-    let (bx, by, bw, bh) = b;
-    let iw = (ax + aw).min(bx + bw) - ax.max(bx);
-    let ih = (ay + ah).min(by + bh) - ay.max(by);
-    let denom = (aw * ah).min(bw * bh);
-    if iw <= 0.0 || ih <= 0.0 || denom <= 0.0 {
-        return 0.0;
-    }
-    (iw * ih) / denom
+/// 겹침 면적으로 재던 이전 방식은 "얼마나 덮였나"를 물었지만, 사용자는 창을
+/// **겨냥해서** 놓는다. 지점 기준이면 겨냥한 곳이 곧 대상이라 예측 가능하고,
+/// 옆에 나란히 두려다 우연히 합쳐지는 일도 없다.
+///
+/// 후보가 여럿 겹치면 **더 작은 창**을 고른다 — 큰 창 위에 작은 창이 얹힌
+/// 배치에서 사용자가 겨냥한 쪽은 위에 있는 작은 창이다.
+///
+/// `candidates`에는 끌고 있는 창을 넣지 않는다 (커서는 늘 그 창 위에 있다).
+pub fn drop_target<T>(cursor: (f64, f64), candidates: &[(T, Rect)]) -> Option<&T> {
+    let (cx, cy) = cursor;
+    candidates
+        .iter()
+        .filter(|(_, (x, y, w, h))| cx >= *x && cx < x + w && cy >= *y && cy < y + h)
+        .min_by(|(_, a), (_, b)| {
+            (a.2 * a.3)
+                .partial_cmp(&(b.2 * b.3))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(t, _)| t)
 }
 
 /// 드래그 합치기 시 새 그룹 이름 — "새 그룹 {번호}" 순번 자동 부여
@@ -499,25 +502,26 @@ pub async fn merge_preview(
     wn: State<'_, WindowNotes>,
 ) -> Result<bool> {
     let label = window.label().to_string();
-    let Ok(ap) = window.outer_position() else {
+    let Some(cursor) = crate::pointer::cursor_pos() else {
         return Ok(false);
     };
-    let Ok(asz) = window.outer_size() else {
-        return Ok(false);
-    };
-    let a = (
-        ap.x as f64,
-        ap.y as f64,
-        asz.width as f64,
-        asz.height as f64,
-    );
-    let entries: Vec<String> = lock(&wn.0)?
+    Ok(drop_target(cursor, &other_note_rects(&app, &wn, &label)?).is_some())
+}
+
+/// 끌고 있는 창을 뺀, 화면에 떠 있는 노트 창들의 (label, id, 사각형).
+/// 커서는 늘 끌고 있는 창 위에 있으므로 그 창은 후보에서 제외한다.
+fn other_note_rects(
+    app: &AppHandle,
+    wn: &State<'_, WindowNotes>,
+    label: &str,
+) -> Result<Vec<((String, String), Rect)>> {
+    let entries: Vec<(String, String)> = lock(&wn.0)?
         .iter()
-        .filter(|(l, _)| **l != label)
-        .map(|(l, _)| l.clone())
+        .filter(|(l, _)| l.as_str() != label)
+        .map(|(l, id)| (l.clone(), id.clone()))
         .collect();
-    let mut hint = false;
-    for l in entries {
+    let mut out = Vec::new();
+    for (l, id) in entries {
         let Some(w) = app.get_webview_window(&l) else {
             continue;
         };
@@ -527,17 +531,12 @@ pub async fn merge_preview(
         let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else {
             continue;
         };
-        if overlap_ratio(
-            a,
+        out.push((
+            (l, id),
             (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64),
-        ) >= 0.6
-        {
-            hint = true;
-            break;
-        }
+        ));
     }
-    let _ = label;
-    Ok(hint)
+    Ok(out)
 }
 
 /// 다른 노트 창과 충분히 겹치게 **놓였으면**(60%+) 그 노트와 같은 모음집으로
@@ -571,34 +570,23 @@ pub async fn check_merge(
         asz.width as f64,
         asz.height as f64,
     );
-    let entries: Vec<(String, String)> = lock(&wn.0)?
-        .iter()
-        .filter(|(l, _)| **l != label)
-        .map(|(l, id)| (l.clone(), id.clone()))
-        .collect();
-    let mut best: Option<MergeCandidate> = None;
-    for (l, id) in entries {
-        let Some(w) = app.get_webview_window(&l) else {
-            continue;
-        };
-        if !w.is_visible().unwrap_or(false) {
-            continue;
-        }
-        let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else {
-            continue;
-        };
-        let b = (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64);
-        let r = overlap_ratio(a, b);
-        if r > best.as_ref().map(|x| x.2).unwrap_or(0.0) {
-            best = Some((l, id, r, b));
-        }
-    }
-    let Some((target_label, target_id, ratio, tb)) = best else {
+    // 놓인 지점이 어느 창 위인지로 정한다 — 겨냥한 곳이 곧 대상 (#115).
+    // 커서는 드롭을 기다린 뒤에 읽어야 한다: 기다리는 동안 더 움직였을 수 있다.
+    let Some(cursor) = crate::pointer::cursor_pos() else {
         return Ok(false);
     };
-    if ratio < 0.6 || target_id == moved_id {
+    let candidates = other_note_rects(&app, &wn, &label)?;
+    let Some((target_label, target_id)) = drop_target(cursor, &candidates).cloned() else {
+        return Ok(false);
+    };
+    if target_id == moved_id {
         return Ok(false);
     }
+    let tb = candidates
+        .iter()
+        .find(|((l, _), _)| *l == target_label)
+        .map(|(_, r)| *r)
+        .unwrap_or(a);
     // 되돌리기용 이전 상태 — 합치기 **전에** 찍어 둔다 (#115)
     let previous = {
         let s = lock(&store)?;
@@ -820,57 +808,56 @@ mod tests {
     use crate::store::NoteMeta;
     use std::collections::HashSet;
 
-    #[test]
-    fn overlap_full_partial_none() {
-        let a = (0.0, 0.0, 100.0, 100.0);
-        assert!((overlap_ratio(a, (0.0, 0.0, 100.0, 100.0)) - 1.0).abs() < 1e-9);
-        assert!((overlap_ratio(a, (50.0, 0.0, 100.0, 100.0)) - 0.5).abs() < 1e-9);
-        assert_eq!(overlap_ratio(a, (200.0, 200.0, 100.0, 100.0)), 0.0);
+    // 합치기 대상은 **커서가 놓인 지점**으로 정한다 (#115)
+    fn win(label: &str, r: Rect) -> ((String, String), Rect) {
+        ((label.into(), format!("note-{label}")), r)
     }
 
     #[test]
-    fn overlap_negative_coordinates() {
+    fn drop_target_is_the_window_under_the_cursor() {
+        let c = [win("a", (0.0, 0.0, 200.0, 200.0))];
+        assert_eq!(drop_target((100.0, 100.0), &c).unwrap().0, "a");
+    }
+
+    #[test]
+    fn no_target_when_cursor_is_outside_every_window() {
+        // 겹쳐 두기만 하고 빈 바탕에 놓으면 합쳐지지 않는다 — 겹침 면적으로
+        // 재던 이전 방식이 우연히 합쳐 버리던 자리
+        let c = [win("a", (0.0, 0.0, 200.0, 200.0))];
+        assert!(drop_target((400.0, 100.0), &c).is_none());
+    }
+
+    #[test]
+    fn overlapping_candidates_pick_the_smaller_window() {
+        // 큰 창 위에 작은 창이 얹힌 배치에서 사용자가 겨냥한 쪽은 위의 작은 창
+        let c = [
+            win("big", (0.0, 0.0, 400.0, 400.0)),
+            win("small", (50.0, 50.0, 100.0, 100.0)),
+        ];
+        assert_eq!(drop_target((100.0, 100.0), &c).unwrap().0, "small");
+    }
+
+    #[test]
+    fn window_edges_are_half_open() {
+        // 오른쪽·아래 경계는 다음 창의 몫 — 나란히 붙은 창에서 겹치지 않게
+        let c = [win("a", (0.0, 0.0, 100.0, 100.0))];
+        assert_eq!(drop_target((0.0, 0.0), &c).unwrap().0, "a");
+        assert!(drop_target((100.0, 50.0), &c).is_none());
+        assert!(drop_target((50.0, 100.0), &c).is_none());
+    }
+
+    #[test]
+    fn negative_coordinates_work() {
         // 보조 모니터가 주 모니터 왼쪽/위(음수 좌표)에 배치된 실사용 구성
-        let a = (-1000.0, -500.0, 100.0, 100.0);
-        assert!((overlap_ratio(a, (-1000.0, -500.0, 100.0, 100.0)) - 1.0).abs() < 1e-9);
-        assert!((overlap_ratio(a, (-950.0, -500.0, 100.0, 100.0)) - 0.5).abs() < 1e-9);
+        let c = [win("a", (-1000.0, -500.0, 100.0, 100.0))];
+        assert_eq!(drop_target((-950.0, -450.0), &c).unwrap().0, "a");
+        assert!(drop_target((-1100.0, -450.0), &c).is_none());
     }
 
     #[test]
-    fn overlap_is_symmetric_for_contained_windows() {
-        // #78 회귀: 큰 창을 작은 창 위에 완전히 덮어도, 작은 창을 큰 창에
-        // 넣어도 같은 100% — 어느 쪽을 끌든 병합 판정이 동일해야 한다
-        let small = (10.0, 10.0, 50.0, 50.0);
-        let big = (0.0, 0.0, 200.0, 200.0);
-        assert!((overlap_ratio(small, big) - 1.0).abs() < 1e-9);
-        assert!((overlap_ratio(big, small) - 1.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn dragging_big_window_onto_small_note_reaches_merge_threshold() {
-        // #78 재현 시나리오: 큰 창(400×500)을 작은 노트(220×160) 위로 —
-        // 작은 창의 60% 이상을 덮으면 흡수돼야 한다
-        let big = (0.0, 0.0, 400.0, 500.0);
-        let small_mostly_covered = (300.0, 400.0, 220.0, 160.0); // 100×100 겹침
-        let r = overlap_ratio(big, small_mostly_covered);
-        assert!(r < 0.6, "일부만 걸치면 아직 병합 아님: {r}");
-        let small_under_big = (150.0, 300.0, 220.0, 160.0); // 완전히 큰 창 안
-        assert!((overlap_ratio(big, small_under_big) - 1.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn overlap_touching_edges_is_zero() {
-        let a = (0.0, 0.0, 100.0, 100.0);
-        assert_eq!(overlap_ratio(a, (100.0, 0.0, 100.0, 100.0)), 0.0);
-        assert_eq!(overlap_ratio(a, (0.0, 100.0, 100.0, 100.0)), 0.0);
-    }
-
-    #[test]
-    fn overlap_zero_size_is_zero_not_nan() {
-        let a = (0.0, 0.0, 0.0, 0.0);
-        let b = (0.0, 0.0, 100.0, 100.0);
-        assert_eq!(overlap_ratio(a, b), 0.0);
-        assert_eq!(overlap_ratio(b, a), 0.0);
+    fn no_candidates_means_no_target() {
+        let c: [((String, String), Rect); 0] = [];
+        assert!(drop_target((0.0, 0.0), &c).is_none());
     }
 
     fn note(id: &str) -> Note {

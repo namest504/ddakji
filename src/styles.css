@@ -718,6 +718,16 @@ body {
   font-size: 14px;
 }
 
+/* 알림 배너는 툴바 **위** 레이어여야 한다 (#118).
+   툴바는 숨어 있어도(opacity:0) 상단 스트립의 클릭을 가져간다 — 마우스를
+   올리면 나타나는 구조 자체가 그것에 기대고 있다. 배너는 일반 흐름의 첫
+   요소라 정확히 그 아래 깔려, 보이는데 눌리지 않는 버튼이 된다. */
+.save-error,
+.merge-undo {
+  position: relative;
+  z-index: var(--z-pop);
+}
+
 .save-error {
   background: var(--danger);
   color: white;

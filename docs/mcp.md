@@ -9,7 +9,11 @@ GUI와 동일하게 동작하고, 앱이 실행 중이면 변경이 화면에 �
 
 ## 등록
 
-**Claude Desktop** — `claude_desktop_config.json`:
+경로를 직접 적지 말고 **서버에게 물어보세요** — 자기 위치를 넣은 설정을 그대로 뱉습니다:
+
+```sh
+ddakji-mcp --print-config
+```
 
 ```json
 {
@@ -20,6 +24,8 @@ GUI와 동일하게 동작하고, 앱이 실행 중이면 변경이 화면에 �
   }
 }
 ```
+
+**Claude Desktop** — 위 출력을 `claude_desktop_config.json`에 붙여 넣습니다.
 
 **Claude Code**:
 
@@ -37,7 +43,9 @@ claude mcp add ddakji -- /path/to/ddakji-mcp
 | `append_note`   | 끝에 덧붙이기 — 열린 노트에는 edit보다 안전            |
 | `edit_note`     | 본문 전체 교체                                         |
 | `set_note_meta` | 모음집·색·제목 변경 (빈 문자열 = 해제)                 |
-| `delete_note`   | 삭제 (되돌릴 수 없음)                                  |
+| `delete_note`   | 휴지통으로 보내기 (`restore_note`로 되돌림)            |
+| `list_trash`    | 휴지통 목록 — 지운 노트와 지운 시각                    |
+| `restore_note`  | 휴지통에서 되살리기                                    |
 | `list_groups`   | 모음집 이름 목록                                       |
 | `merge_notes`   | moved(와 그 모음집 전체)를 target의 모음집으로         |
 | `open_note`     | 노트를 사용자 화면의 앱 창으로 (앱이 꺼져 있으면 시작) |

@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+### 추가
+
+- **휴지통을 CLI·MCP에서도 다룹니다** — `ddakji-cli trash`·`restore`,
+  MCP 도구 `list_trash`·`restore_note`. 지금까지 삭제는 어느 경로로든 가능했지만
+  **되돌리기는 앱 목록 창에만 있었습니다.** AI에게 되돌릴 수 없는 삭제만 쥐어
+  주던 셈이라, 지운 쪽과 되살리는 쪽을 같은 자리에 맞췄습니다.
+- **`ddakji-cli skill`** — AI 에이전트용 사용 설명서를 출력하거나
+  (`--install`) 스킬 폴더에 심습니다. 문서를 실행 파일에 박아 두어 앱을
+  갱신하면 설명서도 함께 갱신됩니다 ([docs/cli.md](docs/cli.md))
+- **`ddakji-mcp --print-config`** — 자기 경로를 넣은 등록용 JSON을 출력합니다.
+  MCP 클라이언트 설정에 그대로 붙여 넣으면 됩니다 ([docs/mcp.md](docs/mcp.md))
+
 ## [0.1.6] - 2026-08-13
 
 ### 추가

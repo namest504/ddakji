@@ -17,10 +17,13 @@ GUI 앱과 **같은 저장소 규칙**을 그대로 사용합니다 — 모음�
 | `append <id> <텍스트>`    | 노트 끝에 덧붙이기 (빈 줄로 구분)                     |
 | `edit <id> <본문>`        | 본문 전체 교체                                        |
 | `set <id> --group <이름>` | 메타 변경 — `--color` `--title`도. 빈 문자열 = 해제   |
-| `delete <id>`             | 휴지통으로 보내기 (앱의 휴지통에서 복원 가능)         |
+| `delete <id>`             | 휴지통으로 보내기 (`restore`로 되돌림)                |
+| `trash`                   | 휴지통 목록 — `id · 지운 시각 · 첫 줄` 탭 구분        |
+| `restore <id>`            | 휴지통에서 되살리기                                   |
 | `open <id>`               | 노트를 앱 창으로 연다 (앱이 꺼져 있으면 시작)         |
 | `groups`                  | 모음집 이름 목록                                      |
 | `merge <moved> <target>`  | moved(와 그 모음집 전체)를 target의 모음집으로 통합   |
+| `skill`                   | AI 에이전트용 설명서 출력 (`--install`이면 심는다)    |
 
 공통 옵션: `--json`(스크립트·AI용 JSON 출력), `--data-dir <경로>`(기본은 앱과
 같은 데이터 폴더).
@@ -39,6 +42,29 @@ ddakji-cli add "빠른 메모" --open
 
 # 기존 노트에 한 줄 덧붙이기
 ddakji-cli append 20260810-171234-7b71ea "- [ ] 내일 할 일"
+
+# 실수로 지웠을 때
+ddakji-cli trash
+ddakji-cli restore 20260810-171234-7b71ea
+```
+
+## AI 에이전트에 물려 주기
+
+`skill` 명령이 에이전트용 사용 설명서를 내놓습니다. **문서는 실행 파일 안에
+박혀 있어** 앱을 갱신하면 설명서도 같이 갱신됩니다 — 따로 관리하던 사본이
+낡아 실제 동작과 어긋나는 일을 없애려는 것입니다.
+
+```sh
+ddakji-cli skill                        # stdout으로 출력
+ddakji-cli skill --install              # ~/.claude/skills/ddakji/SKILL.md 에 심는다
+ddakji-cli skill --install --dir DIR    # 위치 지정
+```
+
+WSL에서 Windows 실행 파일을 부를 때는 `--dir`이 필요합니다. Windows 쪽 exe는
+리눅스 홈(`/home/...`)을 알지 못해 기본값이 `C:\Users\...`로 잡힙니다:
+
+```sh
+ddakji-cli.exe skill --install --dir ~/.claude/skills
 ```
 
 ## 종료 코드

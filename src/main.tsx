@@ -8,11 +8,6 @@ import "./styles.css";
 
 initTheme();
 
-// 글라스(투명+블러)는 Windows Acrylic 전제 — 그 외 플랫폼은 불투명 폴백
-if (!navigator.userAgent.includes("Windows")) {
-  document.documentElement.dataset.glass = "off";
-}
-
 const params = new URLSearchParams(location.search);
 const noteId = params.get("note");
 const view = params.get("view");

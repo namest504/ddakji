@@ -2,7 +2,7 @@ import { useState } from "react";
 import * as api from "../lib/api";
 import type { FontFamily, Note, NoteColor } from "../lib/api";
 import { fontStack } from "../lib/noteUtils";
-import { CloseIcon, GroupIcon, ListIcon, PinIcon, PlusIcon, PopOutIcon, TrashIcon } from "./icons";
+import { CloseIcon, GroupIcon, HideIcon, ListIcon, PinIcon, PlusIcon, PopOutIcon } from "./icons";
 
 const COLORS: NoteColor[] = ["yellow", "green", "pink", "purple", "blue", "gray", "charcoal"];
 const FONTS: { key: FontFamily; label: string }[] = [
@@ -21,8 +21,10 @@ interface Props {
   onPin: () => void;
   onFontDelta: (d: number) => void;
   onNew: () => void;
-  onDelete: () => void;
   onOpenList: () => void;
+  /** 모음집일 때만 — 이 장만 치우는 버튼을 낸다 */
+  canHideNote: boolean;
+  onHideNote: () => void;
   onClose: () => void;
 }
 
@@ -80,10 +82,19 @@ export default function Toolbar(p: Props) {
       <button title="노트 목록 (Ctrl+L)" onClick={p.onOpenList}>
         <ListIcon />
       </button>
-      <button title="삭제" onClick={p.onDelete}>
-        <TrashIcon />
-      </button>
-      <button title="닫기 (Ctrl+W, 트레이로 숨김)" onClick={p.onClose}>
+      {p.canHideNote && (
+        <button title="이 장만 숨기기 (Ctrl+W) — 창은 다음 장으로" onClick={p.onHideNote}>
+          <HideIcon />
+        </button>
+      )}
+      <button
+        title={
+          p.canHideNote
+            ? "이 창 숨기기 (Ctrl+Shift+W) — 모음집 전체"
+            : "숨기기 (Ctrl+W) — 목록에서 다시 열 수 있다"
+        }
+        onClick={p.onClose}
+      >
         <CloseIcon />
       </button>
       {popover === "colors" && (

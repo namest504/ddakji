@@ -6,11 +6,12 @@ import { CheckboxIcon } from "../note/icons";
 import { GearIcon, ImportIcon, InfoIcon, PlusIcon, TrashIcon } from "../note/icons";
 import DetailView from "./DetailView";
 import SettingsView from "./SettingsView";
+import TrashView from "./TrashView";
 
 export default function ListApp() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<"list" | "settings">("list");
+  const [view, setView] = useState<"list" | "settings" | "trash">("list");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -34,7 +35,7 @@ export default function ListApp() {
 
   const remove = async (id: string) => {
     const { ask } = await import("@tauri-apps/plugin-dialog");
-    const ok = await ask("이 노트를 삭제할까요? 되돌릴 수 없습니다.", {
+    const ok = await ask("이 노트를 휴지통으로 보낼까요? 휴지통에서 되돌릴 수 있습니다.", {
       title: "노트 삭제",
       kind: "warning",
       okLabel: "삭제",
@@ -74,6 +75,7 @@ export default function ListApp() {
   };
 
   if (view === "settings") return <SettingsView onBack={() => setView("list")} />;
+  if (view === "trash") return <TrashView onBack={() => setView("list")} onRestored={reload} />;
   if (detailId)
     return (
       <DetailView
@@ -121,6 +123,9 @@ export default function ListApp() {
           }}
         >
           <CheckboxIcon />
+        </button>
+        <button className="icon-btn" title="휴지통" onClick={() => setView("trash")}>
+          <TrashIcon />
         </button>
         <button className="icon-btn" title="설정" onClick={() => setView("settings")}>
           <GearIcon />

@@ -789,7 +789,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.19",
  "uuid",
- "window-vibrancy",
  "winreg 0.55.0",
 ]
 

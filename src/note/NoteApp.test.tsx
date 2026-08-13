@@ -45,6 +45,9 @@ vi.mock("../lib/api", () => ({
   saveImage: vi.fn(),
   importImage: vi.fn(),
   dataRoot: vi.fn(),
+  revealNote: vi.fn(),
+  hideNote: vi.fn(),
+  hideGroup: vi.fn(),
   groupMembers: vi.fn(),
   navGroup: vi.fn(),
   navTo: vi.fn(),
@@ -96,6 +99,8 @@ const setupNote = (note: Note, members: string[] = []) => {
   vi.mocked(api.mergePreview).mockResolvedValue(false);
   vi.mocked(api.setLastViewed).mockResolvedValue(undefined);
   vi.mocked(api.popOut).mockResolvedValue(null);
+  vi.mocked(api.hideNote).mockResolvedValue(null);
+  vi.mocked(api.hideGroup).mockResolvedValue(undefined);
 };
 
 beforeEach(() => {
@@ -261,6 +266,109 @@ describe("NoteApp 외부 변경 리로드 (#12)", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText("남의 본문")).toBeNull();
     expect(screen.getByText("내 본문")).toBeTruthy();
+  });
+});
+
+describe("NoteApp 뒷면 (딱지 시안)", () => {
+  it("빗금 그립을 누르면 뒷면 정보가 나오고, 다시 누르면 앞면으로 돌아온다", async () => {
+    setupNote(mkNote("n1", "앞면 본문", { group: "모음" }), ["n1", "n2"]);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(screen.getByText("만든 날")).toBeTruthy();
+    expect(screen.getByText("모음")).toBeTruthy();
+    expect(screen.getByText("n1.md")).toBeTruthy();
+    // 뒷면에서는 넘기기 화살표가 숨는다
+    expect(screen.queryByTitle("다음 노트 (Alt+→)")).toBeNull();
+    fireEvent.click(screen.getByTitle("앞면으로"));
+    await screen.findByText("앞면 본문");
+  });
+
+  it("뒷면의 파일 위치 열기는 revealNote를 부른다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    vi.mocked(api.revealNote).mockResolvedValue(undefined);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    fireEvent.click(screen.getByText("파일 위치 열기"));
+    expect(api.revealNote).toHaveBeenCalledWith("n1");
+  });
+
+  it("뒷면의 삭제는 확인 후 deleteNote를 부른다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    const { ask } = await import("@tauri-apps/plugin-dialog");
+    vi.mocked(ask).mockResolvedValue(true);
+    vi.mocked(api.deleteNote).mockResolvedValue(undefined);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    fireEvent.click(screen.getByText("삭제"));
+    await waitFor(() => expect(api.deleteNote).toHaveBeenCalledWith("n1"));
+  });
+
+  it("모음집에서 뒷면 삭제 후 넘겨받은 장은 앞면으로 보인다", async () => {
+    // 회귀: 삭제하면 창이 파괴돼 모음집 전체가 사라졌다. 이제 창은 다음 장으로
+    // 넘어오는데, 뒤집힌 상태가 남아 남의 뒷면부터 보이면 안 된다.
+    const cur = mkNote("n1", "지울 장", { group: "모음" });
+    const next = mkNote("n2", "남는 장 본문", { group: "모음", group_order: 1 });
+    setupNote(cur, ["n1", "n2"]);
+    vi.mocked(api.listNotes).mockResolvedValue([cur, next]);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.events?.["switch-note"]).toBeTruthy());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(screen.getByText("만든 날")).toBeTruthy();
+    // 백엔드가 삭제 후 이 창을 다음 멤버로 넘긴다
+    act(() => win.events!["switch-note"]({ payload: next }));
+    await screen.findByText("남는 장 본문");
+    expect(screen.queryByText("만든 날")).toBeNull();
+    expect(win.destroy).not.toHaveBeenCalled();
+  });
+});
+
+describe("NoteApp 숨기기 두 갈래", () => {
+  it("모음집에서 Ctrl+W는 이 장만 숨기고 창은 다음 장을 보여 준다", async () => {
+    const cur = mkNote("n1", "이 장 본문", { group: "모음" });
+    const next = mkNote("n2", "다음 장 본문", { group: "모음", group_order: 1 });
+    setupNote(cur, ["n1", "n2"]);
+    vi.mocked(api.listNotes).mockResolvedValue([cur, next]);
+    vi.mocked(api.hideNote).mockResolvedValue(next);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.keyDown(window, { key: "w", ctrlKey: true });
+    await waitFor(() => expect(api.hideNote).toHaveBeenCalled());
+    await screen.findByText("다음 장 본문");
+    expect(win.close).not.toHaveBeenCalled();
+  });
+
+  it("전환할 장이 없으면 Ctrl+W는 창까지 내린다", async () => {
+    setupNote(mkNote("n1", "혼자 있는 노트"));
+    vi.mocked(api.hideNote).mockResolvedValue(null);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.keyDown(window, { key: "w", ctrlKey: true });
+    await waitFor(() => expect(win.close).toHaveBeenCalled());
+  });
+
+  it("Ctrl+Shift+W는 모음집 전체를 숨기고 창을 내린다", async () => {
+    setupNote(mkNote("n1", "그룹 노트", { group: "모음" }), ["n1", "n2"]);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.keyDown(window, { key: "w", ctrlKey: true, shiftKey: true });
+    await waitFor(() => expect(api.hideGroup).toHaveBeenCalled());
+    await waitFor(() => expect(win.close).toHaveBeenCalled());
+    expect(api.hideNote).not.toHaveBeenCalled();
+  });
+
+  it("툴바의 '이 장만 숨기기'는 모음집일 때만 있다", async () => {
+    setupNote(mkNote("n1", "혼자 있는 노트"));
+    const solo = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    expect(screen.queryByTitle(/이 장만 숨기기/)).toBeNull();
+    solo.unmount();
+
+    setupNote(mkNote("n2", "그룹 노트", { group: "모음" }), ["n2", "n3"]);
+    render(<NoteApp noteId="n2" />);
+    await screen.findByTitle(/이 장만 숨기기/);
   });
 });
 

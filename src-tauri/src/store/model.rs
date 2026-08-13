@@ -148,6 +148,14 @@ impl Default for Settings {
     }
 }
 
+/// 휴지통 항목 — 노트 원본 + 지운 시각. 지운 시각은 스키마를 늘리지 않으려고
+/// 휴지통 파일의 mtime으로 남긴다(`Store::delete`가 옮긴 뒤 덮어쓴다).
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct TrashedNote {
+    pub note: Note,
+    pub deleted_at: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Note {
     pub meta: NoteMeta,

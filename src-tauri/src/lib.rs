@@ -48,6 +48,10 @@ pub fn run() {
             commands::save_body,
             commands::save_meta,
             commands::delete_note,
+            commands::list_trash,
+            commands::restore_note,
+            commands::purge_note,
+            commands::empty_trash,
             commands::open_note,
             commands::open_list,
             commands::save_image,
@@ -68,6 +72,8 @@ pub fn run() {
             commands::check_merge,
             commands::merge_preview,
             commands::pop_out,
+            commands::hide_note,
+            commands::hide_group,
             commands::list_groups,
         ])
         .setup(setup)

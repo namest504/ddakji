@@ -67,6 +67,11 @@ WSL에서 Windows 실행 파일을 부를 때는 `--dir`이 필요합니다. Win
 ddakji-cli.exe skill --install --dir ~/.claude/skills
 ```
 
+단, 이때 **작업 디렉터리가 WSL 안이어야** 합니다. Windows 프로세스에게
+`/home/...`은 "현재 드라이브의 루트부터"라는 뜻이고, WSL에서 실행하면 현재
+디렉터리가 `\\wsl.localhost\...`로 잡혀 결과적으로 리눅스 홈을 가리킵니다.
+`C:` 어딘가에서 실행하면 `C:\home\...`에 떨어지니, 출력된 경로를 확인하세요.
+
 ## 종료 코드
 
 성공 0, 실패 1 (메시지는 stderr). 없는 노트는 `NOTE_NOT_FOUND`.

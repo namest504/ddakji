@@ -45,7 +45,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     switchTo,
     setNote,
   });
-  const mergeHint = useWindowSync(noteId);
+  const { mergeHint, merged, dismissMerged } = useWindowSync(noteId);
   const { hideNote, hideWindow } = useHide({ flushBody, switchTo });
   useNoteShortcuts({ changeFont, navigate, popOut, flushBody, hideNote, hideWindow });
 
@@ -123,6 +123,19 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       {saveError && (
         <div className="save-error">
           저장 실패 — <button onClick={retry}>재시도</button>
+        </div>
+      )}
+      {merged && (
+        <div className="merge-undo">
+          모음집으로 합쳤습니다
+          <button
+            onClick={() => {
+              dismissMerged();
+              api.undoMerge().catch(() => {});
+            }}
+          >
+            되돌리기
+          </button>
         </div>
       )}
       {inGroup && !flipped && (

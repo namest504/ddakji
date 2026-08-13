@@ -789,6 +789,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.19",
  "uuid",
+ "windows",
  "winreg 0.55.0",
 ]
 

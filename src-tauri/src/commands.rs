@@ -17,6 +17,26 @@ pub struct IdDir(pub std::path::PathBuf);
 /// 창 label → 표시 중인 노트 id (#25 그룹 넘기기로 창-노트가 동적이 됨)
 pub struct WindowNotes(pub Mutex<std::collections::HashMap<String, String>>);
 
+/// 합치기를 되돌리는 데 필요한 이전 상태 (#115)
+pub struct MergeUndo {
+    /// (노트 id, 합치기 이전 모음집) — 대상과 끌던 쪽 멤버 전부
+    pub previous: Vec<(String, Option<String>)>,
+    /// 흡수되어 닫힌 창의 노트
+    pub moved_id: String,
+    /// 그 창이 있던 자리 (논리 픽셀)
+    pub moved_window: crate::store::WindowBounds,
+}
+
+/// 직전 합치기 한 칸만 기억한다 — 세션 한정, "방금 그거"를 무르는 용도.
+pub struct LastMerge(pub Mutex<Option<MergeUndo>>);
+
+/// 드래그 중 마지막으로 본 커서 위치 = 놓은 지점 (#115).
+///
+/// 판정은 창이 멎고 500ms 뒤에 도는데, 그때 커서를 읽으면 이미 사용자가
+/// 마우스를 다른 데로 옮긴 뒤일 수 있다. **버튼이 눌린 동안** 본 좌표만
+/// 드롭 지점으로 인정한다.
+pub struct DragCursor(pub Mutex<Option<(f64, f64)>>);
+
 /// 상태 잠금 — 다른 스레드가 패닉했을 때만 실패한다.
 fn lock<T>(m: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>> {
     m.lock().map_err(|_| Error::Poisoned)
@@ -264,24 +284,27 @@ pub fn data_root(store: StoreState) -> Result<String> {
 /// 창 사각형 (x, y, w, h) — 물리 픽셀
 type Rect = (f64, f64, f64, f64);
 
-/// 합치기 후보: (창 label, 노트 id, 겹침 비율, 대상 사각형)
-type MergeCandidate = (String, String, f64, Rect);
-
-/// 두 창이 겹치는 비율 — **둘 중 작은 창** 면적 기준 0.0~1.0 (#78).
+/// 커서가 놓인 지점이 어느 창 위인지 — 합치기의 유일한 기준 (#115).
 ///
-/// 이동한 창 면적을 분모로 쓰면 큰 창을 작은 창 위에 완전히 덮어도 비율이
-/// 면적비(작은창/큰창)에 머물러 병합이 발동하지 않는다. 작은 면적 기준이면
-/// 어느 쪽을 끌든 같은 판정이 된다.
-pub fn overlap_ratio(a: Rect, b: Rect) -> f64 {
-    let (ax, ay, aw, ah) = a;
-    let (bx, by, bw, bh) = b;
-    let iw = (ax + aw).min(bx + bw) - ax.max(bx);
-    let ih = (ay + ah).min(by + bh) - ay.max(by);
-    let denom = (aw * ah).min(bw * bh);
-    if iw <= 0.0 || ih <= 0.0 || denom <= 0.0 {
-        return 0.0;
-    }
-    (iw * ih) / denom
+/// 겹침 면적으로 재던 이전 방식은 "얼마나 덮였나"를 물었지만, 사용자는 창을
+/// **겨냥해서** 놓는다. 지점 기준이면 겨냥한 곳이 곧 대상이라 예측 가능하고,
+/// 옆에 나란히 두려다 우연히 합쳐지는 일도 없다.
+///
+/// 후보가 여럿 겹치면 **더 작은 창**을 고른다 — 큰 창 위에 작은 창이 얹힌
+/// 배치에서 사용자가 겨냥한 쪽은 위에 있는 작은 창이다.
+///
+/// `candidates`에는 끌고 있는 창을 넣지 않는다 (커서는 늘 그 창 위에 있다).
+pub fn drop_target<T>(cursor: (f64, f64), candidates: &[(T, Rect)]) -> Option<&T> {
+    let (cx, cy) = cursor;
+    candidates
+        .iter()
+        .filter(|(_, (x, y, w, h))| cx >= *x && cx < x + w && cy >= *y && cy < y + h)
+        .min_by(|(_, a), (_, b)| {
+            (a.2 * a.3)
+                .partial_cmp(&(b.2 * b.3))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(t, _)| t)
 }
 
 /// 드래그 합치기 시 새 그룹 이름 — "새 그룹 {번호}" 순번 자동 부여
@@ -484,27 +507,34 @@ pub async fn merge_preview(
     app: AppHandle,
     window: tauri::WebviewWindow,
     wn: State<'_, WindowNotes>,
+    drag: State<'_, DragCursor>,
 ) -> Result<bool> {
     let label = window.label().to_string();
-    let Ok(ap) = window.outer_position() else {
+    let Some(cursor) = crate::pointer::cursor_pos() else {
         return Ok(false);
     };
-    let Ok(asz) = window.outer_size() else {
-        return Ok(false);
-    };
-    let a = (
-        ap.x as f64,
-        ap.y as f64,
-        asz.width as f64,
-        asz.height as f64,
-    );
-    let entries: Vec<String> = lock(&wn.0)?
+    // 드래그로 움직이는 중에만 드롭 지점 후보로 기억한다. 버튼을 누르지 않은
+    // 이동(프로그램에 의한 배치 등)은 합치기 대상이 아니다.
+    if crate::pointer::primary_button_down() == Some(true) {
+        *lock(&drag.0)? = Some(cursor);
+    }
+    Ok(drop_target(cursor, &other_note_rects(&app, &wn, &label)?).is_some())
+}
+
+/// 끌고 있는 창을 뺀, 화면에 떠 있는 노트 창들의 (label, id, 사각형).
+/// 커서는 늘 끌고 있는 창 위에 있으므로 그 창은 후보에서 제외한다.
+fn other_note_rects(
+    app: &AppHandle,
+    wn: &State<'_, WindowNotes>,
+    label: &str,
+) -> Result<Vec<((String, String), Rect)>> {
+    let entries: Vec<(String, String)> = lock(&wn.0)?
         .iter()
-        .filter(|(l, _)| **l != label)
-        .map(|(l, _)| l.clone())
+        .filter(|(l, _)| l.as_str() != label)
+        .map(|(l, id)| (l.clone(), id.clone()))
         .collect();
-    let mut hint = false;
-    for l in entries {
+    let mut out = Vec::new();
+    for (l, id) in entries {
         let Some(w) = app.get_webview_window(&l) else {
             continue;
         };
@@ -514,29 +544,43 @@ pub async fn merge_preview(
         let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else {
             continue;
         };
-        if overlap_ratio(
-            a,
+        out.push((
+            (l, id),
             (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64),
-        ) >= 0.6
-        {
-            hint = true;
-            break;
-        }
+        ));
     }
-    let _ = label;
-    Ok(hint)
+    Ok(out)
 }
 
-/// 드래그 종료 후 호출 — 다른 노트 창과 충분히 겹치면(60%+) 그 노트와 같은
-/// 모음집으로 묶고, 끌던 창은 닫는다 (#25 G4)
+/// 다른 노트 창과 충분히 겹치게 **놓였으면**(60%+) 그 노트와 같은 모음집으로
+/// 묶고, 끌던 창은 닫는다 (#25 G4).
+///
+/// 프런트는 움직임이 멎으면 이 커맨드를 부르지만, 멎은 것과 놓은 것은 다르다
+/// (#115). 여기서 마우스 버튼이 떨어질 때까지 기다린 **뒤에** 위치를 잰다 —
+/// 기다리는 동안 창이 더 움직였을 수 있으므로 판정은 놓인 자리로 해야 한다.
 #[tauri::command]
 pub async fn check_merge(
     app: AppHandle,
     window: tauri::WebviewWindow,
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
+    last: State<'_, LastMerge>,
+    drag: State<'_, DragCursor>,
 ) -> Result<bool> {
     use tauri::Emitter;
+    // 놓을 때까지 기다리고, **버튼이 눌린 동안** 본 좌표를 드롭 지점으로 삼는다.
+    // 놓은 뒤에 읽으면 그사이 마우스를 옮긴 자리로 오판한다 (#115).
+    let sampled = crate::pointer::wait_for_drop();
+    let remembered = lock(&drag.0)?.take();
+    let dropped_at = match sampled {
+        Err(()) => return Ok(false), // 20초 넘게 누르고 있음 — 판정 포기
+        Ok(Some(p)) => Some(p),
+        // 이 호출이 시작될 땐 이미 놓인 뒤였다 — 드래그 중에 봐 둔 자리를 쓴다
+        Ok(None) => remembered,
+    };
+    let Some(cursor) = dropped_at else {
+        return Ok(false);
+    };
     let label = window.label().to_string();
     let moved_id = lock(&wn.0)?
         .get(&label)
@@ -550,39 +594,59 @@ pub async fn check_merge(
         asz.width as f64,
         asz.height as f64,
     );
-    let entries: Vec<(String, String)> = lock(&wn.0)?
-        .iter()
-        .filter(|(l, _)| **l != label)
-        .map(|(l, id)| (l.clone(), id.clone()))
-        .collect();
-    let mut best: Option<MergeCandidate> = None;
-    for (l, id) in entries {
-        let Some(w) = app.get_webview_window(&l) else {
-            continue;
-        };
-        if !w.is_visible().unwrap_or(false) {
-            continue;
-        }
-        let (Ok(p), Ok(sz)) = (w.outer_position(), w.outer_size()) else {
-            continue;
-        };
-        let b = (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64);
-        let r = overlap_ratio(a, b);
-        if r > best.as_ref().map(|x| x.2).unwrap_or(0.0) {
-            best = Some((l, id, r, b));
-        }
-    }
-    let Some((target_label, target_id, ratio, tb)) = best else {
+    // 놓인 지점이 어느 창 위인지로 정한다 — 겨냥한 곳이 곧 대상 (#115).
+    // `cursor`는 위에서 구한 **놓은 순간**의 좌표다.
+    let candidates = other_note_rects(&app, &wn, &label)?;
+    let Some((target_label, target_id)) = drop_target(cursor, &candidates).cloned() else {
         return Ok(false);
     };
-    if ratio < 0.6 || target_id == moved_id {
+    if target_id == moved_id {
         return Ok(false);
     }
+    let tb = candidates
+        .iter()
+        .find(|((l, _), _)| *l == target_label)
+        .map(|(_, r)| *r)
+        .unwrap_or(a);
+    // 되돌리기용 이전 상태 — 합치기 **전에** 찍어 둔다 (#115)
+    let previous = {
+        let s = lock(&store)?;
+        let mut v: Vec<(String, Option<String>)> = Vec::new();
+        if let Some(t) = s.load(&target_id) {
+            v.push((target_id.clone(), t.meta.group.clone()));
+        }
+        match s.load(&moved_id).and_then(|m| m.meta.group) {
+            // 모음집째 얹혔다면 그 멤버 전부가 대상 그룹으로 이적한다
+            Some(old) => v.extend(
+                s.group_notes(&old)
+                    .into_iter()
+                    .map(|n| (n.meta.id, n.meta.group)),
+            ),
+            None => v.push((moved_id.clone(), None)),
+        }
+        v
+    };
+    // 창이 있던 자리 — 되돌릴 때 이 자리로 다시 연다. 드롭을 기다리는 동안
+    // 움직였을 수 있으므로 저장된 메타가 아니라 지금 실제 위치를 쓴다.
+    let factor = window.scale_factor().unwrap_or(1.0);
+    let moved_window = crate::store::WindowBounds {
+        x: a.0 / factor,
+        y: a.1 / factor,
+        w: a.2 / factor,
+        h: a.3 / factor,
+    };
     // 모음집 창을 얹으면 모음집 전체가 대상 그룹으로 통합된다 (같은 그룹이면 창만 흡수)
     let changed = {
         let s = lock(&store)?;
         s.merge_note_groups(&moved_id, &target_id)?
     };
+    if let Ok(mut slot) = last.0.lock() {
+        *slot = Some(MergeUndo {
+            previous,
+            moved_id: moved_id.clone(),
+            moved_window,
+        });
+    }
     // 흡수 애니메이션: 끌던 창이 대상 중심으로 미끄러져 들어간 뒤 닫힌다
     let (tcx, tcy) = (tb.0 + tb.2 / 2.0, tb.1 + tb.3 / 2.0);
     let (scx, scy) = (a.0 + a.2 / 2.0, a.1 + a.3 / 2.0);
@@ -599,11 +663,53 @@ pub async fn check_merge(
     }
     if let Some(w) = app.get_webview_window(&target_label) {
         let _ = w.set_focus();
+        // 흡수한 창이 "합쳤습니다 · 되돌리기"를 띄운다 (#115) — 판정이 한 번
+        // 틀려도 손해가 없어야 한다
+        let _ = w.emit_to(&target_label, "merged-in", ());
     }
     if changed {
         let _ = app.emit("groups-changed", ());
     }
     let _ = window.destroy();
+    Ok(true)
+}
+
+/// 직전 합치기 되돌리기 (#115) — 이전 모음집을 복구하고, 흡수되며 닫힌 창을
+/// 있던 자리에 다시 연다. 한 칸만 기억하므로 "방금 그거"에만 쓴다.
+#[tauri::command]
+pub async fn undo_merge(
+    app: AppHandle,
+    store: StoreState<'_>,
+    last: State<'_, LastMerge>,
+) -> Result<bool> {
+    use tauri::Emitter;
+    let Some(u) = lock(&last.0)?.take() else {
+        return Ok(false);
+    };
+    let note = {
+        let s = lock(&store)?;
+        // 모음집 복구. 대상이 원래 무소속이었다면 멤버가 하나만 남으므로
+        // Store가 알아서 해제한다(룰3) — 여기서 따로 지울 필요가 없다.
+        for (id, group) in &u.previous {
+            let _ = s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some(group.clone().unwrap_or_default()),
+                    ..Default::default()
+                },
+            );
+        }
+        s.save_meta(
+            &u.moved_id,
+            &MetaPatch {
+                window: Some(u.moved_window),
+                hidden: Some(false),
+                ..Default::default()
+            },
+        )?
+    };
+    windows::open_note_window(&app, &note)?;
+    let _ = app.emit("groups-changed", ());
     Ok(true)
 }
 
@@ -723,57 +829,56 @@ mod tests {
     use crate::store::NoteMeta;
     use std::collections::HashSet;
 
-    #[test]
-    fn overlap_full_partial_none() {
-        let a = (0.0, 0.0, 100.0, 100.0);
-        assert!((overlap_ratio(a, (0.0, 0.0, 100.0, 100.0)) - 1.0).abs() < 1e-9);
-        assert!((overlap_ratio(a, (50.0, 0.0, 100.0, 100.0)) - 0.5).abs() < 1e-9);
-        assert_eq!(overlap_ratio(a, (200.0, 200.0, 100.0, 100.0)), 0.0);
+    // 합치기 대상은 **커서가 놓인 지점**으로 정한다 (#115)
+    fn win(label: &str, r: Rect) -> ((String, String), Rect) {
+        ((label.into(), format!("note-{label}")), r)
     }
 
     #[test]
-    fn overlap_negative_coordinates() {
+    fn drop_target_is_the_window_under_the_cursor() {
+        let c = [win("a", (0.0, 0.0, 200.0, 200.0))];
+        assert_eq!(drop_target((100.0, 100.0), &c).unwrap().0, "a");
+    }
+
+    #[test]
+    fn no_target_when_cursor_is_outside_every_window() {
+        // 겹쳐 두기만 하고 빈 바탕에 놓으면 합쳐지지 않는다 — 겹침 면적으로
+        // 재던 이전 방식이 우연히 합쳐 버리던 자리
+        let c = [win("a", (0.0, 0.0, 200.0, 200.0))];
+        assert!(drop_target((400.0, 100.0), &c).is_none());
+    }
+
+    #[test]
+    fn overlapping_candidates_pick_the_smaller_window() {
+        // 큰 창 위에 작은 창이 얹힌 배치에서 사용자가 겨냥한 쪽은 위의 작은 창
+        let c = [
+            win("big", (0.0, 0.0, 400.0, 400.0)),
+            win("small", (50.0, 50.0, 100.0, 100.0)),
+        ];
+        assert_eq!(drop_target((100.0, 100.0), &c).unwrap().0, "small");
+    }
+
+    #[test]
+    fn window_edges_are_half_open() {
+        // 오른쪽·아래 경계는 다음 창의 몫 — 나란히 붙은 창에서 겹치지 않게
+        let c = [win("a", (0.0, 0.0, 100.0, 100.0))];
+        assert_eq!(drop_target((0.0, 0.0), &c).unwrap().0, "a");
+        assert!(drop_target((100.0, 50.0), &c).is_none());
+        assert!(drop_target((50.0, 100.0), &c).is_none());
+    }
+
+    #[test]
+    fn negative_coordinates_work() {
         // 보조 모니터가 주 모니터 왼쪽/위(음수 좌표)에 배치된 실사용 구성
-        let a = (-1000.0, -500.0, 100.0, 100.0);
-        assert!((overlap_ratio(a, (-1000.0, -500.0, 100.0, 100.0)) - 1.0).abs() < 1e-9);
-        assert!((overlap_ratio(a, (-950.0, -500.0, 100.0, 100.0)) - 0.5).abs() < 1e-9);
+        let c = [win("a", (-1000.0, -500.0, 100.0, 100.0))];
+        assert_eq!(drop_target((-950.0, -450.0), &c).unwrap().0, "a");
+        assert!(drop_target((-1100.0, -450.0), &c).is_none());
     }
 
     #[test]
-    fn overlap_is_symmetric_for_contained_windows() {
-        // #78 회귀: 큰 창을 작은 창 위에 완전히 덮어도, 작은 창을 큰 창에
-        // 넣어도 같은 100% — 어느 쪽을 끌든 병합 판정이 동일해야 한다
-        let small = (10.0, 10.0, 50.0, 50.0);
-        let big = (0.0, 0.0, 200.0, 200.0);
-        assert!((overlap_ratio(small, big) - 1.0).abs() < 1e-9);
-        assert!((overlap_ratio(big, small) - 1.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn dragging_big_window_onto_small_note_reaches_merge_threshold() {
-        // #78 재현 시나리오: 큰 창(400×500)을 작은 노트(220×160) 위로 —
-        // 작은 창의 60% 이상을 덮으면 흡수돼야 한다
-        let big = (0.0, 0.0, 400.0, 500.0);
-        let small_mostly_covered = (300.0, 400.0, 220.0, 160.0); // 100×100 겹침
-        let r = overlap_ratio(big, small_mostly_covered);
-        assert!(r < 0.6, "일부만 걸치면 아직 병합 아님: {r}");
-        let small_under_big = (150.0, 300.0, 220.0, 160.0); // 완전히 큰 창 안
-        assert!((overlap_ratio(big, small_under_big) - 1.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn overlap_touching_edges_is_zero() {
-        let a = (0.0, 0.0, 100.0, 100.0);
-        assert_eq!(overlap_ratio(a, (100.0, 0.0, 100.0, 100.0)), 0.0);
-        assert_eq!(overlap_ratio(a, (0.0, 100.0, 100.0, 100.0)), 0.0);
-    }
-
-    #[test]
-    fn overlap_zero_size_is_zero_not_nan() {
-        let a = (0.0, 0.0, 0.0, 0.0);
-        let b = (0.0, 0.0, 100.0, 100.0);
-        assert_eq!(overlap_ratio(a, b), 0.0);
-        assert_eq!(overlap_ratio(b, a), 0.0);
+    fn no_candidates_means_no_target() {
+        let c: [((String, String), Rect); 0] = [];
+        assert!(drop_target((0.0, 0.0), &c).is_none());
     }
 
     fn note(id: &str) -> Note {

@@ -724,6 +724,32 @@ body {
   padding: 4px 8px;
   font-size: 12px;
 }
+
+/* 합치기 되돌리기 (#115) — 판정이 한 번 틀려도 손해가 없도록 잠깐 떠 있는다.
+   위험을 알리는 배너가 아니라 방금 한 일의 확인이라 종이 톤을 유지한다. */
+.merge-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bar);
+  color: var(--ctl-ink-hover);
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.merge-undo button {
+  border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  background: transparent;
+  color: inherit;
+  border-radius: var(--r-btn);
+  padding: 3px 9px;
+  font: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.merge-undo button:hover {
+  background: var(--ctl-face-hover);
+}
 .save-error button {
   background: transparent;
   border: 1px solid white;

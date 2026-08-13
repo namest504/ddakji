@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Editor } from "@tiptap/react";
 import * as api from "../lib/api";
@@ -61,10 +61,16 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
 
   // 뒷면 전환 (딱지 시안): null = 아직 안 뒤집음, "front"는 돌아온 직후(복귀 슬라이드용)
   const [flip, setFlip] = useState<"back" | "front" | null>(null);
-  const flipped = flip === "back";
   // 이 창이 다른 장으로 넘어가면 앞면으로 돌아온다 — 삭제·넘기기로 넘겨받은 장의
-  // 뒷면부터 보여 줄 이유가 없고, 남의 정보를 뒤집힌 채로 마주치면 오해를 부른다
-  useEffect(() => setFlip(null), [noteId]);
+  // 뒷면부터 보여 줄 이유가 없고, 남의 정보를 뒤집힌 채로 마주치면 오해를 부른다.
+  // 효과가 아니라 렌더 중에 맞춘다(React의 "prop이 바뀔 때 state 조정" 패턴) —
+  // 효과로 하면 뒷면이 한 프레임 비쳤다가 사라진다.
+  const [flipFor, setFlipFor] = useState(noteId);
+  if (flipFor !== noteId) {
+    setFlipFor(noteId);
+    setFlip(null);
+  }
+  const flipped = flip === "back";
   const toggleFlip = () => {
     if (!flipped) flushBody(); // 에디터가 내려가기 전에 본문을 저장한다
     setFlip(flipped ? "front" : "back");

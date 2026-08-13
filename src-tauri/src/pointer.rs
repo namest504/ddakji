@@ -24,22 +24,30 @@ pub fn cursor_pos() -> Option<(f64, f64)> {
     imp::cursor_pos()
 }
 
-/// 드래그가 끝날 때까지(주 버튼이 떨어질 때까지) 기다린다.
+/// 드래그가 끝날 때까지(주 버튼이 떨어질 때까지) 기다리며, 기다리는 동안 본
+/// **마지막 커서 위치**를 돌려준다 — 그 자리가 곧 놓은 지점이다.
 ///
-/// - `true`  — 놓였다. 이제 위치를 재고 판정해도 된다
-/// - `false` — 너무 오래 눌려 있어 포기했다. 합치지 않는다
+/// 놓은 지점은 반드시 버튼이 눌린 동안 읽어야 한다. 놓은 **뒤에** 읽으면
+/// 그사이 사용자가 마우스를 옮긴 자리를 드롭 지점으로 오인한다 (#115).
 ///
-/// 버튼 상태를 알 수 없는 플랫폼에서는 곧바로 `true` — 기존 동작을 유지한다.
-pub fn wait_for_drop() -> bool {
+/// - `Ok(Some(p))` — 놓였고, 놓은 지점을 알아냈다
+/// - `Ok(None)` — 놓였지만 이 호출이 시작될 때 이미 버튼이 올라가 있어 놓은
+///   지점을 못 봤다. 호출자가 기억해 둔 값을 써야 한다
+/// - `Err(())` — 너무 오래 눌려 있어 포기했다. 합치지 않는다
+///
+/// 버튼 상태를 알 수 없는 플랫폼에서는 곧바로 `Ok(None)`.
+#[allow(clippy::result_unit_err)]
+pub fn wait_for_drop() -> Result<Option<(f64, f64)>, ()> {
     let started = Instant::now();
+    let mut last_while_down: Option<(f64, f64)> = None;
     loop {
         match primary_button_down() {
-            None => return true,
-            Some(false) => return true,
+            None | Some(false) => return Ok(last_while_down),
             Some(true) => {
                 if started.elapsed() >= MAX_WAIT {
-                    return false;
+                    return Err(());
                 }
+                last_while_down = cursor_pos().or(last_while_down);
                 std::thread::sleep(POLL);
             }
         }

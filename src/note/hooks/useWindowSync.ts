@@ -83,7 +83,11 @@ export function useWindowSync(noteId: string): {
           .catch(() => {});
       }
       window.clearTimeout(previewClear);
-      previewClear = window.setTimeout(() => setMergeHint(false), PREVIEW_LINGER);
+      // 판정이 대기 중(= 아직 놓지 않음)이면 예고를 걷지 않는다. 걷어 버리면
+      // 경고가 사라진 상태로 합쳐져 "갑자기 흡수"로 느껴진다 (#115).
+      previewClear = window.setTimeout(() => {
+        if (!mergePending) setMergeHint(false);
+      }, PREVIEW_LINGER);
       scheduleSave();
     });
     const un2 = win.onResized(scheduleSave);

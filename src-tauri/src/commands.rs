@@ -30,6 +30,13 @@ pub struct MergeUndo {
 /// 직전 합치기 한 칸만 기억한다 — 세션 한정, "방금 그거"를 무르는 용도.
 pub struct LastMerge(pub Mutex<Option<MergeUndo>>);
 
+/// 드래그 중 마지막으로 본 커서 위치 = 놓은 지점 (#115).
+///
+/// 판정은 창이 멎고 500ms 뒤에 도는데, 그때 커서를 읽으면 이미 사용자가
+/// 마우스를 다른 데로 옮긴 뒤일 수 있다. **버튼이 눌린 동안** 본 좌표만
+/// 드롭 지점으로 인정한다.
+pub struct DragCursor(pub Mutex<Option<(f64, f64)>>);
+
 /// 상태 잠금 — 다른 스레드가 패닉했을 때만 실패한다.
 fn lock<T>(m: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>> {
     m.lock().map_err(|_| Error::Poisoned)
@@ -500,11 +507,17 @@ pub async fn merge_preview(
     app: AppHandle,
     window: tauri::WebviewWindow,
     wn: State<'_, WindowNotes>,
+    drag: State<'_, DragCursor>,
 ) -> Result<bool> {
     let label = window.label().to_string();
     let Some(cursor) = crate::pointer::cursor_pos() else {
         return Ok(false);
     };
+    // 드래그로 움직이는 중에만 드롭 지점 후보로 기억한다. 버튼을 누르지 않은
+    // 이동(프로그램에 의한 배치 등)은 합치기 대상이 아니다.
+    if crate::pointer::primary_button_down() == Some(true) {
+        *lock(&drag.0)? = Some(cursor);
+    }
     Ok(drop_target(cursor, &other_note_rects(&app, &wn, &label)?).is_some())
 }
 
@@ -552,11 +565,22 @@ pub async fn check_merge(
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
     last: State<'_, LastMerge>,
+    drag: State<'_, DragCursor>,
 ) -> Result<bool> {
     use tauri::Emitter;
-    if !crate::pointer::wait_for_drop() {
+    // 놓을 때까지 기다리고, **버튼이 눌린 동안** 본 좌표를 드롭 지점으로 삼는다.
+    // 놓은 뒤에 읽으면 그사이 마우스를 옮긴 자리로 오판한다 (#115).
+    let sampled = crate::pointer::wait_for_drop();
+    let remembered = lock(&drag.0)?.take();
+    let dropped_at = match sampled {
+        Err(()) => return Ok(false), // 20초 넘게 누르고 있음 — 판정 포기
+        Ok(Some(p)) => Some(p),
+        // 이 호출이 시작될 땐 이미 놓인 뒤였다 — 드래그 중에 봐 둔 자리를 쓴다
+        Ok(None) => remembered,
+    };
+    let Some(cursor) = dropped_at else {
         return Ok(false);
-    }
+    };
     let label = window.label().to_string();
     let moved_id = lock(&wn.0)?
         .get(&label)
@@ -571,10 +595,7 @@ pub async fn check_merge(
         asz.height as f64,
     );
     // 놓인 지점이 어느 창 위인지로 정한다 — 겨냥한 곳이 곧 대상 (#115).
-    // 커서는 드롭을 기다린 뒤에 읽어야 한다: 기다리는 동안 더 움직였을 수 있다.
-    let Some(cursor) = crate::pointer::cursor_pos() else {
-        return Ok(false);
-    };
+    // `cursor`는 위에서 구한 **놓은 순간**의 좌표다.
     let candidates = other_note_rects(&app, &wn, &label)?;
     let Some((target_label, target_id)) = drop_target(cursor, &candidates).cloned() else {
         return Ok(false);

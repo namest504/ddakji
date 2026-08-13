@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import Image from "@tiptap/extension-image";
+import { MIN_IMAGE_WIDTH, ResizableImage, clampImageWidth } from "./extensions";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "tiptap-markdown";
@@ -15,7 +15,7 @@ const roundtrip = (src: string): string => {
       TaskList,
       TaskItem.configure({ nested: true }),
       TableKit.configure({ table: { resizable: false } }),
-      Image,
+      ResizableImage,
       Markdown.configure({ html: true }),
     ],
     content: src,
@@ -32,7 +32,7 @@ const makeEditor = (content: string) =>
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Image,
+      ResizableImage,
       Markdown.configure({ html: true }),
     ],
     content,
@@ -84,6 +84,24 @@ describe("마크다운 왕복 보존", () => {
   it("이미지 상대경로", () => {
     const out = roundtrip("![](assets/abc/img.png)");
     expect(out).toContain("assets/abc/img.png");
+  });
+
+  it("크기를 지정하지 않은 이미지는 평문 마크다운 그대로", () => {
+    // 손대지 않은 이미지에까지 HTML을 물리지 않는다 (#113)
+    const out = roundtrip("![](assets/abc/img.png)");
+    expect(out).toContain("![](assets/abc/img.png)");
+    expect(out).not.toContain("<img");
+  });
+
+  it("크기를 지정한 이미지는 폭이 살아남는다", () => {
+    const out = roundtrip('<img src="assets/abc/img.png" alt="" width="240">');
+    expect(out).toContain("assets/abc/img.png");
+    expect(out).toContain('width="240"');
+  });
+
+  it("style로 들어온 폭도 읽는다", () => {
+    const out = roundtrip('<img src="assets/abc/img.png" style="width: 180px">');
+    expect(out).toContain('width="180"');
   });
 
   it("굵게·기울임·취소선", () => {
@@ -138,5 +156,24 @@ describe("마크다운 왕복 보존", () => {
     expect(out).toContain("커서 앞 입력");
     // 셀 안 인라인 코드도 유지
     expect(out).toContain("`Esc`");
+  });
+});
+
+describe("이미지 크기 clamp (#113)", () => {
+  it("최소 폭 아래로는 줄지 않는다 — 잡을 수 없게 되면 되돌릴 방법이 없다", () => {
+    expect(clampImageWidth(200, -500, 600)).toBe(MIN_IMAGE_WIDTH);
+  });
+
+  it("노트 폭을 넘지 않는다", () => {
+    expect(clampImageWidth(200, 500, 320)).toBe(320);
+  });
+
+  it("그 사이에서는 끈 만큼 따라온다", () => {
+    expect(clampImageWidth(200, 40, 600)).toBe(240);
+    expect(clampImageWidth(200, -40, 600)).toBe(160);
+  });
+
+  it("노트가 최소 폭보다 좁아도 최소 폭은 지킨다", () => {
+    expect(clampImageWidth(200, 0, 10)).toBe(MIN_IMAGE_WIDTH);
   });
 });

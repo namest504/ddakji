@@ -3,6 +3,10 @@
 
   /* ── 글꼴 ─────────────────────────────────────────── */
   --font-ui: "Segoe UI", "Malgun Gothic", sans-serif;
+  /* 코드용. 지정하지 않으면 generic monospace가 잡혀 OS 기본 고정폭 글꼴
+     (Windows에서는 대개 Courier New)로 떨어진다 — 획이 얇고 한글이 없다.
+     Malgun Gothic은 코드 안 한글 주석용 폴백. */
+  --font-mono: "Cascadia Mono", Consolas, "D2Coding", "Malgun Gothic", ui-monospace, monospace;
 
   /* ── 노트 색 ──────────────────────────────────────────
      딱지 = 불투명 색종이 (시안 확정 2026-08-11).
@@ -525,8 +529,45 @@ body {
   max-width: 100%;
   border-radius: var(--r-image);
 }
-.tiptap img.ProseMirror-selectednode {
+.tiptap img.ProseMirror-selectednode,
+.img-wrap.ProseMirror-selectednode img {
   outline: 2px solid var(--accent-select);
+}
+
+/* 이미지 크기 조절 (#113) — 뒷면을 여는 그립과 같은 빗금 어휘.
+   평소엔 숨고, 이미지에 마우스를 올리거나 선택했을 때만 잡을 수 있다. */
+.img-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.img-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity var(--dur-fade) var(--ease-ui);
+  touch-action: none;
+}
+.img-grip::before {
+  content: "";
+  position: absolute;
+  inset: 8px 3px 3px 8px;
+  background: repeating-linear-gradient(135deg, transparent 0 2.8px, #fff 2.8px 4px);
+  -webkit-mask: linear-gradient(135deg, transparent 52%, #000 52%);
+  mask: linear-gradient(135deg, transparent 52%, #000 52%);
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+.img-wrap:hover .img-grip,
+.img-wrap.ProseMirror-selectednode .img-grip {
+  opacity: 0.85;
+}
+.img-grip:hover {
+  opacity: 1;
 }
 .editor.tiptap pre,
 .editor.tiptap pre code {
@@ -535,6 +576,12 @@ body {
   white-space: pre !important;
   overflow-wrap: normal;
   word-break: normal;
+}
+/* 코드는 본문보다 한 뼘 작게 — em이라 노트 글씨 크기(10~40px)를 그대로 따라간다 */
+.tiptap pre,
+.tiptap code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
 }
 .tiptap pre {
   background: rgba(0, 0, 0, 0.08);

@@ -14,6 +14,17 @@ use serde_json::{json, Value};
 use ddakji_lib::store::{MetaPatch, Store};
 
 fn main() {
+    // 등록용 설정을 손으로 짜게 하지 않는다 — 경로를 자기 자신에게서 읽어 준다
+    if std::env::args().any(|a| a == "--print-config") {
+        match std::env::current_exe() {
+            Ok(p) => println!("{}", client_config(&p)),
+            Err(e) => {
+                eprintln!("실행 파일 경로를 알 수 없습니다: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     let Some(root) = ddakji_lib::store::default_data_root() else {
         eprintln!("데이터 폴더를 찾을 수 없습니다");
         std::process::exit(1);
@@ -40,6 +51,14 @@ fn main() {
             let _ = stdout.flush();
         }
     }
+}
+
+/// Claude Desktop 등의 `mcpServers` 항목 — 그대로 붙여 넣을 수 있게 들여쓴다.
+fn client_config(exe: &std::path::Path) -> String {
+    serde_json::to_string_pretty(&json!({
+        "mcpServers": { "ddakji": { "command": exe.display().to_string() } }
+    }))
+    .unwrap_or_default()
 }
 
 /// 요청 하나 처리. 알림(id 없음)은 None — 응답하지 않는다.
@@ -140,6 +159,16 @@ fn tool_defs() -> Value {
             "inputSchema": { "type": "object", "properties": { "id": id_prop }, "required": ["id"] },
         },
         {
+            "name": "list_trash",
+            "description": "휴지통 목록 — 지운 노트와 지운 시각(deleted_at). 최근에 지운 것부터",
+            "inputSchema": { "type": "object", "properties": {} },
+        },
+        {
+            "name": "restore_note",
+            "description": "휴지통의 노트를 되살린다 (delete_note를 되돌리는 방법)",
+            "inputSchema": { "type": "object", "properties": { "id": id_prop }, "required": ["id"] },
+        },
+        {
             "name": "list_groups",
             "description": "모음집 이름 목록",
             "inputSchema": { "type": "object", "properties": {} },
@@ -228,6 +257,8 @@ fn call_tool(store: &Store, name: &str, args: &Value) -> Result<String, String> 
             store.delete(&need("id")?).map_err(|e| e.to_string())?;
             Ok("deleted".into())
         }
+        "list_trash" => to_json(&store.list_trash()),
+        "restore_note" => to_json(&store.restore(&need("id")?).map_err(|e| e.to_string())?),
         "list_groups" => to_json(&store.group_names()),
         "merge_notes" => {
             let changed = store
@@ -338,6 +369,8 @@ mod tests {
             "list_groups",
             "merge_notes",
             "open_note",
+            "list_trash",
+            "restore_note",
         ] {
             assert!(names.contains(&expected), "missing tool: {expected}");
         }
@@ -393,5 +426,38 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res["error"]["code"], -32601);
+    }
+
+    #[test]
+    fn delete_then_restore_roundtrip() {
+        // 지우기만 하고 되돌리지 못하면 AI에게 위험한 도구가 된다 (#112).
+        let (_d, s) = store();
+        let id = s.create().unwrap().meta.id;
+        s.save_body(&id, "# 되살릴 노트").unwrap();
+
+        call_tool(&s, "delete_note", &json!({ "id": id })).unwrap();
+        assert!(!call_tool(&s, "list_notes", &json!({}))
+            .unwrap()
+            .contains(&id));
+
+        let trash = call_tool(&s, "list_trash", &json!({})).unwrap();
+        assert!(trash.contains(&id), "휴지통 목록에 있어야 한다");
+        assert!(trash.contains("deleted_at"), "지운 시각을 함께 준다");
+
+        call_tool(&s, "restore_note", &json!({ "id": id })).unwrap();
+        let back = call_tool(&s, "get_note", &json!({ "id": id })).unwrap();
+        assert!(back.contains("되살릴 노트"));
+    }
+
+    #[test]
+    fn print_config_emits_a_registerable_block() {
+        // 사용자가 손으로 JSON을 짜지 않게 — 그대로 붙여 넣을 수 있어야 한다.
+        let cfg = client_config(std::path::Path::new("C:\\Programs\\ddakji\\ddakji-mcp.exe"));
+        let v: Value = serde_json::from_str(&cfg).unwrap();
+        assert_eq!(
+            v["mcpServers"]["ddakji"]["command"],
+            "C:\\Programs\\ddakji\\ddakji-mcp.exe"
+        );
+        assert!(cfg.contains('\n'), "사람이 읽도록 들여쓴다");
     }
 }

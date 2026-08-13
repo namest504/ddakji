@@ -35,6 +35,10 @@
 
 ### 수정
 
+- 창을 옮기다 **잠깐 멈추기만 해도 옆 창에 흡수되던 문제** ([#115]) — 합치기가
+  "놓았을 때"가 아니라 "움직임이 500ms 멎었을 때" 발동해, 마우스를 누르고 있는
+  중에도 창이 끌려갔습니다. 이제 **마우스를 놓아야** 합쳐지고, 판정도 놓인 자리로
+  다시 잽니다. 합친 직후 잠깐 뜨는 **되돌리기**로 무를 수 있습니다.
 - 모음집의 노트 한 장을 **삭제하면 모음집 전체가 화면에서 사라지던 문제** ([#111]) —
   모음집은 창 하나로만 표시되는데(룰4) 삭제가 그 창을 없애 버렸습니다. 이제 창은
   남은 장으로 넘어가고, 마지막 한 장을 지웠을 때만 닫힙니다. 뒷면을 펼쳐 둔 채
@@ -152,6 +156,7 @@
 [#98]: https://github.com/namest504/ddakji/issues/98
 [#111]: https://github.com/namest504/ddakji/issues/111
 [#112]: https://github.com/namest504/ddakji/issues/112
+[#115]: https://github.com/namest504/ddakji/issues/115
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

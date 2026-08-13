@@ -33,6 +33,14 @@
   **영구 삭제**·**비우기**를 할 수 있고, 파일이 실제로 사라지는 것은 이 두
   가지뿐입니다. 이미지도 휴지통에 있는 동안 함께 보관됩니다.
 
+- **이미지 크기 조절** ([#113]) — 이미지에 마우스를 올리면 오른쪽 아래에 빗금
+  그립이 나타납니다. 끌어서 크기를 조절하고, 두 번 누르면 원래 크기로 돌아갑니다.
+  크기를 바꾼 이미지만 `<img width>`로 저장되고 손대지 않은 이미지는 평문
+  마크다운 그대로 남습니다.
+- **코드 블록 글꼴** ([#113]) — 글꼴 지정이 없어 OS 기본 고정폭 글꼴(Windows에서는
+  대개 Courier New)로 떨어지던 것을 Cascadia Mono·Consolas 계열로 잡고, 본문보다
+  한 뼘 작게(0.92em) 두었습니다. 노트 글씨 크기를 그대로 따라갑니다.
+
 ### 수정
 
 - **노트를 열자마자 본문이 지워지던 문제** ([#120]) — 한 글자도 입력하지 않은
@@ -164,6 +172,7 @@
 [#98]: https://github.com/namest504/ddakji/issues/98
 [#111]: https://github.com/namest504/ddakji/issues/111
 [#112]: https://github.com/namest504/ddakji/issues/112
+[#113]: https://github.com/namest504/ddakji/issues/113
 [#115]: https://github.com/namest504/ddakji/issues/115
 [#120]: https://github.com/namest504/ddakji/issues/120
 [#79]: https://github.com/namest504/ddakji/pull/79

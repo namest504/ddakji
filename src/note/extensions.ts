@@ -37,16 +37,158 @@ export const TaskItemSafe = TaskItem.extend({
 });
 
 /**
+ * 직렬화용 이스케이프.
+ *
+ * alt·title·경로는 사용자가 붙여넣은 마크다운이나 가져온 `.md`, CLI·MCP를 통해
+ * 무엇이든 들어올 수 있다. 그대로 끼워 넣으면 따옴표 하나에 속성이 갈라지고,
+ * 대괄호 하나에 링크 문법이 깨진다 — 다시 읽을 때 엉뚱한 문서가 된다.
+ */
+const escAttr = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escAlt = (s: string) => s.replace(/([[\]\\])/g, "\\$1");
+const escTitle = (s: string) => s.replace(/(["\\])/g, "\\$1");
+/** 공백·괄호가 든 경로는 꺾쇠로 감싸야 링크가 거기서 끊기지 않는다 */
+const mdSrc = (s: string) => (/[\s()<>]/.test(s) ? `<${s.replace(/([<>\\])/g, "\\$1")}>` : s);
+
+/**
+ * 크기를 기억하는 이미지 (#113).
+ *
+ * 노트는 평문 마크다운으로 저장되는데 `![](경로)`에는 크기를 담을 자리가 없다.
+ * 그래서 **크기를 바꾼 이미지만** `<img width>`로 직렬화하고, 손대지 않은
+ * 이미지는 `![]()` 그대로 둔다 — 대가를 건드린 이미지에만 지불한다.
+ *
+ * 읽는 쪽은 이미 `Markdown.configure({ html: true })`라 공짜다.
+ */
+export const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      /** 표시 폭(px). null이면 원본 크기 — 마크다운에도 흔적을 남기지 않는다 */
+      width: {
+        default: null,
+        parseHTML: (el) => {
+          const raw = el.getAttribute("width") ?? el.style.width;
+          const n = Number.parseInt(String(raw ?? ""), 10);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        },
+        renderHTML: (attrs) => (attrs.width ? { width: String(attrs.width) } : {}),
+      },
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize(
+          state: { write: (s: string) => void; closeBlock: (n: unknown) => void },
+          node: { attrs: Record<string, unknown> },
+        ) {
+          const src = String(node.attrs.src ?? "");
+          const alt = String(node.attrs.alt ?? "");
+          const title = node.attrs.title ? String(node.attrs.title) : "";
+          const width = Number(node.attrs.width);
+          if (Number.isFinite(width) && width > 0) {
+            const t = title ? ` title="${escAttr(title)}"` : "";
+            state.write(
+              `<img src="${escAttr(src)}" alt="${escAttr(alt)}"${t} width="${String(Math.round(width))}">`,
+            );
+          } else {
+            state.write(`![${escAlt(alt)}](${mdSrc(src)}${title ? ` "${escTitle(title)}"` : ""})`);
+          }
+          state.closeBlock(node);
+        },
+        parse: {},
+      },
+    };
+  },
+});
+
+/** 드래그로 정해지는 이미지 폭 — 너무 작아 잡을 수 없거나 노트를 넘지 않게 */
+export const MIN_IMAGE_WIDTH = 48;
+export function clampImageWidth(start: number, dx: number, max: number): number {
+  const upper = Math.max(MIN_IMAGE_WIDTH, Math.floor(max));
+  return Math.round(Math.min(upper, Math.max(MIN_IMAGE_WIDTH, start + dx)));
+}
+
+/**
  * 이미지 노드의 화면 표시용 확장.
  *
  * 문서(마크다운)에는 `assets/` 상대경로를 그대로 두고, 그릴 때만 asset URL로
  * 바꾼다. 직렬화는 node attrs(상대경로)를 읽으므로 저장 포맷이 오염되지 않는다.
+ *
+ * 크기 조절은 오른쪽 아래 **빗금 그립**을 끌어서 한다 — 딱지 뒷면을 여는 그립과
+ * 같은 어휘라 "여기를 잡는다"가 설명 없이 읽힌다. 두 번 누르면 원래 크기로.
  */
 export const assetImage = (base: string) =>
-  Image.extend({
+  ResizableImage.extend({
     renderHTML({ HTMLAttributes }) {
       const src = String(HTMLAttributes.src ?? "");
       const resolved = src.startsWith("assets/") ? convertFileSrc(`${base}/${src}`) : src;
       return ["img", { ...HTMLAttributes, src: resolved }];
+    },
+
+    addNodeView() {
+      return ({ node, editor, getPos }) => {
+        const wrap = document.createElement("span");
+        wrap.className = "img-wrap";
+        const img = document.createElement("img");
+        const grip = document.createElement("span");
+        grip.className = "img-grip";
+        grip.title = "끌어서 크기 조절 · 두 번 누르면 원래 크기";
+
+        const paint = (n: typeof node) => {
+          const src = String(n.attrs.src ?? "");
+          img.src = src.startsWith("assets/") ? convertFileSrc(`${base}/${src}`) : src;
+          img.alt = String(n.attrs.alt ?? "");
+          img.style.width = n.attrs.width ? `${String(n.attrs.width)}px` : "";
+        };
+        paint(node);
+        wrap.append(img, grip);
+
+        const commit = (width: number | null) => {
+          const pos = typeof getPos === "function" ? getPos() : null;
+          if (pos == null) return;
+          editor.view.dispatch(editor.view.state.tr.setNodeAttribute(pos, "width", width));
+        };
+
+        let startX = 0;
+        let startW = 0;
+        const onMove = (e: PointerEvent) => {
+          const max = wrap.parentElement?.clientWidth ?? startW;
+          img.style.width = `${String(clampImageWidth(startW, e.clientX - startX, max))}px`;
+        };
+        const onUp = (e: PointerEvent) => {
+          grip.removeEventListener("pointermove", onMove);
+          grip.removeEventListener("pointerup", onUp);
+          const max = wrap.parentElement?.clientWidth ?? startW;
+          commit(clampImageWidth(startW, e.clientX - startX, max));
+        };
+        grip.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          startX = e.clientX;
+          startW = img.getBoundingClientRect().width;
+          grip.setPointerCapture(e.pointerId);
+          grip.addEventListener("pointermove", onMove);
+          grip.addEventListener("pointerup", onUp);
+        });
+        // 원래 크기로 되돌리기 — 폭 속성을 지우면 마크다운도 평문으로 돌아간다
+        grip.addEventListener("dblclick", (e) => {
+          e.preventDefault();
+          img.style.width = "";
+          commit(null);
+        });
+
+        return {
+          dom: wrap,
+          update: (updated) => {
+            if (updated.type.name !== node.type.name) return false;
+            paint(updated);
+            return true;
+          },
+          // 그립에서 시작된 입력은 에디터가 아니라 우리가 처리한다
+          stopEvent: (e) => e.target === grip,
+          ignoreMutation: () => true,
+        };
+      };
     },
   });

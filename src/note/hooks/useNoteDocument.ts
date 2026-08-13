@@ -30,7 +30,9 @@ export function useNoteDocument(initialNoteId: string, guard: SaveGuard) {
   // 외부 변경(CLI 등)으로 본문을 교체할 때 에디터를 다시 마운트시키는 카운터.
   // 에디터는 마운트 후 body 변경을 무시하므로 key에 이 값이 들어가야 한다 (#12)
   const [rev, setRev] = useState(0);
-  const bodyRef = useRef("");
+  // null = 이 창은 아직 본문을 모른다. 빈 문자열과 반드시 구별해야 한다 —
+  // 섞으면 로드 전 플러시가 멀쩡한 파일을 빈 값으로 덮어쓴다 (#120)
+  const bodyRef = useRef<string | null>(null);
   const saveTimer = useRef<number>();
   // 저장 안 된 편집이 있는 동안 외부 변경 리로드를 막는다 — 마지막 쓰기 승리
   const dirtyRef = useRef(false);
@@ -47,7 +49,14 @@ export function useNoteDocument(initialNoteId: string, guard: SaveGuard) {
   useEffect(() => {
     api
       .listNotes()
-      .then((all) => setNote(all.find((n) => n.meta.id === noteId) ?? null))
+      .then((all) => {
+        const n = all.find((x) => x.meta.id === noteId) ?? null;
+        // 저장 대상 ref를 여기서 채워야 한다 — 에디터는 초기 content를 받을 뿐
+        // onUpdate를 발화시키지 않으므로, 이 대입이 없으면 첫 타이핑 전까지
+        // ref가 비어 있다 (#120)
+        if (n) bodyRef.current = n.body;
+        setNote(n);
+      })
       .finally(() => {
         // 창은 visible:false로 생성된다 — 내용을 그린 뒤 표시해 흰 화면 플래시 제거
         const win = getCurrentWindow();
@@ -61,8 +70,12 @@ export function useNoteDocument(initialNoteId: string, guard: SaveGuard) {
   // 본문은 에디터가 진실 — 저장 대상만 ref로 들고 있다가 디바운스해 기록한다
   const flushBody = useCallback(() => {
     window.clearTimeout(saveTimer.current);
+    const body = bodyRef.current;
+    // 본문을 모르는 창은 저장할 것도 없다. 로드가 끝나기 전의 플러시(포커스
+    // 아웃 등)가 여기로 오는데, 그대로 쓰면 빈 값이 파일을 덮어쓴다 (#120)
+    if (body === null) return;
     guard("body", () =>
-      api.saveBody(noteId, bodyRef.current).then((n) => {
+      api.saveBody(noteId, body).then((n) => {
         dirtyRef.current = false;
         return n;
       }),

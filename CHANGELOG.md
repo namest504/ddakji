@@ -35,6 +35,12 @@
 
 ### 수정
 
+- **노트를 열자마자 본문이 지워지던 문제** ([#120]) — 한 글자도 입력하지 않은
+  노트에서 뒷면을 열거나, 다른 창을 클릭해 포커스를 넘기거나, 모음집의 다음
+  장으로 넘어가면 **본문이 빈 값으로 저장됐습니다.** 창이 파일을 읽어 화면에는
+  보여 주면서도 저장용 사본은 비워 둔 채였고, 그 상태로 저장이 돌면 빈 사본이
+  파일을 덮어썼습니다. 한 글자라도 입력한 뒤에는 일어나지 않아 눈에 덜 띄었습니다.
+  v0.1.5에 포함된 문제입니다.
 - 창을 옮기다 **잠깐 멈추기만 해도 옆 창에 흡수되던 문제** ([#115]) — 합치기가
   "놓았을 때"가 아니라 "움직임이 500ms 멎었을 때" 발동해, 마우스를 누르고 있는
   중에도 창이 끌려갔습니다. 이제 **마우스를 놓아야** 합쳐집니다.
@@ -159,6 +165,7 @@
 [#111]: https://github.com/namest504/ddakji/issues/111
 [#112]: https://github.com/namest504/ddakji/issues/112
 [#115]: https://github.com/namest504/ddakji/issues/115
+[#120]: https://github.com/namest504/ddakji/issues/120
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

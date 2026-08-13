@@ -1,5 +1,92 @@
 :root {
-  font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+  font-family: var(--font-ui);
+
+  /* ── 글꼴 ─────────────────────────────────────────── */
+  --font-ui: "Segoe UI", "Malgun Gothic", sans-serif;
+
+  /* ── 노트 색 ──────────────────────────────────────────
+     색마다 두 값만 있으면 나머지는 파생된다.
+       종이(paper)  = 본체 배경 · 색상 팔레트의 동그라미
+       액센트(accent) = 상단 바 · 목록 행의 점
+     본체와 바는 Acrylic 위에 얹히는 틴트라 반투명으로 깐다. */
+  --note-yellow-paper: #fff7b1;
+  --note-yellow-accent: #f5e478;
+  --note-green-paper: #d9f7d1;
+  --note-green-accent: #b9e8ab;
+  --note-pink-paper: #ffd9e8;
+  --note-pink-accent: #f7b8d2;
+  --note-purple-paper: #e6d9f7;
+  --note-purple-accent: #cdb8ee;
+  --note-blue-paper: #d3ecf7;
+  --note-blue-accent: #aed9ec;
+  --note-gray-paper: #ececec;
+  --note-gray-accent: #d4d4d4;
+  --note-charcoal-paper: #4a4a4a;
+  --note-charcoal-accent: #3a3a3a;
+  --note-paper-alpha: 66%;
+  --note-accent-alpha: 88%;
+
+  /* 다크에서 본체는 색과 무관한 회색이 되고, 색 정체성은 바가 혼자 짊어진다 */
+  --note-paper-dark: rgba(40, 40, 42, 0.68);
+  --note-ink-dark: #ececec;
+  --note-yellow-bar-dark: rgba(245, 197, 24, 0.82);
+  --note-green-bar-dark: rgba(94, 190, 90, 0.8);
+  --note-pink-bar-dark: rgba(240, 113, 160, 0.8);
+  --note-purple-bar-dark: rgba(160, 120, 220, 0.8);
+  --note-blue-bar-dark: rgba(80, 160, 220, 0.8);
+  --note-gray-bar-dark: rgba(150, 150, 150, 0.7);
+  --note-charcoal-paper-dark: rgba(30, 30, 32, 0.72);
+
+  /* ── 표면·잉크 ────────────────────────────────────── */
+  --app-face: #f4f2e9; /* 글라스 미지원 폴백 배경 */
+  --app-face-dark: #1c1c1e;
+  --pop-face: #f1f1f3; /* 팝오버는 불투명 — 반투명이면 뒤 본문이 비쳐 읽기 어렵다 */
+  --pop-face-dark: #2c2c2e;
+  --pop-ink: #1c1c1e;
+  --pop-ink-dark: #ececec;
+  --field-face: #ffffff;
+  --field-face-dark: #3a3a3c;
+  --field-ink: #1c1c1e;
+  --field-ink-dark: #eee;
+  --field-line: rgba(0, 0, 0, 0.18);
+  --field-line-dark: rgba(255, 255, 255, 0.28);
+
+  /* ── 역할색 ──────────────────────────────────────────
+     지금은 선택·켜짐·세그먼트·위험이 제각각 다른 색이다.
+     이름만 붙여 두고, 하나로 모으는 일은 값이 바뀌는 다음 단계에서. */
+  --accent-select: #0a84ff; /* 선택 표시 */
+  --accent-on: #34c759; /* 스위치 켜짐 */
+  --danger: #c0392b;
+  --link: #0a66c2;
+  --link-dark: #409cff;
+  --editor-link: #4a7096; /* 본문 링크 — 기본 파랑은 노트 배경에서 너무 쨍하다 */
+  --editor-link-dark: #9dbfd8;
+  --editor-link-underline-alpha: 45%;
+
+  /* ── 모서리 ──────────────────────────────────────────
+     버튼이 6px과 7px 두 갈래인 것처럼 근거 없는 차이가 남아 있다. */
+  --r-glyph: 3px; /* 인라인 코드·스크롤바 */
+  --r-image: 4px;
+  --r-check: 5px;
+  --r-btn: 6px; /* 노트 툴바 버튼 */
+  --r-ctl: 7px; /* 목록·설정 컨트롤 */
+  --r-panel: 8px;
+  --r-card: 10px;
+  --r-switch: 12px;
+  --r-round: 50%;
+
+  /* ── 모션 ────────────────────────────────────────────
+     0.12~0.18s로 네 갈래인데 사실상 한 값의 흔들림이다. */
+  --dur-check: 0.12s;
+  --dur-fade: 0.15s;
+  --dur-note: 0.16s;
+  --dur-shift: 0.18s;
+  --ease-ui: ease;
+
+  /* ── 겹침 순서 ────────────────────────────────────── */
+  --z-bar: 5; /* 툴바·서식 바 */
+  --z-nav: 6; /* 넘기기 화살표·인디케이터 */
+  --z-pop: 10; /* 색상 팝오버 */
 }
 * {
   box-sizing: border-box;
@@ -18,10 +105,10 @@ body {
 }
 /* 글라스 미지원 플랫폼(비-Windows): 불투명 배경 폴백 */
 :root[data-glass="off"] body {
-  background: #f4f2e9;
+  background: var(--app-face);
 }
 :root[data-glass="off"][data-theme="dark"] body {
-  background: #1c1c1e;
+  background: var(--app-face-dark);
 }
 
 .note {
@@ -30,8 +117,8 @@ body {
   height: 100%;
   position: relative;
   transition:
-    transform 0.16s ease,
-    filter 0.16s ease;
+    transform var(--dur-note) var(--ease-ui),
+    filter var(--dur-note) var(--ease-ui);
   transform-origin: center;
 }
 /* 드래그 중 흡수 예고 — 창 자체가 축소(백엔드)되고 내용은 어두워진다 */
@@ -39,36 +126,55 @@ body {
   filter: brightness(0.55) saturate(0.8);
 }
 .note[data-color="yellow"] {
-  --bg: rgba(255, 247, 177, 0.66);
-  --bar: rgba(245, 228, 120, 0.88);
+  --paper: var(--note-yellow-paper);
+  --accent: var(--note-yellow-accent);
 }
 .note[data-color="green"] {
-  --bg: rgba(217, 247, 209, 0.66);
-  --bar: rgba(185, 232, 171, 0.88);
+  --paper: var(--note-green-paper);
+  --accent: var(--note-green-accent);
 }
 .note[data-color="pink"] {
-  --bg: rgba(255, 217, 232, 0.66);
-  --bar: rgba(247, 184, 210, 0.88);
+  --paper: var(--note-pink-paper);
+  --accent: var(--note-pink-accent);
 }
 .note[data-color="purple"] {
-  --bg: rgba(230, 217, 247, 0.66);
-  --bar: rgba(205, 184, 238, 0.88);
+  --paper: var(--note-purple-paper);
+  --accent: var(--note-purple-accent);
 }
 .note[data-color="blue"] {
-  --bg: rgba(211, 236, 247, 0.66);
-  --bar: rgba(174, 217, 236, 0.88);
+  --paper: var(--note-blue-paper);
+  --accent: var(--note-blue-accent);
 }
 .note[data-color="gray"] {
-  --bg: rgba(236, 236, 236, 0.66);
-  --bar: rgba(212, 212, 212, 0.88);
+  --paper: var(--note-gray-paper);
+  --accent: var(--note-gray-accent);
 }
 .note[data-color="charcoal"] {
-  --bg: rgba(74, 74, 74, 0.72);
-  --bar: rgba(58, 58, 58, 0.9);
-  color: #eee;
+  --paper: var(--note-charcoal-paper);
+  --accent: var(--note-charcoal-accent);
+  --note-paper-alpha: 72%;
+  --note-accent-alpha: 90%;
+  color: var(--field-ink-dark);
 }
+/* 본체와 바는 종이·액센트를 반투명으로 깐 것 — 색마다 따로 적을 필요가 없다 */
 .note {
+  --bg: color-mix(in srgb, var(--paper) var(--note-paper-alpha), transparent);
+  --bar: color-mix(in srgb, var(--accent) var(--note-accent-alpha), transparent);
+  --ctl-ink: rgba(0, 0, 0, 0.55);
+  --ctl-ink-hover: rgba(0, 0, 0, 0.8);
+  --ctl-ink-active: rgba(0, 0, 0, 0.85);
+  --ctl-face-hover: rgba(0, 0, 0, 0.1);
+  --ctl-face-active: rgba(0, 0, 0, 0.16);
   background: var(--bg);
+}
+/* 어두운 바탕(차콜 노트·다크 테마)에서는 컨트롤 잉크가 반전된다 */
+.note[data-color="charcoal"],
+:root[data-theme="dark"] .note {
+  --ctl-ink: rgba(255, 255, 255, 0.65);
+  --ctl-ink-hover: rgba(255, 255, 255, 0.9);
+  --ctl-ink-active: #fff;
+  --ctl-face-hover: rgba(255, 255, 255, 0.12);
+  --ctl-face-active: rgba(255, 255, 255, 0.18);
 }
 
 /* 오버레이 툴바: 숨김 상태에서 공간을 차지하지 않아 본문이 맨 위부터 시작한다 */
@@ -79,13 +185,13 @@ body {
   padding: 4px 6px;
   background: var(--bar);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-fade) var(--ease-ui);
   user-select: none;
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 5;
+  z-index: var(--z-bar);
 }
 /* 노트 전체가 아니라 상단 스트립에 마우스를 올렸을 때만 표시 — 타이핑 중 첫 줄을 가리지 않는다 */
 .toolbar:hover,
@@ -100,35 +206,21 @@ body {
   min-width: 24px;
   height: 24px;
   padding: 0 3px;
-  border-radius: 6px;
+  border-radius: var(--r-btn);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(0, 0, 0, 0.55);
+  color: var(--ctl-ink);
 }
 .toolbar button:hover,
 .format-bar button:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: rgba(0, 0, 0, 0.8);
+  background: var(--ctl-face-hover);
+  color: var(--ctl-ink-hover);
 }
 .toolbar button.active,
 .format-bar button.active {
-  background: rgba(0, 0, 0, 0.16);
-  color: rgba(0, 0, 0, 0.85);
-}
-.note[data-color="charcoal"] .toolbar button,
-.note[data-color="charcoal"] .format-bar button {
-  color: rgba(255, 255, 255, 0.65);
-}
-.note[data-color="charcoal"] .toolbar button:hover,
-.note[data-color="charcoal"] .format-bar button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
-}
-.note[data-color="charcoal"] .toolbar button.active,
-.note[data-color="charcoal"] .format-bar button.active {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: var(--ctl-face-active);
+  color: var(--ctl-ink-active);
 }
 .toolbar .font-btn {
   font-size: 11px;
@@ -139,7 +231,7 @@ body {
   /* 본체 배경(--bg)은 다크에서 색과 무관한 회색이 된다 — 색 정체성은 액센트 바(--bar)가 담는다 */
   width: 13px;
   height: 13px;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   background: var(--bar);
   border: 1.6px solid currentColor;
   display: inline-block;
@@ -152,13 +244,13 @@ body {
 .font-custom {
   flex: 1;
   min-width: 90px;
-  border-radius: 6px;
+  border-radius: var(--r-btn);
   padding: 4px 8px;
   font-size: 12px;
   outline: none;
-  background: #ffffff;
-  color: #1c1c1e;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: var(--field-face);
+  color: var(--field-ink);
+  border: 1px solid var(--field-line);
 }
 .font-custom::placeholder {
   color: currentColor;
@@ -178,7 +270,7 @@ body {
   max-height: 180px;
   overflow-y: auto;
   border: 1px solid var(--l-sep);
-  border-radius: 8px;
+  border-radius: var(--r-panel);
 }
 .font-item {
   padding: 7px 12px;
@@ -209,45 +301,45 @@ body {
   display: flex;
   gap: 6px;
   padding: 8px;
-  z-index: 10;
+  z-index: var(--z-pop);
   align-items: center;
   /* 팝오버는 불투명 메뉴 패널 — 반투명이면 뒤 본문이 비쳐 읽기 어렵다 */
-  background: #f1f1f3;
+  background: var(--pop-face);
   box-shadow: 0 5px 16px rgba(0, 0, 0, 0.22);
-  border-radius: 0 0 10px 10px;
-  color: #1c1c1e;
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  color: var(--pop-ink);
 }
 .note[data-color="charcoal"] .color-row,
 :root[data-theme="dark"] .color-row {
-  background: #2c2c2e;
-  color: #ececec;
+  background: var(--pop-face-dark);
+  color: var(--pop-ink-dark);
 }
 .swatch {
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   border: 1px solid rgba(0, 0, 0, 0.25);
 }
 .swatch[data-color="yellow"] {
-  background: #fff7b1;
+  background: var(--note-yellow-paper);
 }
 .swatch[data-color="green"] {
-  background: #d9f7d1;
+  background: var(--note-green-paper);
 }
 .swatch[data-color="pink"] {
-  background: #ffd9e8;
+  background: var(--note-pink-paper);
 }
 .swatch[data-color="purple"] {
-  background: #e6d9f7;
+  background: var(--note-purple-paper);
 }
 .swatch[data-color="blue"] {
-  background: #d3ecf7;
+  background: var(--note-blue-paper);
 }
 .swatch[data-color="gray"] {
-  background: #ececec;
+  background: var(--note-gray-paper);
 }
 .swatch[data-color="charcoal"] {
-  background: #4a4a4a;
+  background: var(--note-charcoal-paper);
 }
 
 .content {
@@ -258,8 +350,8 @@ body {
   min-height: 0;
   min-width: 0;
   transition:
-    padding-top 0.18s ease,
-    padding-bottom 0.18s ease;
+    padding-top var(--dur-shift) var(--ease-ui),
+    padding-bottom var(--dur-shift) var(--ease-ui);
 }
 /* 툴바/서식 바가 나타나면 뷰포트를 그만큼 줄여 가려지는 줄만 비켜준다 — 상하 동일 동작 */
 .toolbar:hover ~ .content,
@@ -295,16 +387,24 @@ body {
 }
 /* 링크: 기본 파랑은 노트 배경에서 너무 쨍하다 — 차분한 톤 + 얇은 밑줄 */
 .tiptap a {
-  color: #4a7096;
+  color: var(--editor-link);
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-thickness: 1px;
-  text-decoration-color: rgba(74, 112, 150, 0.45);
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--editor-link) var(--editor-link-underline-alpha),
+    transparent
+  );
 }
 .note[data-color="charcoal"] .tiptap a,
 :root[data-theme="dark"] .tiptap a {
-  color: #9dbfd8;
-  text-decoration-color: rgba(157, 191, 216, 0.45);
+  color: var(--editor-link-dark);
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--editor-link-dark) var(--editor-link-underline-alpha),
+    transparent
+  );
 }
 .tiptap h1 {
   font-size: 1.5em;
@@ -365,9 +465,9 @@ body {
   width: 16px;
   height: 16px;
   border: 2px solid currentColor;
-  border-radius: 5px;
+  border-radius: var(--r-check);
   opacity: 0.5;
-  transition: opacity 0.12s;
+  transition: opacity var(--dur-check) var(--ease-ui);
 }
 .tiptap ul[data-type="taskList"] li > label:hover > span {
   opacity: 0.8;
@@ -392,10 +492,10 @@ body {
 }
 .tiptap img {
   max-width: 100%;
-  border-radius: 4px;
+  border-radius: var(--r-image);
 }
 .tiptap img.ProseMirror-selectednode {
-  outline: 2px solid #0a84ff;
+  outline: 2px solid var(--accent-select);
 }
 .editor.tiptap pre,
 .editor.tiptap pre code {
@@ -408,7 +508,7 @@ body {
 .tiptap pre {
   background: rgba(0, 0, 0, 0.08);
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--r-btn);
   max-width: 100%;
   overflow-x: auto;
 }
@@ -417,7 +517,7 @@ body {
 }
 .tiptap pre::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.25);
-  border-radius: 3px;
+  border-radius: var(--r-glyph);
 }
 :root[data-theme="dark"] .tiptap pre::-webkit-scrollbar-thumb,
 .note[data-color="charcoal"] .tiptap pre::-webkit-scrollbar-thumb {
@@ -425,7 +525,7 @@ body {
 }
 .tiptap code {
   background: rgba(0, 0, 0, 0.08);
-  border-radius: 3px;
+  border-radius: var(--r-glyph);
   padding: 1px 4px;
 }
 .tiptap pre code {
@@ -454,7 +554,7 @@ body {
 }
 .tiptap .tableWrapper::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.25);
-  border-radius: 3px;
+  border-radius: var(--r-glyph);
 }
 :root[data-theme="dark"] .tiptap .tableWrapper::-webkit-scrollbar-thumb,
 .note[data-color="charcoal"] .tiptap .tableWrapper::-webkit-scrollbar-thumb {
@@ -508,9 +608,9 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 5;
+  z-index: var(--z-bar);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-fade) var(--ease-ui);
 }
 .format-bar:hover,
 .format-bar:focus-within {
@@ -580,13 +680,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 247, 177, 0.9);
+  background: color-mix(in srgb, var(--note-yellow-paper) 90%, transparent);
   color: rgba(0, 0, 0, 0.5);
   font-size: 14px;
 }
 
 .save-error {
-  background: #c0392b;
+  background: var(--danger);
   color: white;
   padding: 4px 8px;
   font-size: 12px;
@@ -595,7 +695,7 @@ body {
   background: transparent;
   border: 1px solid white;
   color: white;
-  border-radius: 4px;
+  border-radius: var(--r-image);
   cursor: pointer;
 }
 
@@ -626,7 +726,7 @@ body {
   flex: 1;
   padding: 7px 12px;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--r-card);
   background: var(--l-field);
   color: inherit;
   outline: none;
@@ -642,7 +742,7 @@ body {
   color: var(--l-dim);
   width: 28px;
   height: 28px;
-  border-radius: 7px;
+  border-radius: var(--r-ctl);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -662,7 +762,7 @@ body {
 .inset-group {
   margin: 8px 12px 0;
   background: var(--l-card);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   overflow: hidden;
 }
 .group-label {
@@ -701,7 +801,7 @@ body {
   color: var(--l-dim);
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--r-btn);
   opacity: 0;
   display: inline-flex;
   align-items: center;
@@ -717,7 +817,7 @@ body {
   color: var(--l-dim);
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--r-btn);
   opacity: 0;
   display: inline-flex;
   align-items: center;
@@ -732,35 +832,36 @@ body {
 }
 .row-delete:hover {
   background: rgba(0, 0, 0, 0.08);
-  color: #c0392b;
+  color: var(--danger);
 }
 .dot {
   width: 12px;
   height: 12px;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   flex-shrink: 0;
   border: 1px solid rgba(0, 0, 0, 0.12);
 }
 .dot[data-color="yellow"] {
-  background: #f5e478;
+  background: var(--note-yellow-accent);
 }
 .dot[data-color="green"] {
-  background: #b9e8ab;
+  background: var(--note-green-accent);
 }
 .dot[data-color="pink"] {
-  background: #f7b8d2;
+  background: var(--note-pink-accent);
 }
 .dot[data-color="purple"] {
-  background: #cdb8ee;
+  background: var(--note-purple-accent);
 }
 .dot[data-color="blue"] {
-  background: #aed9ec;
+  background: var(--note-blue-accent);
 }
 .dot[data-color="gray"] {
-  background: #d4d4d4;
+  background: var(--note-gray-accent);
 }
+/* 차콜만 점이 액센트(#3a3a3a)가 아니라 종이색이다 — 기존 동작 유지 */
 .dot[data-color="charcoal"] {
-  background: #4a4a4a;
+  background: var(--note-charcoal-paper);
 }
 .empty {
   padding: 28px 16px;
@@ -785,7 +886,7 @@ body {
 }
 .settings-row.link {
   cursor: pointer;
-  color: #0a66c2;
+  color: var(--link);
 }
 .settings-row.link:hover {
   background: var(--l-hover);
@@ -793,11 +894,11 @@ body {
 .switch {
   width: 40px;
   height: 24px;
-  border-radius: 12px;
+  border-radius: var(--r-switch);
   background: rgba(120, 120, 128, 0.32);
   position: relative;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--dur-fade) var(--ease-ui);
   flex-shrink: 0;
 }
 .switch .knob {
@@ -806,13 +907,13 @@ body {
   left: 2px;
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   background: white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: left 0.15s;
+  transition: left var(--dur-fade) var(--ease-ui);
 }
 .switch.on {
-  background: #34c759;
+  background: var(--accent-on);
 }
 .switch.on .knob {
   left: 18px;
@@ -826,7 +927,7 @@ body {
   height: 18px;
 }
 .swatch.selected {
-  outline: 2px solid #0a84ff;
+  outline: 2px solid var(--accent-select);
   outline-offset: 1px;
 }
 .seg {
@@ -844,7 +945,7 @@ body {
   color: inherit;
   cursor: pointer;
   padding: 4px 10px;
-  border-radius: 7px;
+  border-radius: var(--r-ctl);
   font-size: 12px;
 }
 .seg button.active {
@@ -866,7 +967,7 @@ body {
   cursor: pointer;
   width: 24px;
   height: 24px;
-  border-radius: 7px;
+  border-radius: var(--r-ctl);
   font-size: 14px;
   line-height: 1;
 }
@@ -876,45 +977,30 @@ body {
 
 /* ── 다크 테마 (#19): 어두운 본체 + 노트 색 액센트 바 (MS Sticky Notes 방식) ── */
 :root[data-theme="dark"] .note {
-  color: #ececec;
-  --bg: rgba(40, 40, 42, 0.68);
+  color: var(--note-ink-dark);
+  --bg: var(--note-paper-dark);
 }
 :root[data-theme="dark"] .note[data-color="yellow"] {
-  --bar: rgba(245, 197, 24, 0.82);
+  --bar: var(--note-yellow-bar-dark);
 }
 :root[data-theme="dark"] .note[data-color="green"] {
-  --bar: rgba(94, 190, 90, 0.8);
+  --bar: var(--note-green-bar-dark);
 }
 :root[data-theme="dark"] .note[data-color="pink"] {
-  --bar: rgba(240, 113, 160, 0.8);
+  --bar: var(--note-pink-bar-dark);
 }
 :root[data-theme="dark"] .note[data-color="purple"] {
-  --bar: rgba(160, 120, 220, 0.8);
+  --bar: var(--note-purple-bar-dark);
 }
 :root[data-theme="dark"] .note[data-color="blue"] {
-  --bar: rgba(80, 160, 220, 0.8);
+  --bar: var(--note-blue-bar-dark);
 }
 :root[data-theme="dark"] .note[data-color="gray"] {
-  --bar: rgba(150, 150, 150, 0.7);
+  --bar: var(--note-gray-bar-dark);
 }
 :root[data-theme="dark"] .note[data-color="charcoal"] {
-  --bg: rgba(30, 30, 32, 0.72);
-  --bar: rgba(58, 58, 58, 0.9);
-}
-
-:root[data-theme="dark"] .toolbar button,
-:root[data-theme="dark"] .format-bar button {
-  color: rgba(255, 255, 255, 0.65);
-}
-:root[data-theme="dark"] .toolbar button:hover,
-:root[data-theme="dark"] .format-bar button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
-}
-:root[data-theme="dark"] .toolbar button.active,
-:root[data-theme="dark"] .format-bar button.active {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  --bg: var(--note-charcoal-paper-dark);
+  --bar: color-mix(in srgb, var(--note-charcoal-accent) 90%, transparent);
 }
 
 :root[data-theme="dark"] .tiptap pre,
@@ -935,9 +1021,9 @@ body {
   color: rgba(255, 255, 255, 0.6);
 }
 :root[data-theme="dark"] .font-custom {
-  background: #3a3a3c;
-  color: #eee;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: var(--field-face-dark);
+  color: var(--field-ink-dark);
+  border: 1px solid var(--field-line-dark);
 }
 
 :root[data-theme="dark"] .list {
@@ -950,7 +1036,7 @@ body {
   --l-hover: rgba(255, 255, 255, 0.06);
 }
 :root[data-theme="dark"] .settings-row.link {
-  color: #409cff;
+  color: var(--link-dark);
 }
 :root[data-theme="dark"] .row-delete:hover {
   background: rgba(255, 255, 255, 0.1);
@@ -964,11 +1050,11 @@ body {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 6;
+  z-index: var(--z-nav);
   width: 26px;
   height: 46px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-panel);
   padding: 0;
   display: flex;
   align-items: center;
@@ -977,7 +1063,7 @@ body {
   background: transparent;
   color: rgba(0, 0, 0, 0.45);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-fade) var(--ease-ui);
 }
 .nav-arrow.left {
   left: 2px;
@@ -1008,8 +1094,8 @@ body {
   transform: translateX(-50%);
   display: flex;
   gap: 6px;
-  z-index: 6;
-  transition: bottom 0.18s ease;
+  z-index: var(--z-nav);
+  transition: bottom var(--dur-shift) var(--ease-ui);
 }
 /* 서식 바가 올라오면 인디케이터는 그 위로 비켜난다 */
 .note:has(.format-bar:hover) .group-dots,
@@ -1019,7 +1105,7 @@ body {
 .group-dots button {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -1038,10 +1124,10 @@ body {
 }
 
 .content.slide-next {
-  animation: slideNext 0.16s ease;
+  animation: slideNext var(--dur-note) var(--ease-ui);
 }
 .content.slide-prev {
-  animation: slidePrev 0.16s ease;
+  animation: slidePrev var(--dur-note) var(--ease-ui);
 }
 @keyframes slideNext {
   from {
@@ -1068,14 +1154,14 @@ body {
 .sel-dot {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
+  border-radius: var(--r-round);
   flex-shrink: 0;
   border: 2px solid var(--l-dim);
   display: inline-block;
 }
 .sel-dot.on {
-  background: #0a84ff;
-  border-color: #0a84ff;
+  background: var(--accent-select);
+  border-color: var(--accent-select);
 }
 .sel-bar {
   display: flex;
@@ -1090,7 +1176,7 @@ body {
 }
 .sel-bar button {
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--r-ctl);
   padding: 5px 10px;
   cursor: pointer;
   background: var(--l-field);
@@ -1098,7 +1184,7 @@ body {
   font-size: 12px;
 }
 .sel-bar button.primary {
-  background: #0a84ff;
+  background: var(--accent-select);
   color: white;
 }
 .group-count {

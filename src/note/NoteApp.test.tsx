@@ -427,3 +427,44 @@ describe("NoteApp 단축키", () => {
     expect(api.openList).toHaveBeenCalled();
   });
 });
+
+// 데이터 유실 회귀 (#120): bodyRef가 초기 로드에서 채워지지 않아, 한 글자도 치지
+// 않은 노트를 플러시하면 빈 본문이 파일을 덮어썼다. 목이 호출 여부만 보고 있어
+// 테스트가 이 경로를 매번 지나면서도 놓쳤다 — 이제 인자를 못박는다.
+describe("NoteApp 본문 보존 (#120)", () => {
+  it("타이핑 없이 뒷면을 열어도 원래 본문이 그대로 저장된다", async () => {
+    setupNote(mkNote("n1", "지워지면 안 되는 본문"));
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(api.saveBody).toHaveBeenCalledWith("n1", "지워지면 안 되는 본문");
+  });
+
+  it("타이핑 없이 포커스가 나가도 원래 본문이 그대로 저장된다", async () => {
+    setupNote(mkNote("n1", "포커스만 옮겼을 뿐이다"));
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent(window, new Event("blur"));
+    expect(api.saveBody).toHaveBeenCalledWith("n1", "포커스만 옮겼을 뿐이다");
+  });
+
+  it("로드가 끝나기 전에는 본문을 저장하지 않는다", async () => {
+    const note = mkNote("n1", "아직 읽지 못한 본문");
+    setupNote(note);
+    let finishLoad!: (notes: Note[]) => void;
+    vi.mocked(api.listNotes).mockReturnValue(
+      new Promise<Note[]>((r) => {
+        finishLoad = r;
+      }),
+    );
+    render(<NoteApp noteId="n1" />);
+    // 창은 아직 노트를 모른다 — 이 시점의 플러시는 빈 값을 쓸 수밖에 없으므로
+    // 저장 자체를 하지 않아야 한다.
+    fireEvent(window, new Event("blur"));
+    expect(api.saveBody).not.toHaveBeenCalled();
+    await act(async () => {
+      finishLoad([note]);
+    });
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+  });
+});

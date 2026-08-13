@@ -7,6 +7,61 @@
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-08-13
+
+### 추가
+
+- **`ddakji-cli`** — 노트를 명령줄에서 다루는 도구
+  (`list/get/add/append/edit/set/delete/groups/merge`, `--json`, stdin 입력).
+  GUI와 같은 저장소 규칙(순서 부여·자동 해제·통째 병합)이 그대로 적용되며,
+  포터블 zip에 함께 들어갑니다 ([#12], [docs/cli.md](docs/cli.md))
+- 앱 실행 중에 CLI·외부 도구가 바꾼 노트가 **화면에 자동 반영**됩니다 —
+  열린 노트는 약 2초 안에 본문이 갱신되고(단, 그 창에서 편집 중이면 편집이
+  우선), 밖에서 삭제된 노트의 창은 닫힙니다 ([#12])
+- `ddakji-cli open <id>`·`add --open` — 노트를 앱 창으로 바로 엽니다. 앱이
+  떠 있으면 그 앱이 처리하고(모음집 멤버는 모음집 창 전환), 꺼져 있으면
+  앱이 켜지면서 엽니다 ([#12])
+- **`ddakji-mcp`** — MCP stdio 서버. Claude Desktop 등 AI 클라이언트가 노트를
+  도구로 읽고 쓸 수 있습니다 (10개 도구, [docs/mcp.md](docs/mcp.md)) ([#12])
+- **숨기기가 두 갈래로 나뉩니다** ([#111]) — 모음집을 보는 중에 지금 이 장만
+  치울 수 있습니다. `Ctrl+W`(툴바 ↓)는 **이 장만** 숨기고 창은 다음 장으로
+  넘어가며, `Ctrl+Shift+W`(툴바 ✕)는 **창을 통째로** 숨깁니다. 브라우저의 탭
+  닫기와 창 닫기 같은 관계입니다. 숨긴 장은 모음집의 화살표·점에서도 빠지고,
+  목록에서 열면 제자리로 돌아옵니다. 파일을 지우는 것은 여전히 뒷면의 삭제뿐입니다.
+
+- **휴지통** ([#112]) — 삭제가 파일을 지우는 대신 **휴지통으로 옮깁니다.** 노트
+  뒷면의 삭제든, 목록의 휴지통 아이콘이든, `ddakji-cli delete`·MCP든 어느
+  경로로 지워도 되돌릴 수 있습니다. 목록 창의 휴지통에서 **복원**하거나
+  **영구 삭제**·**비우기**를 할 수 있고, 파일이 실제로 사라지는 것은 이 두
+  가지뿐입니다. 이미지도 휴지통에 있는 동안 함께 보관됩니다.
+
+- **이미지 크기 조절** ([#113]) — 이미지에 마우스를 올리면 오른쪽 아래에 빗금
+  그립이 나타납니다. 끌어서 크기를 조절하고, 두 번 누르면 원래 크기로 돌아갑니다.
+  크기를 바꾼 이미지만 `<img width>`로 저장되고 손대지 않은 이미지는 평문
+  마크다운 그대로 남습니다.
+- **코드 블록 글꼴** ([#113]) — 글꼴 지정이 없어 OS 기본 고정폭 글꼴(Windows에서는
+  대개 Courier New)로 떨어지던 것을 Cascadia Mono·Consolas 계열로 잡고, 본문보다
+  한 뼘 작게(0.92em) 두었습니다. 노트 글씨 크기를 그대로 따라갑니다.
+
+### 수정
+
+- **노트를 열자마자 본문이 지워지던 문제** ([#120]) — 한 글자도 입력하지 않은
+  노트에서 뒷면을 열거나, 다른 창을 클릭해 포커스를 넘기거나, 모음집의 다음
+  장으로 넘어가면 **본문이 빈 값으로 저장됐습니다.** 창이 파일을 읽어 화면에는
+  보여 주면서도 저장용 사본은 비워 둔 채였고, 그 상태로 저장이 돌면 빈 사본이
+  파일을 덮어썼습니다. 한 글자라도 입력한 뒤에는 일어나지 않아 눈에 덜 띄었습니다.
+  v0.1.5에 포함된 문제입니다.
+- 창을 옮기다 **잠깐 멈추기만 해도 옆 창에 흡수되던 문제** ([#115]) — 합치기가
+  "놓았을 때"가 아니라 "움직임이 500ms 멎었을 때" 발동해, 마우스를 누르고 있는
+  중에도 창이 끌려갔습니다. 이제 **마우스를 놓아야** 합쳐집니다.
+  판정 기준도 겹침 면적이 아니라 **커서가 놓인 지점**으로 바뀌어, 창을 나란히
+  두려다 우연히 합쳐지는 일이 없습니다. 합친 직후 잠깐 뜨는 **되돌리기**로
+  무를 수 있습니다.
+- 모음집의 노트 한 장을 **삭제하면 모음집 전체가 화면에서 사라지던 문제** ([#111]) —
+  모음집은 창 하나로만 표시되는데(룰4) 삭제가 그 창을 없애 버렸습니다. 이제 창은
+  남은 장으로 넘어가고, 마지막 한 장을 지웠을 때만 닫힙니다. 뒷면을 펼쳐 둔 채
+  넘어가도 넘겨받은 장은 앞면부터 보입니다.
+
 ## [0.1.5] - 2026-08-10
 
 ### 추가
@@ -101,11 +156,13 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.5...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.6...develop
+[0.1.6]: https://github.com/namest504/ddakji/releases/tag/v0.1.6
 [0.1.5]: https://github.com/namest504/ddakji/releases/tag/v0.1.5
 [0.1.4]: https://github.com/namest504/ddakji/releases/tag/v0.1.4
 [0.1.3]: https://github.com/namest504/ddakji/releases/tag/v0.1.3
 [0.1.2]: https://github.com/namest504/ddakji/releases/tag/v0.1.2
+[#12]: https://github.com/namest504/ddakji/issues/12
 [#66]: https://github.com/namest504/ddakji/issues/66
 [#67]: https://github.com/namest504/ddakji/issues/67
 [#68]: https://github.com/namest504/ddakji/pull/68
@@ -116,6 +173,11 @@
 [#77]: https://github.com/namest504/ddakji/issues/77
 [#78]: https://github.com/namest504/ddakji/issues/78
 [#98]: https://github.com/namest504/ddakji/issues/98
+[#111]: https://github.com/namest504/ddakji/issues/111
+[#112]: https://github.com/namest504/ddakji/issues/112
+[#113]: https://github.com/namest504/ddakji/issues/113
+[#115]: https://github.com/namest504/ddakji/issues/115
+[#120]: https://github.com/namest504/ddakji/issues/120
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

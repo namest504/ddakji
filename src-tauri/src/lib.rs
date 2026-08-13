@@ -8,9 +8,12 @@
 //! - [`windows`] 창 생성·배치 규칙, [`commands`] 프런트에 노출되는 API
 //! - [`error`] 프런트와의 에러 계약 (`NOTE_NOT_FOUND` 마커 포함)
 
+pub mod args;
+pub mod bridge;
 pub mod commands;
 pub mod error;
 pub mod fonts;
+pub mod pointer;
 pub mod session;
 pub mod store;
 pub mod tray;
@@ -25,8 +28,13 @@ use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // 두 번째 실행 시: 숨겨지지 않은 노트 창 모두 표시
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // CLI의 --open 액션 (#12): 해당 노트만 열고 끝낸다
+            if let Some(id) = args::open_arg(&args) {
+                let _ = commands::open_note_by_id(app, id);
+                return;
+            }
+            // 그 외 두 번째 실행: 숨겨지지 않은 노트 창 모두 표시
             let _ = crate::show_all_notes(app);
         }))
         .plugin(tauri_plugin_autostart::init(
@@ -41,6 +49,10 @@ pub fn run() {
             commands::save_body,
             commands::save_meta,
             commands::delete_note,
+            commands::list_trash,
+            commands::restore_note,
+            commands::purge_note,
+            commands::empty_trash,
             commands::open_note,
             commands::open_list,
             commands::save_image,
@@ -59,8 +71,11 @@ pub fn run() {
             commands::nav_to,
             commands::group_members,
             commands::check_merge,
+            commands::undo_merge,
             commands::merge_preview,
             commands::pop_out,
+            commands::hide_note,
+            commands::hide_group,
             commands::list_groups,
         ])
         .setup(setup)
@@ -96,7 +111,11 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     app.manage(commands::WindowNotes(Mutex::new(
         std::collections::HashMap::new(),
     )));
+    app.manage(commands::LastMerge(Mutex::new(None)));
+    app.manage(commands::DragCursor(Mutex::new(None)));
     tray::create_tray(app.handle())?;
+    // 외부 변경 브리지 (#12) — CLI 등 밖에서 바뀐 파일을 이벤트로 번역
+    bridge::spawn(app.handle().clone());
     // Alt-Tab/작업표시줄 대표 창 (노트들은 skip_taskbar)
     windows::ensure_main_stub(app.handle())?;
     if notes.is_empty() {
@@ -107,6 +126,11 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     }
     for n in session::startup_notes(&notes) {
         windows::open_note_window(app.handle(), n)?;
+    }
+    // 앱이 꺼진 상태에서 `ddakji.exe --open <id>`로 시작된 경우 (#12)
+    let argv: Vec<String> = std::env::args().collect();
+    if let Some(id) = args::open_arg(&argv) {
+        let _ = commands::open_note_by_id(app.handle(), id);
     }
     Ok(())
 }

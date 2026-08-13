@@ -1,11 +1,24 @@
 [package]
 name = "ddakji"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
+# 바이너리가 둘(ddakji, ddakji-cli)이라 tauri build가 메인을 특정하지 못한다
+default-run = "ddakji"
 
 [lib]
 name = "ddakji_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+# AI·스크립트용 CLI (#12) — GUI exe는 windows 서브시스템이라 stdout이 없어
+# 콘솔 겸용이 불가능하다. Store를 lib로 공유하는 별도 바이너리.
+[[bin]]
+name = "ddakji-cli"
+path = "src/bin/cli.rs"
+
+# MCP stdio 서버 (#12) — Claude Desktop 등 외부 AI 클라이언트용
+[[bin]]
+name = "ddakji-mcp"
+path = "src/bin/mcp.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -16,13 +29,14 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
 serde_json = "1"
 serde_yaml = "0.9"
 uuid = { version = "1", features = ["v4", "v7"] }
 chrono = "0.4"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
-window-vibrancy = "0.6"
 
 [dev-dependencies]
 tempfile = "3"
@@ -34,3 +48,9 @@ custom-protocol = ["tauri/custom-protocol"]
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
+# 드래그 종료(마우스 버튼 릴리스) 확인 — Tauri는 드롭 이벤트를 주지 않는다 (#115)
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+] }

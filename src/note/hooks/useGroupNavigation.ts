@@ -91,3 +91,41 @@ export function useGroupNavigation({ noteId, flushBody, switchTo, setNote }: Opt
 
   return { members, navigate, jumpTo, popOut };
 }
+
+/**
+ * 숨기기 두 갈래 — 브라우저의 탭/창 관계와 같다.
+ *   이 장만(Ctrl+W)      : 모음집이면 창은 남고 다음 장으로, 아니면 창까지 내려간다
+ *   창 전체(Ctrl+Shift+W): 모음집 멤버 전부를 숨기고 창을 내린다
+ * 숨긴 노트는 파일도 목록도 그대로 — 목록에서 열면 돌아온다.
+ */
+export function useHide({ flushBody, switchTo }: Pick<Options, "flushBody" | "switchTo">): {
+  hideNote: () => void;
+  hideWindow: () => void;
+} {
+  const closeWindow = useCallback(async () => {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().close();
+  }, []);
+
+  const hideNote = useCallback(() => {
+    flushBody();
+    api
+      .hideNote()
+      .then((n) => {
+        // 전환할 장이 없으면(단독 노트) 창까지 내려간다
+        if (n) switchTo(n, "next");
+        else void closeWindow();
+      })
+      .catch(() => {});
+  }, [closeWindow, flushBody, switchTo]);
+
+  const hideWindow = useCallback(() => {
+    flushBody();
+    api
+      .hideGroup()
+      .catch(() => {})
+      .finally(() => void closeWindow());
+  }, [closeWindow, flushBody]);
+
+  return { hideNote, hideWindow };
+}

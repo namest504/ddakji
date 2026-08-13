@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as api from "../../lib/api";
 
 interface Handlers {
@@ -7,6 +6,10 @@ interface Handlers {
   navigate: (dir: 1 | -1) => void;
   popOut: () => void;
   flushBody: () => void;
+  /** 이 장만 숨기기 */
+  hideNote: () => void;
+  /** 이 창(모음집 전체) 숨기기 */
+  hideWindow: () => void;
 }
 
 /**
@@ -16,10 +19,19 @@ interface Handlers {
  * |---|---|
  * | Ctrl+휠, Ctrl+± | 글씨 크기 |
  * | Alt+←/→ | 모음집 이전/다음 노트 |
- * | Ctrl+N / W / L | 새 노트 / 닫기 / 목록 |
+ * | Ctrl+N / L | 새 노트 / 목록 |
+ * | Ctrl+W | 이 장만 숨기기 (모음집이면 창은 남고 다음 장으로) |
+ * | Ctrl+Shift+W | 이 창 숨기기 (모음집 전체) |
  * | Ctrl+Shift+P | 모음집에서 꺼내기 (노트가 모음집에서 빠져 단독 창이 된다) |
  */
-export function useNoteShortcuts({ changeFont, navigate, popOut, flushBody }: Handlers) {
+export function useNoteShortcuts({
+  changeFont,
+  navigate,
+  popOut,
+  flushBody,
+  hideNote,
+  hideWindow,
+}: Handlers) {
   useEffect(() => {
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
@@ -44,10 +56,10 @@ export function useNoteShortcuts({ changeFont, navigate, popOut, flushBody }: Ha
         e.preventDefault();
         api.createNote().catch(() => {});
       }
-      if (e.ctrlKey && !e.shiftKey && k === "w") {
+      if (e.ctrlKey && k === "w") {
         e.preventDefault();
-        flushBody();
-        getCurrentWindow().close();
+        if (e.shiftKey) hideWindow();
+        else hideNote();
       }
       if (e.ctrlKey && !e.shiftKey && k === "l") {
         e.preventDefault();
@@ -67,5 +79,5 @@ export function useNoteShortcuts({ changeFont, navigate, popOut, flushBody }: Ha
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("blur", flushBody);
     };
-  }, [changeFont, flushBody, navigate, popOut]);
+  }, [changeFont, flushBody, hideNote, hideWindow, navigate, popOut]);
 }

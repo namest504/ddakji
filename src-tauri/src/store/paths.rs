@@ -29,6 +29,13 @@ pub(super) fn new_file_id() -> String {
     format!("{ts}-{suffix}")
 }
 
+/// 앱과 동일한 규칙의 기본 데이터 루트 — CLI·MCP 등 별도 바이너리용.
+/// 식별자 폴더(`com.ddakji.app`)의 포인터 파일까지 그대로 따른다.
+pub fn default_data_root() -> Option<PathBuf> {
+    let id_dir = dirs::data_dir()?.join("com.ddakji.app");
+    Some(resolve_data_root(&id_dir))
+}
+
 /// 기본 데이터 폴더 이름 (roaming 바로 아래)
 const DATA_DIR_NAME: &str = "Ddakji";
 

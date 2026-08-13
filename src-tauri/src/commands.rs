@@ -17,6 +17,19 @@ pub struct IdDir(pub std::path::PathBuf);
 /// 창 label → 표시 중인 노트 id (#25 그룹 넘기기로 창-노트가 동적이 됨)
 pub struct WindowNotes(pub Mutex<std::collections::HashMap<String, String>>);
 
+/// 합치기를 되돌리는 데 필요한 이전 상태 (#115)
+pub struct MergeUndo {
+    /// (노트 id, 합치기 이전 모음집) — 대상과 끌던 쪽 멤버 전부
+    pub previous: Vec<(String, Option<String>)>,
+    /// 흡수되어 닫힌 창의 노트
+    pub moved_id: String,
+    /// 그 창이 있던 자리 (논리 픽셀)
+    pub moved_window: crate::store::WindowBounds,
+}
+
+/// 직전 합치기 한 칸만 기억한다 — 세션 한정, "방금 그거"를 무르는 용도.
+pub struct LastMerge(pub Mutex<Option<MergeUndo>>);
+
 /// 상태 잠금 — 다른 스레드가 패닉했을 때만 실패한다.
 fn lock<T>(m: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>> {
     m.lock().map_err(|_| Error::Poisoned)
@@ -527,16 +540,24 @@ pub async fn merge_preview(
     Ok(hint)
 }
 
-/// 드래그 종료 후 호출 — 다른 노트 창과 충분히 겹치면(60%+) 그 노트와 같은
-/// 모음집으로 묶고, 끌던 창은 닫는다 (#25 G4)
+/// 다른 노트 창과 충분히 겹치게 **놓였으면**(60%+) 그 노트와 같은 모음집으로
+/// 묶고, 끌던 창은 닫는다 (#25 G4).
+///
+/// 프런트는 움직임이 멎으면 이 커맨드를 부르지만, 멎은 것과 놓은 것은 다르다
+/// (#115). 여기서 마우스 버튼이 떨어질 때까지 기다린 **뒤에** 위치를 잰다 —
+/// 기다리는 동안 창이 더 움직였을 수 있으므로 판정은 놓인 자리로 해야 한다.
 #[tauri::command]
 pub async fn check_merge(
     app: AppHandle,
     window: tauri::WebviewWindow,
     store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
+    last: State<'_, LastMerge>,
 ) -> Result<bool> {
     use tauri::Emitter;
+    if !crate::pointer::wait_for_drop() {
+        return Ok(false);
+    }
     let label = window.label().to_string();
     let moved_id = lock(&wn.0)?
         .get(&label)
@@ -578,11 +599,45 @@ pub async fn check_merge(
     if ratio < 0.6 || target_id == moved_id {
         return Ok(false);
     }
+    // 되돌리기용 이전 상태 — 합치기 **전에** 찍어 둔다 (#115)
+    let previous = {
+        let s = lock(&store)?;
+        let mut v: Vec<(String, Option<String>)> = Vec::new();
+        if let Some(t) = s.load(&target_id) {
+            v.push((target_id.clone(), t.meta.group.clone()));
+        }
+        match s.load(&moved_id).and_then(|m| m.meta.group) {
+            // 모음집째 얹혔다면 그 멤버 전부가 대상 그룹으로 이적한다
+            Some(old) => v.extend(
+                s.group_notes(&old)
+                    .into_iter()
+                    .map(|n| (n.meta.id, n.meta.group)),
+            ),
+            None => v.push((moved_id.clone(), None)),
+        }
+        v
+    };
+    // 창이 있던 자리 — 되돌릴 때 이 자리로 다시 연다. 드롭을 기다리는 동안
+    // 움직였을 수 있으므로 저장된 메타가 아니라 지금 실제 위치를 쓴다.
+    let factor = window.scale_factor().unwrap_or(1.0);
+    let moved_window = crate::store::WindowBounds {
+        x: a.0 / factor,
+        y: a.1 / factor,
+        w: a.2 / factor,
+        h: a.3 / factor,
+    };
     // 모음집 창을 얹으면 모음집 전체가 대상 그룹으로 통합된다 (같은 그룹이면 창만 흡수)
     let changed = {
         let s = lock(&store)?;
         s.merge_note_groups(&moved_id, &target_id)?
     };
+    if let Ok(mut slot) = last.0.lock() {
+        *slot = Some(MergeUndo {
+            previous,
+            moved_id: moved_id.clone(),
+            moved_window,
+        });
+    }
     // 흡수 애니메이션: 끌던 창이 대상 중심으로 미끄러져 들어간 뒤 닫힌다
     let (tcx, tcy) = (tb.0 + tb.2 / 2.0, tb.1 + tb.3 / 2.0);
     let (scx, scy) = (a.0 + a.2 / 2.0, a.1 + a.3 / 2.0);
@@ -599,11 +654,53 @@ pub async fn check_merge(
     }
     if let Some(w) = app.get_webview_window(&target_label) {
         let _ = w.set_focus();
+        // 흡수한 창이 "합쳤습니다 · 되돌리기"를 띄운다 (#115) — 판정이 한 번
+        // 틀려도 손해가 없어야 한다
+        let _ = w.emit_to(&target_label, "merged-in", ());
     }
     if changed {
         let _ = app.emit("groups-changed", ());
     }
     let _ = window.destroy();
+    Ok(true)
+}
+
+/// 직전 합치기 되돌리기 (#115) — 이전 모음집을 복구하고, 흡수되며 닫힌 창을
+/// 있던 자리에 다시 연다. 한 칸만 기억하므로 "방금 그거"에만 쓴다.
+#[tauri::command]
+pub async fn undo_merge(
+    app: AppHandle,
+    store: StoreState<'_>,
+    last: State<'_, LastMerge>,
+) -> Result<bool> {
+    use tauri::Emitter;
+    let Some(u) = lock(&last.0)?.take() else {
+        return Ok(false);
+    };
+    let note = {
+        let s = lock(&store)?;
+        // 모음집 복구. 대상이 원래 무소속이었다면 멤버가 하나만 남으므로
+        // Store가 알아서 해제한다(룰3) — 여기서 따로 지울 필요가 없다.
+        for (id, group) in &u.previous {
+            let _ = s.save_meta(
+                id,
+                &MetaPatch {
+                    group: Some(group.clone().unwrap_or_default()),
+                    ..Default::default()
+                },
+            );
+        }
+        s.save_meta(
+            &u.moved_id,
+            &MetaPatch {
+                window: Some(u.moved_window),
+                hidden: Some(false),
+                ..Default::default()
+            },
+        )?
+    };
+    windows::open_note_window(&app, &note)?;
+    let _ = app.emit("groups-changed", ());
     Ok(true)
 }
 

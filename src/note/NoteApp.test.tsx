@@ -53,6 +53,7 @@ vi.mock("../lib/api", () => ({
   navTo: vi.fn(),
   popOut: vi.fn(),
   checkMerge: vi.fn(),
+  undoMerge: vi.fn(),
   mergePreview: vi.fn(),
   setLastViewed: vi.fn(),
 }));
@@ -322,6 +323,47 @@ describe("NoteApp 뒷면 (딱지 시안)", () => {
     await screen.findByText("남는 장 본문");
     expect(screen.queryByText("만든 날")).toBeNull();
     expect(win.destroy).not.toHaveBeenCalled();
+  });
+});
+
+describe("NoteApp 합치기 되돌리기 (#115)", () => {
+  it("다른 창을 흡수하면 되돌리기 안내가 뜨고, 누르면 되돌린다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    vi.mocked(api.undoMerge).mockResolvedValue(true);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.events?.["merged-in"]).toBeTruthy());
+    expect(screen.queryByText("되돌리기")).toBeNull();
+    act(() => win.events!["merged-in"]({ payload: null }));
+    await screen.findByText(/합쳤습니다/);
+    fireEvent.click(screen.getByText("되돌리기"));
+    await waitFor(() => expect(api.undoMerge).toHaveBeenCalled());
+    // 누른 즉시 안내는 걷힌다 — 같은 것을 두 번 되돌릴 일은 없다
+    await waitFor(() => expect(screen.queryByText("되돌리기")).toBeNull());
+  });
+
+  it("드래그 판정이 진행 중이면 다시 부르지 않는다", async () => {
+    // checkMerge는 마우스를 놓을 때까지 돌아오지 않는다(#115) — 그 사이 창이
+    // 더 움직여 저장이 다시 돌아도 판정이 겹쳐 쌓이면 안 된다
+    setupNote(mkNote("n1", "본문"));
+    let resolve: ((v: boolean) => void) | undefined;
+    vi.mocked(api.checkMerge).mockReturnValue(
+      new Promise<boolean>((r) => {
+        resolve = r;
+      }),
+    );
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.movedCb).toBeTruthy());
+    const drag = (n: number) => {
+      act(() => {
+        for (let i = 0; i < n; i++) win.movedCb?.({ payload: { x: 100 + i * 20, y: 100 } });
+      });
+    };
+    drag(5);
+    await waitFor(() => expect(api.checkMerge).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    drag(5); // 대기 중 추가 이동
+    await new Promise((r) => setTimeout(r, 900));
+    expect(api.checkMerge).toHaveBeenCalledTimes(1);
+    resolve?.(false);
   });
 });
 

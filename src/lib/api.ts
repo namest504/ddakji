@@ -92,7 +92,10 @@ export const groupMembers = (id: string) => invoke<string[]>("group_members", { 
 export const hideNote = () => invoke<Note | null>("hide_note");
 /** 이 창이 든 모음집을 통째로 숨긴다 (창을 닫는 일은 호출자가) */
 export const hideGroup = () => invoke<void>("hide_group");
+/** 드롭을 기다렸다가 판정한다 — 버튼을 놓을 때까지 돌아오지 않는다 (#115) */
 export const checkMerge = () => invoke<boolean>("check_merge");
+/** 직전 합치기 되돌리기 — 이전 모음집과 창 자리를 복구한다 */
+export const undoMerge = () => invoke<boolean>("undo_merge");
 export const mergePreview = () => invoke<boolean>("merge_preview");
 // 현재 노트가 새 창으로 분리되고, 이 창이 표시할 다음 멤버가 반환된다 (#74)
 export const popOut = () => invoke<Note | null>("pop_out");

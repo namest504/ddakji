@@ -13,6 +13,7 @@ pub mod bridge;
 pub mod commands;
 pub mod error;
 pub mod fonts;
+pub mod pointer;
 pub mod session;
 pub mod store;
 pub mod tray;
@@ -70,6 +71,7 @@ pub fn run() {
             commands::nav_to,
             commands::group_members,
             commands::check_merge,
+            commands::undo_merge,
             commands::merge_preview,
             commands::pop_out,
             commands::hide_note,
@@ -109,6 +111,7 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     app.manage(commands::WindowNotes(Mutex::new(
         std::collections::HashMap::new(),
     )));
+    app.manage(commands::LastMerge(Mutex::new(None)));
     tray::create_tray(app.handle())?;
     // 외부 변경 브리지 (#12) — CLI 등 밖에서 바뀐 파일을 이벤트로 번역
     bridge::spawn(app.handle().clone());

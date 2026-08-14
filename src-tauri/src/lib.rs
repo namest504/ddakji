@@ -124,7 +124,12 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
         windows::open_note_window(app.handle(), &note)?;
         return Ok(());
     }
-    for n in session::startup_notes(&notes) {
+    let cursors = {
+        let s = app.state::<std::sync::Mutex<store::Store>>();
+        let s = s.lock().unwrap();
+        s.group_cursors()
+    };
+    for n in session::startup_notes(&notes, &cursors) {
         windows::open_note_window(app.handle(), n)?;
     }
     // 앱이 꺼진 상태에서 `ddakji.exe --open <id>`로 시작된 경우 (#12)

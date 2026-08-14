@@ -38,6 +38,26 @@ pub struct LastMerge(pub Mutex<Option<MergeUndo>>);
 pub struct DragCursor(pub Mutex<Option<(f64, f64)>>);
 
 /// 상태 잠금 — 다른 스레드가 패닉했을 때만 실패한다.
+/// 창이 이 노트를 표시하게 됐다 — 매핑을 갱신하고, 모음집이면 "마지막으로
+/// 보던 장" 커서를 지속한다. **매핑 갱신은 반드시 이 함수로**: insert가
+/// 흩어져 있던 시절, 커서 같은 부수 규칙을 어느 한 곳이 빼먹는 사고가
+/// 구조적으로 가능했다.
+pub fn window_shows(
+    store: &Mutex<Store>,
+    wn: &WindowNotes,
+    label: String,
+    note: &Note,
+) -> Result<()> {
+    lock(&wn.0)?.insert(label, note.meta.id.clone());
+    if let Some(g) = note.meta.group.as_deref() {
+        // 커서 기록 실패는 치명적이지 않다 — 다음 전환에서 다시 쓴다
+        if let Ok(mut s) = lock(store) {
+            let _ = s.set_group_cursor(g, &note.meta.id);
+        }
+    }
+    Ok(())
+}
+
 fn lock<T>(m: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>> {
     m.lock().map_err(|_| Error::Poisoned)
 }
@@ -116,7 +136,7 @@ pub async fn delete_note(
             // 모음집 하나 = 창 하나(룰4)다. 한 장을 지웠다고 창을 없애면 모음집
             // 전체가 화면에서 사라지므로, 창은 다음 장에게 넘긴다 (pop_out과 같은 규약).
             Some(next) => {
-                lock(&wn.0)?.insert(l.clone(), next.meta.id.clone());
+                window_shows(&store, &wn, l.clone(), &next)?;
                 if let Some(win) = app.get_webview_window(&l) {
                     let _ = win.emit_to(&l, "switch-note", &next);
                 }
@@ -204,7 +224,7 @@ pub fn open_note_by_id(app: &AppHandle, id: &str) -> Result<()> {
         if !self_open {
             if let Some(label) = group_win {
                 if let Some(w) = app.get_webview_window(&label) {
-                    lock(&wn.0)?.insert(label.clone(), id.to_string());
+                    window_shows(&store, &wn, label.clone(), &note)?;
                     let _ = w.emit_to(label, "switch-note", &note);
                     let _ = w.show();
                     let _ = w.set_focus();
@@ -366,7 +386,7 @@ pub async fn nav_group(
             return Ok(None);
         }
     }
-    lock(&wn.0)?.insert(label, target.meta.id.clone());
+    window_shows(&store, &wn, label, &target)?;
     Ok(Some(target))
 }
 
@@ -434,7 +454,7 @@ pub async fn hide_note(
     let Some(next) = next else {
         return Ok(None);
     };
-    lock(&wn.0)?.insert(label, next.meta.id.clone());
+    window_shows(&store, &wn, label, &next)?;
     Ok(Some(next))
 }
 
@@ -497,7 +517,7 @@ pub async fn nav_to(
             return Ok(None);
         }
     }
-    lock(&wn.0)?.insert(label, target.meta.id.clone());
+    window_shows(&store, &wn, label, &target)?;
     Ok(Some(target))
 }
 
@@ -767,7 +787,7 @@ pub async fn pop_out(
     };
     // 2) 이 창을 다음 멤버로 전환 — 매핑을 먼저 바꿔야 아래 open_note_window의
     //    중복 검사가 꺼낸 노트를 "이미 이 창에 있음"으로 오인하지 않는다
-    lock(&wn.0)?.insert(label, next.meta.id.clone());
+    window_shows(&store, &wn, label, &next)?;
     // 3) 꺼낸 노트를 옆에 어긋난 단독 창으로
     let mut popped_win = popped.clone();
     popped_win.meta.window.x = popped.meta.window.x + 28.0;

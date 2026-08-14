@@ -111,9 +111,8 @@ pub fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<()> {
     .min_inner_size(220.0, 160.0)
     .build()?;
     if let Some(wn) = app.try_state::<crate::commands::WindowNotes>() {
-        if let Ok(mut m) = wn.0.lock() {
-            m.insert(label, note.meta.id.clone());
-        }
+        let store = app.state::<std::sync::Mutex<crate::store::Store>>();
+        let _ = crate::commands::window_shows(&store, &wn, label, note);
     }
     Ok(())
 }

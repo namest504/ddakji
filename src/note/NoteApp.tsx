@@ -128,14 +128,20 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       {merged && (
         <div className="merge-undo">
           모음집으로 합쳤습니다
-          <button
-            onClick={() => {
-              dismissMerged();
-              api.undoMerge().catch(() => {});
-            }}
-          >
-            되돌리기
-          </button>
+          <span className="merge-undo-actions">
+            <button
+              onClick={() => {
+                dismissMerged();
+                api.undoMerge().catch(() => {});
+              }}
+            >
+              되돌리기
+            </button>
+            {/* 자동 소멸이 실패해도 탈출구는 남는다 — 배너는 툴바 위 레이어다 */}
+            <button aria-label="안내 닫기" className="merge-undo-close" onClick={dismissMerged}>
+              ✕
+            </button>
+          </span>
         </div>
       )}
       {inGroup && !flipped && (

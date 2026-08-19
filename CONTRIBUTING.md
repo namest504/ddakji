@@ -36,7 +36,24 @@ cargo test  --manifest-path src-tauri/Cargo.toml
 
 ## 브랜치와 커밋
 
-- `main` = 안정(릴리스), `develop` = 개발. **PR은 `develop`을 대상으로** 보내주세요.
+```
+feature/fix/deps ─▶ develop ─▶ release/x.y.z ─(안정화)─▶ main ─▶ tag vx.y.z
+                       ▲                                     │
+                       └──────── 역머지(release 수정·hotfix) ──┘
+```
+
+- `main` = 안정(릴리스된 것만), `develop` = 개발. **모든 PR은 `develop`을
+  대상으로** 보내주세요 — 기능·수정은 물론 Dependabot 의존성 갱신도 마찬가지입니다.
+  `main`으로 직접 가는 것은 릴리스 브랜치와 핫픽스뿐입니다.
+- **릴리스 순서**
+  1. `develop`에 쌓인 PR을 머지합니다
+  2. `develop`에서 `release/x.y.z`를 땁니다 — 여기서는 버전 bump, `CHANGELOG`
+     날짜 확정, 릴리스 직전 수정만 합니다. 새 기능은 `develop`에 계속 들어가되
+     이 브랜치로는 오지 않습니다
+  3. `release/x.y.z` → `main` PR을 올리고 CI 통과 후 머지합니다
+  4. `main`에서 `vx.y.z` 태그를 밀면 release 워크플로가 빌드·초안 릴리스를 만듭니다
+  5. `main` → `develop` 역머지로 릴리스 브랜치의 수정을 돌려보냅니다
+- **핫픽스**는 `main`에서 분기해 `main`으로 머지·태그한 뒤 `develop`으로 역머지합니다.
 - 커밋 메시지는 [Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/):
   `feat:` `fix:` `docs:` `test:` `refactor:` `chore:` `style:`
 - 제목은 명령형 현재형으로, 본문에는 **왜** 그렇게 고쳤는지를 적어주세요.

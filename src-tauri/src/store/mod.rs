@@ -27,6 +27,13 @@ pub enum ExternalChange {
     Removed(String),
 }
 
+/// 앱이 스스로 기억하는 세션 상태 — 사용자 설정(settings.json)과 분리
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+struct SessionState {
+    #[serde(default)]
+    group_cursors: HashMap<String, String>,
+}
+
 pub struct Store {
     root: PathBuf,
     settings: Settings,
@@ -129,6 +136,38 @@ impl Store {
         )?;
         fs::rename(&tmp, &path)?;
         self.settings = s.clone();
+        Ok(())
+    }
+
+    /// 모음집별 "마지막으로 보던 장" (id). `session.json`에 산다 —
+    /// settings.json은 사용자가 고른 값, 이쪽은 앱이 스스로 기억하는 상태라
+    /// 파일을 가른다. 파손이면 빈 맵 (시작을 막지 않는다).
+    pub fn group_cursors(&self) -> HashMap<String, String> {
+        fs::read_to_string(self.root.join("session.json"))
+            .ok()
+            .and_then(|s| serde_json::from_str::<SessionState>(&s).ok())
+            .map(|s| s.group_cursors)
+            .unwrap_or_default()
+    }
+
+    pub fn set_group_cursor(&mut self, group: &str, id: &str) -> Result<()> {
+        let mut cursors = self.group_cursors();
+        if cursors.get(group).map(String::as_str) == Some(id) {
+            return Ok(()); // 같은 장을 다시 보는 것뿐 — 쓰기 생략
+        }
+        cursors.insert(group.to_string(), id.to_string());
+        let state = SessionState {
+            group_cursors: cursors,
+        };
+        let path = self.root.join("session.json");
+        let tmp = self
+            .root
+            .join(format!("session.json.{}.tmp", uuid::Uuid::now_v7()));
+        fs::write(
+            &tmp,
+            serde_json::to_string_pretty(&state).expect("session serialize"),
+        )?;
+        fs::rename(&tmp, &path)?;
         Ok(())
     }
 
@@ -1488,5 +1527,42 @@ mod tests {
         let raw = fs::read_to_string(&path).unwrap();
         let (_, recovered) = Note::from_file_string(&id, &raw);
         assert!(!recovered);
+    }
+
+    #[test]
+    fn group_cursor_roundtrip_and_pruning() {
+        // 모음집별 "마지막으로 보던 장" — 재시작이 그 장부터 열도록 지속한다.
+        let d = TempDir::new().unwrap();
+        let mut s = Store::new(d.path()).unwrap();
+        s.set_group_cursor("모음", "20260813-000000-aaaaaa")
+            .unwrap();
+        assert_eq!(
+            s.group_cursors().get("모음").map(String::as_str),
+            Some("20260813-000000-aaaaaa")
+        );
+
+        // 같은 그룹은 덮어쓴다
+        s.set_group_cursor("모음", "20260813-000000-bbbbbb")
+            .unwrap();
+        assert_eq!(
+            s.group_cursors().get("모음").map(String::as_str),
+            Some("20260813-000000-bbbbbb")
+        );
+
+        // 재시작(새 Store)에도 살아남는다
+        let s2 = Store::new(d.path()).unwrap();
+        assert_eq!(
+            s2.group_cursors().get("모음").map(String::as_str),
+            Some("20260813-000000-bbbbbb")
+        );
+    }
+
+    #[test]
+    fn corrupt_cursor_file_is_ignored() {
+        // 세션 파일 파손이 앱 시작을 막으면 안 된다 — settings.json과 같은 원칙
+        let d = TempDir::new().unwrap();
+        fs::write(d.path().join("session.json"), "{망가진 json").unwrap();
+        let s = Store::new(d.path()).unwrap();
+        assert!(s.group_cursors().is_empty());
     }
 }

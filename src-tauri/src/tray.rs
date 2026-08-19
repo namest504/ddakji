@@ -41,7 +41,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
                 let _ = crate::windows::open_list_window(app);
             }
             "show_all" => {
-                let _ = crate::show_all_notes(app);
+                let _ = crate::session::unhide_and_show_all(app);
             }
             "autostart" => {
                 let al = app.autolaunch();

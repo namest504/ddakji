@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as api from "../../lib/api";
 import { closeIfGone } from "./useSaveGuard";
@@ -30,6 +30,9 @@ export function useWindowSync(noteId: string): {
 } {
   const [mergeHint, setMergeHint] = useState(false);
   const [merged, setMerged] = useState(false);
+  // 안내가 걷혀야 하는 벽시계 시각. 타이머는 창이 가려져 있는 동안 밀릴 수
+  // 있으므로(WebView2 스로틀링) 기한을 따로 들고 포커스 복귀 때 재검사한다.
+  const undoDeadline = useRef(0);
   const dismissMerged = useCallback(() => setMerged(false), []);
 
   useEffect(() => {
@@ -93,13 +96,20 @@ export function useWindowSync(noteId: string): {
     const un2 = win.onResized(scheduleSave);
     // Alt-Tab 썸네일이 보여줄 "최근 본 노트"
     const un3 = win.onFocusChanged(({ payload }) => {
-      if (payload) api.setLastViewed(noteId).catch(() => {});
+      if (!payload) return;
+      api.setLastViewed(noteId).catch(() => {});
+      // 밀린 타이머의 몫을 여기서 대신한다 — 기한이 지났으면 즉시 걷는다
+      if (undoDeadline.current && Date.now() >= undoDeadline.current) {
+        undoDeadline.current = 0;
+        setMerged(false);
+      }
     });
 
     // 다른 창을 흡수하면 이 창이 "합쳤습니다 · 되돌리기"를 잠깐 띄운다 (#115)
     let undoTimer: number | undefined;
     const un4 = win.listen("merged-in", () => {
       setMerged(true);
+      undoDeadline.current = Date.now() + UNDO_LINGER;
       window.clearTimeout(undoTimer);
       undoTimer = window.setTimeout(() => setMerged(false), UNDO_LINGER);
     });

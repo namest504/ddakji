@@ -55,14 +55,15 @@ ddakji-mcp --print-config              # MCP 클라이언트 등록용 JSON 출�
     npm test              # 프론트 테스트
     cargo test --manifest-path src-tauri/Cargo.toml   # Rust 테스트
 
-기여 방법·확인 명령·코드 방향은 **[CONTRIBUTING.md](CONTRIBUTING.md)**,
-버전별 변경은 **[CHANGELOG.md](CHANGELOG.md)**를 봐주세요.
+**[CONTRIBUTING.md](CONTRIBUTING.md)** — 기여 방법·확인 명령·코드 방향.
+**[CHANGELOG.md](CHANGELOG.md)** — 버전별 변경 이력.
 
 ## 데이터 위치
 
-`%APPDATA%/Ddakji/notes/*.md` — 평문 마크다운 + YAML 프론트매터.
-파일명은 생성 시각 기반(`20260805-134024-a1b2c3.md`), 이미지는 `assets/<노트id>/`에 원본 저장.
-저장 위치는 설정에서 변경할 수 있습니다.
+- 노트: `%APPDATA%/Ddakji/notes/*.md` — 평문 마크다운 + YAML 프론트매터
+- 파일명: 생성 시각 기반 (`20260805-134024-a1b2c3.md`)
+- 이미지: `assets/<노트id>/`에 원본 저장
+- 저장 위치는 설정에서 변경할 수 있습니다
 
 ## 스택
 

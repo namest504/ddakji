@@ -1,0 +1,18 @@
+#!/bin/sh
+# push 전 로컬 검사 — GitHub Actions CI를 대신한다 (Actions 분 절약).
+# 빠른 정적 검사만 여기서 돌고, 빌드+테스트 전체는 scripts/check-full.sh.
+# 급할 때는 `git push --no-verify`로 건너뛸 수 있다.
+#
+# 클론마다 한 번 활성화 필요:
+#   git config core.hooksPath scripts/hooks
+set -e
+
+echo "[pre-push] frontend lint/format"
+npm run lint
+npm run format:check
+
+echo "[pre-push] rust fmt/clippy"
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+echo "[pre-push] ok"

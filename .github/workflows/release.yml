@@ -10,7 +10,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: npm }
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -18,12 +18,12 @@ jobs:
           workspaces: src-tauri
           shared-key: windows-release
       # Tauri가 내려받는 NSIS 등 번들 도구 캐시
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/AppData/Local/tauri
           key: tauri-tools-windows
       - run: npm ci
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

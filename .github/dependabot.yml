@@ -2,6 +2,7 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
     # 마이너·패치는 한 PR로 묶어 소음을 줄인다 — 메이저만 개별 PR
@@ -11,6 +12,7 @@ updates:
 
   - package-ecosystem: cargo
     directory: /src-tauri
+    target-branch: develop
     schedule:
       interval: weekly
     groups:
@@ -19,5 +21,6 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly

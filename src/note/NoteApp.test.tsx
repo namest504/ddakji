@@ -18,13 +18,17 @@ vi.mock("@tauri-apps/api/window", () => {
       return Promise.resolve(() => {});
     }),
     onResized: vi.fn().mockResolvedValue(() => {}),
-    onFocusChanged: vi.fn().mockResolvedValue(() => {}),
+    onFocusChanged: vi.fn().mockImplementation((cb: (e: { payload: boolean }) => void) => {
+      (win as { focusCb?: (e: { payload: boolean }) => void }).focusCb = cb;
+      return Promise.resolve(() => {});
+    }),
     listen: vi.fn().mockImplementation((name: string, cb: (e: { payload: unknown }) => void) => {
       const w = win as { events?: Record<string, (e: { payload: unknown }) => void> };
       w.events = { ...(w.events ?? {}), [name]: cb };
       return Promise.resolve(() => {});
     }),
     movedCb: undefined as MovedCb | undefined,
+    focusCb: undefined as ((e: { payload: boolean }) => void) | undefined,
     events: undefined as Record<string, (e: { payload: unknown }) => void> | undefined,
   };
   return { getCurrentWindow: () => win, __win: win };
@@ -67,6 +71,7 @@ const win = (
   winMod as unknown as {
     __win: Record<string, ReturnType<typeof vi.fn>> & {
       movedCb?: MovedCb;
+      focusCb?: (e: { payload: boolean }) => void;
       events?: Record<string, (e: { payload: unknown }) => void>;
     };
   }
@@ -107,6 +112,7 @@ const setupNote = (note: Note, members: string[] = []) => {
 beforeEach(() => {
   vi.clearAllMocks();
   win.movedCb = undefined;
+  win.focusCb = undefined;
   win.events = undefined;
 });
 afterEach(cleanup);
@@ -285,6 +291,46 @@ describe("NoteApp 뒷면 (딱지 시안)", () => {
     await screen.findByText("앞면 본문");
   });
 
+  it("편집한 내용이 뒷면을 봤다 돌아와도 남아 있다 (표시 유실)", async () => {
+    // 편집은 bodyRef에만 쌓이고 note.body는 창을 연 시점에 멈춰 있다.
+    // 뒷면 전환은 에디터를 리마운트하는데, 그때 낡은 note.body를 주면
+    // 화면이 창 연 시점으로 되돌아간다 — 파일은 멀쩡한데 화면만 빈다.
+    // 그 빈 에디터에서 한 글자라도 치면 이번엔 파일이 진짜 지워진다.
+    setupNote(mkNote("n1", ""));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+
+    // 실제 UI 경로로 편집을 만든다 — 서식 바의 글머리 목록 토글
+    await waitFor(() => expect(screen.getByTitle("글머리 목록")).toBeTruthy());
+    fireEvent.click(screen.getByTitle("글머리 목록"));
+    await waitFor(() => expect(container.querySelector(".tiptap ul li")).toBeTruthy());
+
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(screen.getByText("만든 날")).toBeTruthy();
+    fireEvent.click(screen.getByTitle("앞면으로"));
+    await waitFor(() => expect(container.querySelector(".tiptap")).toBeTruthy());
+    expect(
+      container.querySelector(".tiptap ul li"),
+      "돌아온 화면에 편집한 내용이 있어야 한다",
+    ).toBeTruthy();
+  });
+
+  it("뒷면을 봤다 돌아와도 에디터는 같은 인스턴스다 — 리마운트 없음 (#135)", async () => {
+    // 마크다운은 빈 문단을 표현하지 못한다. 리마운트(재파싱)를 거치면
+    // 이미지 사이 빈 줄 같은 화면 상태가 접힌다 (QA 2026-08-25). 뒷면은
+    // 덮개일 뿐이어야 한다 — 에디터를 내렸다 다시 세우면 안 된다.
+    setupNote(mkNote("n1", "본문"));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(container.querySelector(".tiptap")).toBeTruthy());
+    const editorEl = container.querySelector(".tiptap");
+
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(screen.getByText("만든 날")).toBeTruthy();
+    fireEvent.click(screen.getByTitle("앞면으로"));
+    await waitFor(() => expect(container.querySelector(".tiptap")).toBeTruthy());
+    expect(container.querySelector(".tiptap")).toBe(editorEl);
+  });
+
   it("뒷면의 파일 위치 열기는 revealNote를 부른다", async () => {
     setupNote(mkNote("n1", "본문"));
     vi.mocked(api.revealNote).mockResolvedValue(undefined);
@@ -339,6 +385,92 @@ describe("NoteApp 합치기 되돌리기 (#115)", () => {
     await waitFor(() => expect(api.undoMerge).toHaveBeenCalled());
     // 누른 즉시 안내는 걷힌다 — 같은 것을 두 번 되돌릴 일은 없다
     await waitFor(() => expect(screen.queryByText("되돌리기")).toBeNull());
+  });
+
+  it("아무것도 누르지 않아도 7초 뒤 스스로 걷힌다", async () => {
+    // 걷히지 않으면 배너가 툴바 스트립을 영구히 덮는다 (#118 이후 z-index가
+    // 배너 쪽이 위라 더 치명적) — 상단 툴바를 아예 못 쓰게 된다.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      setupNote(mkNote("n1", "본문"));
+      render(<NoteApp noteId="n1" />);
+      await waitFor(() => expect(win.events?.["merged-in"]).toBeTruthy());
+      act(() => win.events!["merged-in"]({ payload: null }));
+      await screen.findByText(/합쳤습니다/);
+
+      await act(async () => {
+        vi.advanceTimersByTime(7500);
+      });
+      expect(screen.queryByText(/합쳤습니다/)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("합친 뒤 모음집 갱신이 뒤따라도 안내는 7초에 걷힌다", async () => {
+    // 실제 흡수는 merged-in 직후 groups-changed가 따라온다(commands.rs) —
+    // 그 갱신이 타이머를 죽이면 배너가 영원히 남는다.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const note = mkNote("n1", "본문", { group: "모음" });
+      setupNote(note, ["n1", "n2"]);
+      const { listen } = await import("@tauri-apps/api/event");
+      render(<NoteApp noteId="n1" />);
+      await waitFor(() => expect(win.events?.["merged-in"]).toBeTruthy());
+      act(() => win.events!["merged-in"]({ payload: null }));
+      await screen.findByText(/합쳤습니다/);
+
+      // 백엔드가 이어서 쏘는 전역 이벤트
+      const calls = vi.mocked(listen).mock.calls as unknown as [string, () => void][];
+      const onGroups = calls.filter(([n]) => n === "groups-changed").map(([, cb]) => cb);
+      expect(onGroups.length).toBeGreaterThan(0);
+      await act(async () => {
+        onGroups.forEach((cb) => cb());
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(7500);
+      });
+      expect(screen.queryByText(/합쳤습니다/)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("닫기 버튼으로 즉시 걷을 수 있다", async () => {
+    // 자동 소멸이 어떤 이유로든 실패해도(#125 실환경 보고) 사용자가 스스로
+    // 벗어날 길이 있어야 한다 — 배너는 툴바 위 레이어라 갇히면 치명적이다.
+    setupNote(mkNote("n1", "본문"));
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.events?.["merged-in"]).toBeTruthy());
+    act(() => win.events!["merged-in"]({ payload: null }));
+    await screen.findByText(/합쳤습니다/);
+    fireEvent.click(screen.getByLabelText("안내 닫기"));
+    expect(screen.queryByText(/합쳤습니다/)).toBeNull();
+    // 닫기는 되돌리기가 아니다
+    expect(api.undoMerge).not.toHaveBeenCalled();
+  });
+
+  it("기한이 지난 채 포커스가 돌아오면 그 즉시 걷힌다", async () => {
+    // 창이 가려져 있는 동안 타이머는 밀릴 수 있다(WebView2 스로틀링) —
+    // 벽시계 기한을 포커스 복귀 시점에 재검사해 타이머 없이도 걷는다.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      setupNote(mkNote("n1", "본문"));
+      render(<NoteApp noteId="n1" />);
+      await waitFor(() => expect(win.events?.["merged-in"]).toBeTruthy());
+      await waitFor(() => expect(win.focusCb).toBeTruthy());
+      act(() => win.events!["merged-in"]({ payload: null }));
+      await screen.findByText(/합쳤습니다/);
+
+      // 타이머가 얼어붙은 상황을 흉내 낸다: setTimeout 콜백을 실행하지 않고
+      // 시스템 시각만 기한 너머로 민다.
+      vi.setSystemTime(Date.now() + 60_000);
+      act(() => win.focusCb!({ payload: true }));
+      expect(screen.queryByText(/합쳤습니다/)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("드래그 판정이 진행 중이면 다시 부르지 않는다", async () => {

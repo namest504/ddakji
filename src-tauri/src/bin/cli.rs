@@ -13,6 +13,11 @@ use clap::{Parser, Subcommand};
 
 use ddakji_lib::store::{MetaPatch, Note, Store};
 
+/// AI 에이전트용 사용 설명서. **바이너리에 박아 둔다** — 스킬이 레포 밖에
+/// 따로 살면 앱이 바뀌어도 따라오지 않는다(휴지통이 생긴 뒤에도 "되돌릴 수
+/// 없다"고 적혀 있던 전례). 이렇게 두면 버전과 함께 움직인다.
+const SKILL_MD: &str = include_str!("../../../skills/ddakji/SKILL.md");
+
 #[derive(Parser)]
 #[command(
     name = "ddakji-cli",
@@ -78,14 +83,28 @@ enum Cmd {
         #[arg(long)]
         title: Option<String>,
     },
-    /// 노트 삭제 (모음집에 1명 남으면 자동 해제)
+    /// 노트를 휴지통으로 (모음집에 1명 남으면 자동 해제) — `restore`로 되돌린다
     Delete { id: String },
+    /// 휴지통 목록 (id · 지운 시각 · 첫 줄) — 최근에 지운 것부터
+    Trash,
+    /// 휴지통의 노트를 되살린다
+    Restore { id: String },
     /// 노트를 앱 창으로 연다 — 실행 중인 앱에 전달하고, 없으면 앱을 시작
     Open { id: String },
     /// 모음집 이름 목록
     Groups,
     /// moved 노트(와 그 모음집 전체)를 target의 모음집으로 통합
     Merge { moved: String, target: String },
+    /// AI 에이전트용 사용 설명서를 출력하거나 스킬 폴더에 심는다
+    Skill {
+        /// stdout 대신 스킬 폴더에 파일로 심는다 (있으면 덮어쓴다)
+        #[arg(long)]
+        install: bool,
+        /// 심을 스킬 루트 (기본: ~/.claude/skills). WSL에서 부를 때 필요하다 —
+        /// Windows 실행 파일은 리눅스 쪽 홈을 알지 못한다
+        #[arg(long, value_name = "DIR")]
+        dir: Option<PathBuf>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -245,6 +264,47 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
             store.delete(&id).map_err(|e| e.to_string())?;
             Ok(String::new())
         }
+        Cmd::Skill { install, dir } => {
+            if !install {
+                return Ok(SKILL_MD.trim_end().to_string());
+            }
+            let root = dir.or_else(skills_root).ok_or(
+                "스킬 폴더를 찾을 수 없습니다 — --dir로 지정하세요 (예: ~/.claude/skills)",
+            )?;
+            let target = root.join("ddakji");
+            std::fs::create_dir_all(&target)
+                .map_err(|e| format!("폴더를 만들 수 없습니다 ({}): {e}", target.display()))?;
+            let path = target.join("SKILL.md");
+            std::fs::write(&path, SKILL_MD)
+                .map_err(|e| format!("파일을 쓸 수 없습니다 ({}): {e}", path.display()))?;
+            Ok(format!("{}", path.display()))
+        }
+        Cmd::Trash => {
+            let items = store.list_trash();
+            if json {
+                return to_json(&items);
+            }
+            Ok(items
+                .iter()
+                .map(|t| {
+                    format!(
+                        "{}\t{}\t{}",
+                        t.note.meta.id,
+                        t.deleted_at,
+                        first_line(&t.note)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n"))
+        }
+        Cmd::Restore { id } => {
+            let note = store.restore(&id).map_err(|e| e.to_string())?;
+            if json {
+                to_json(&note)
+            } else {
+                Ok(String::new())
+            }
+        }
         Cmd::Groups => {
             let names = store.group_names();
             if json {
@@ -273,6 +333,13 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
             }
         }
     }
+}
+
+/// 스킬 루트 `~/.claude/skills` — HOME(유닉스)과 USERPROFILE(윈도우) 둘 다 본다
+fn skills_root() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(|h| PathBuf::from(h).join(".claude").join("skills"))
 }
 
 /// GUI 실행 파일 — CLI와 같은 폴더의 ddakji(.exe)
@@ -520,5 +587,112 @@ mod tests {
         assert!(out.contains(&id));
         assert!(out.contains("# 제목 줄"));
         assert!(out.contains("\t-\t"), "무소속은 '-'");
+    }
+
+    #[test]
+    fn deleted_note_moves_to_trash_and_restores() {
+        // 삭제는 휴지통 이동이므로 CLI에서도 되돌릴 수 있어야 한다 (#112).
+        let (_d, s) = store();
+        let id = add(&s, "# 되살릴 노트");
+        run(&s, Cmd::Delete { id: id.clone() }, false).unwrap();
+        assert!(!run(&s, Cmd::List, false).unwrap().contains(&id));
+
+        let trash = run(&s, Cmd::Trash, false).unwrap();
+        assert!(trash.contains(&id), "휴지통 목록에 있어야 한다");
+        assert!(trash.contains("# 되살릴 노트"));
+
+        run(&s, Cmd::Restore { id: id.clone() }, false).unwrap();
+        assert!(run(&s, Cmd::List, false).unwrap().contains(&id));
+        assert_eq!(
+            run(&s, Cmd::Get { id }, false).unwrap(),
+            "# 되살릴 노트",
+            "본문이 그대로 돌아와야 한다"
+        );
+    }
+
+    #[test]
+    fn trash_is_empty_by_default() {
+        let (_d, s) = store();
+        add(&s, "살아 있는 노트");
+        assert_eq!(run(&s, Cmd::Trash, false).unwrap(), "");
+        assert_eq!(run(&s, Cmd::Trash, true).unwrap(), "[]");
+    }
+
+    #[test]
+    fn restoring_unknown_note_fails() {
+        let (_d, s) = store();
+        run(
+            &s,
+            Cmd::Restore {
+                id: "20990101-000000-abcdef".into(),
+            },
+            false,
+        )
+        .unwrap_err();
+    }
+
+    #[test]
+    fn skill_prints_the_embedded_document() {
+        let (_d, s) = store();
+        let out = run(
+            &s,
+            Cmd::Skill {
+                install: false,
+                dir: None,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(out.starts_with("---"), "프런트매터로 시작하는 스킬 문서");
+        assert!(out.contains("name: ddakji"));
+        assert!(out.contains("restore"), "휴지통 복원이 문서에 있어야 한다");
+    }
+
+    #[test]
+    fn skill_install_writes_under_the_given_dir() {
+        let (_d, s) = store();
+        let target = TempDir::new().unwrap();
+        let out = run(
+            &s,
+            Cmd::Skill {
+                install: true,
+                dir: Some(target.path().to_path_buf()),
+            },
+            false,
+        )
+        .unwrap();
+
+        let written = target.path().join("ddakji").join("SKILL.md");
+        assert!(written.exists(), "<dir>/ddakji/SKILL.md 에 심는다");
+        assert!(
+            out.contains(&written.display().to_string()),
+            "심은 경로를 알려 준다"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&written).unwrap(),
+            SKILL_MD,
+            "내용은 바이너리에 박힌 것과 같아야 한다"
+        );
+    }
+
+    #[test]
+    fn skill_install_overwrites_an_older_copy() {
+        // 앱이 갱신되면 스킬도 따라가야 한다 — 덮어쓰기가 이 명령의 존재 이유다.
+        let (_d, s) = store();
+        let target = TempDir::new().unwrap();
+        let written = target.path().join("ddakji").join("SKILL.md");
+        std::fs::create_dir_all(written.parent().unwrap()).unwrap();
+        std::fs::write(&written, "낡은 내용").unwrap();
+
+        run(
+            &s,
+            Cmd::Skill {
+                install: true,
+                dir: Some(target.path().to_path_buf()),
+            },
+            false,
+        )
+        .unwrap();
+        assert_eq!(std::fs::read_to_string(&written).unwrap(), SKILL_MD);
     }
 }

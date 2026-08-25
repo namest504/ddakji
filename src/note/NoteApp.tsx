@@ -32,6 +32,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     setNote,
     slide,
     flushBody,
+    mountBody,
     onBodyChange,
     patchMeta,
     changeFont,
@@ -72,7 +73,12 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   }
   const flipped = flip === "back";
   const toggleFlip = () => {
-    if (!flipped) flushBody(); // 에디터가 내려가기 전에 본문을 저장한다
+    if (!flipped) {
+      flushBody(); // 뒷면을 여는 시점의 본문을 저장한다
+      // 에디터는 덮개 밑에 산 채로 남는다 — 포커스만 거둬 덮인 채 타이핑되는
+      // 일을 막는다 (#135: 리마운트하면 마크다운이 못 담는 상태가 접힌다)
+      editorRef.current?.commands.blur();
+    }
     setFlip(flipped ? "front" : "back");
   };
 
@@ -128,14 +134,20 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       {merged && (
         <div className="merge-undo">
           모음집으로 합쳤습니다
-          <button
-            onClick={() => {
-              dismissMerged();
-              api.undoMerge().catch(() => {});
-            }}
-          >
-            되돌리기
-          </button>
+          <span className="merge-undo-actions">
+            <button
+              onClick={() => {
+                dismissMerged();
+                api.undoMerge().catch(() => {});
+              }}
+            >
+              되돌리기
+            </button>
+            {/* 자동 소멸이 실패해도 탈출구는 남는다 — 배너는 툴바 위 레이어다 */}
+            <button aria-label="안내 닫기" className="merge-undo-close" onClick={dismissMerged}>
+              ✕
+            </button>
+          </span>
         </div>
       )}
       {inGroup && !flipped && (
@@ -148,40 +160,37 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
           </button>
         </>
       )}
-      {flipped ? (
+      {flipped && (
         <NoteBack note={note} onReveal={() => api.revealNote(noteId)} onDelete={onDelete} />
-      ) : (
-        <div
-          key={noteId}
-          className={
-            "content" + (slide ? ` slide-${slide}` : flip === "front" ? " slide-prev" : "")
-          }
-          ref={contentRef}
-        >
-          <RichEditor
-            key={`${noteId}#${rev}`}
-            body={note.body}
-            base={base}
-            onChange={onBodyChange}
-            onEditor={onEditor}
-            onPasteFile={savePastedImage}
-          />
-          {more && (
-            <div className="scroll-more" aria-hidden>
-              <svg width="14" height="14" viewBox="0 0 16 16">
-                <path
-                  d="M3.5 6l4.5 4.5L12.5 6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-          )}
-        </div>
       )}
+      <div
+        key={noteId}
+        className={"content" + (slide ? ` slide-${slide}` : flip === "front" ? " slide-prev" : "")}
+        ref={contentRef}
+      >
+        <RichEditor
+          key={`${noteId}#${rev}`}
+          body={mountBody() ?? note.body}
+          base={base}
+          onChange={onBodyChange}
+          onEditor={onEditor}
+          onPasteFile={savePastedImage}
+        />
+        {more && (
+          <div className="scroll-more" aria-hidden>
+            <svg width="14" height="14" viewBox="0 0 16 16">
+              <path
+                d="M3.5 6l4.5 4.5L12.5 6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        )}
+      </div>
       {inGroup && !flipped && (
         <div className="group-dots" aria-hidden={false}>
           {members.map((id, i) => (

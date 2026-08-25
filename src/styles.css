@@ -91,10 +91,27 @@
   --dur-shift: 0.18s;
   --ease-ui: ease;
 
-  /* ── 겹침 순서 ────────────────────────────────────── */
-  --z-bar: 5; /* 툴바·서식 바 */
-  --z-nav: 6; /* 넘기기 화살표·인디케이터 */
-  --z-pop: 10; /* 색상 팝오버 */
+  /* ── 겹침 순서 ──────────────────────────────────────
+     노트 창에는 opacity:0으로 숨은 오버레이(툴바·서식 바)가 있고, 투명해도
+     클릭은 가져간다 — 호버 노출 구조가 그것에 기대므로 pointer-events:none으로
+     풀 수 없다. 그래서 겹칠 수 있는 요소는 전부 아래 표의 토큰을 명시한다.
+     DOM 순서에 기대다 "보이는데 눌리지 않는 버튼"이 4번 재발했다
+     (서식 바↔빗금 그립, 팝오버 잘림, 툴바↔배너 #118, 배너↔툴바 #125).
+
+     규칙 — src/stylesRules.test.ts가 어기면 떨어뜨린다:
+     1. position:absolute/fixed 요소는 토큰 하나를 고른다. 숫자 직접 금지.
+     2. 같은 토큰끼리는 "겹쳐도 무관"이 성립해야 한다. 위아래가 있어야 하는
+        관계면 토큰을 새로 만들어 이 표에 넣는다 (동점 = 미정의 동작).
+     3. 부모(position:relative)가 스스로 겹침을 관리하는 지역 위젯은 예외 —
+        테스트의 LOCAL_WIDGETS 목록에 사유와 함께 등록한다.
+     4. 새 오버레이는 "숨어 있을 때 클릭을 가져가도 되는가"를 함께 정한다.
+        아니라면 pointer-events: none을 명시한다. */
+  --z-content: 1; /* 본문 위 장식 (스크롤 힌트 등, 클릭 불가) */
+  --z-back: 3; /* 뒷면 덮개: 본문을 산 채로 덮는다(#135) — 바 아래 */
+  --z-bar: 5; /* 숨은 오버레이 바: 툴바·서식 바 */
+  --z-nav: 6; /* 모음집 내비: 화살표·점·빗금 그립 — 바 위 */
+  --z-banner: 8; /* 알림 배너: 저장 실패·되돌리기 — 바를 덮되 팝오버 아래 */
+  --z-pop: 10; /* 팝오버·메뉴: 열려 있는 동안 최상위 */
 }
 * {
   box-sizing: border-box;
@@ -728,6 +745,7 @@ body {
   padding-bottom: 3px;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.16));
   color: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-content);
 }
 .note[data-color="charcoal"] .scroll-more {
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.45));
@@ -772,7 +790,7 @@ body {
 .save-error,
 .merge-undo {
   position: relative;
-  z-index: var(--z-pop);
+  z-index: var(--z-banner);
 }
 
 .save-error {
@@ -793,6 +811,19 @@ body {
   color: var(--ctl-ink-hover);
   padding: 5px 8px;
   font-size: 12px;
+}
+.merge-undo-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.merge-undo-close {
+  /* 되돌리기와 나란한 보조 동작 — 테두리 없이 흐리게, 호버에만 또렷이 */
+  opacity: 0.55;
+}
+.merge-undo-close:hover {
+  opacity: 1;
 }
 .merge-undo button {
   border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
@@ -1344,6 +1375,11 @@ body {
 }
 
 .note-back {
+  /* 본문을 교체하는 게 아니라 덮는다 — 에디터를 리마운트하면 마크다운이
+     못 담는 상태(빈 문단·커서·스크롤)가 접힌다 (#135). 불투명해야 한다. */
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-back);
   background: var(--accent);
   /* 상단 32px는 오버레이 툴바 자리 — 툴바가 뜰 때 본문이 밀리지 않도록 같은 값으로 맞춘다 */
   padding: 32px 16px 16px;

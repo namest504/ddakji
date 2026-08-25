@@ -7,6 +7,41 @@
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-25
+
+### 추가
+
+- **모음집이 마지막으로 보던 장을 기억합니다** — 1~5장 중 4장을 보다 껐으면
+  다시 켰을 때 4장이 열립니다. 기억은 `session.json`에 남고, 그 장이 지워졌거나
+  숨겨져 있으면 원래 규칙(첫 장)으로 돌아갑니다
+
+- **휴지통을 CLI·MCP에서도 다룹니다** — `ddakji-cli trash`·`restore`,
+  MCP 도구 `list_trash`·`restore_note`. 지금까지 삭제는 어느 경로로든 가능했지만
+  **되돌리기는 앱 목록 창에만 있었습니다.** AI에게 되돌릴 수 없는 삭제만 쥐어
+  주던 셈이라, 지운 쪽과 되살리는 쪽을 같은 자리에 맞췄습니다.
+- **`ddakji-cli skill`** — AI 에이전트용 사용 설명서를 출력하거나
+  (`--install`) 스킬 폴더에 심습니다. 문서를 실행 파일에 박아 두어 앱을
+  갱신하면 설명서도 함께 갱신됩니다 ([docs/cli.md](docs/cli.md))
+- **`ddakji-mcp --print-config`** — 자기 경로를 넣은 등록용 JSON을 출력합니다.
+  MCP 클라이언트 설정에 그대로 붙여 넣으면 됩니다 ([docs/mcp.md](docs/mcp.md))
+
+### 수정
+
+- **뒷면을 봤다 돌아오면 이미지 사이 빈 줄이 사라지던 문제** ([#135]) — 뒷면이
+  본문 화면을 교체하면서 에디터를 내렸다 다시 세웠는데, 그 왕복에서 마크다운이
+  표현하지 못하는 상태(빈 문단·커서·스크롤)가 접혔습니다. 이제 뒷면은 본문
+  위에 덮이는 덮개라 에디터가 산 채로 남습니다
+- **뒷면을 봤다 돌아오면 창을 연 뒤의 편집이 화면에서 사라지던 문제** ([#133]) —
+  파일에는 저장돼 있는데 화면만 창을 연 시점으로 되돌아갔고, 그 화면에서
+  입력하면 옛 본문이 파일을 덮어쓸 수 있었습니다. 이제 앞면으로 돌아올 때
+  에디터가 저장된 것과 같은 최신 본문으로 살아납니다
+- **합치기 안내가 사라지지 않고 남아 상단 툴바를 막던 문제** — 안내가 이제
+  닫기(✕) 버튼을 갖고, 창이 가려져 자동 타이머가 밀린 경우에도 포커스가
+  돌아오는 순간 스스로 걷힙니다
+- **`Ctrl+W`로 숨긴 노트가 앱을 다시 켤 때마다 되살아나던 문제** — 두 번째
+  실행·Alt-Tab 복귀가 트레이 "모든 노트 펼치기"와 같은 코드를 쓰며 숨김을
+  풀어 버렸습니다. 이제 숨김을 푸는 것은 트레이 메뉴뿐입니다
+
 ## [0.1.6] - 2026-08-13
 
 ### 추가
@@ -156,7 +191,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.6...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.7...develop
+[0.1.7]: https://github.com/namest504/ddakji/releases/tag/v0.1.7
 [0.1.6]: https://github.com/namest504/ddakji/releases/tag/v0.1.6
 [0.1.5]: https://github.com/namest504/ddakji/releases/tag/v0.1.5
 [0.1.4]: https://github.com/namest504/ddakji/releases/tag/v0.1.4
@@ -178,6 +214,8 @@
 [#113]: https://github.com/namest504/ddakji/issues/113
 [#115]: https://github.com/namest504/ddakji/issues/115
 [#120]: https://github.com/namest504/ddakji/issues/120
+[#133]: https://github.com/namest504/ddakji/issues/133
+[#135]: https://github.com/namest504/ddakji/issues/135
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

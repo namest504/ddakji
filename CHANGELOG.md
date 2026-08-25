@@ -25,6 +25,10 @@
 
 ### 수정
 
+- **뒷면을 봤다 돌아오면 창을 연 뒤의 편집이 화면에서 사라지던 문제** ([#133]) —
+  파일에는 저장돼 있는데 화면만 창을 연 시점으로 되돌아갔고, 그 화면에서
+  입력하면 옛 본문이 파일을 덮어쓸 수 있었습니다. 이제 앞면으로 돌아올 때
+  에디터가 저장된 것과 같은 최신 본문으로 살아납니다
 - **합치기 안내가 사라지지 않고 남아 상단 툴바를 막던 문제** — 안내가 이제
   닫기(✕) 버튼을 갖고, 창이 가려져 자동 타이머가 밀린 경우에도 포커스가
   돌아오는 순간 스스로 걷힙니다
@@ -203,6 +207,7 @@
 [#113]: https://github.com/namest504/ddakji/issues/113
 [#115]: https://github.com/namest504/ddakji/issues/115
 [#120]: https://github.com/namest504/ddakji/issues/120
+[#133]: https://github.com/namest504/ddakji/issues/133
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

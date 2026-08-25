@@ -32,6 +32,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     setNote,
     slide,
     flushBody,
+    mountBody,
     onBodyChange,
     patchMeta,
     changeFont,
@@ -166,7 +167,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         >
           <RichEditor
             key={`${noteId}#${rev}`}
-            body={note.body}
+            body={mountBody() ?? note.body}
             base={base}
             onChange={onBodyChange}
             onEditor={onEditor}

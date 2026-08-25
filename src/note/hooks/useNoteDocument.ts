@@ -161,10 +161,18 @@ export function useNoteDocument(initialNoteId: string, guard: SaveGuard) {
     };
   }, [switchTo]);
 
+  /** 에디터를 (다시) 마운트할 때 줄 본문 — **저장이 쓰는 것과 같은 진실**.
+   * note.body는 로드·전환 시점에 멈춰 있어, 편집 후 리마운트(뒷면에서
+   * 복귀 등)에 그걸 주면 화면이 옛 본문으로 되돌아가고, 거기서 한 글자만
+   * 쳐도 옛 본문이 파일을 덮어쓴다. 마운트 본문과 저장 본문은 반드시 같은
+   * 출처여야 한다. */
+  const mountBody = useCallback(() => bodyRef.current, []);
+
   return {
     noteId,
     note,
     rev,
+    mountBody,
     setNote,
     slide,
     flushBody,

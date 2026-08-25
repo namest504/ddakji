@@ -291,6 +291,30 @@ describe("NoteApp 뒷면 (딱지 시안)", () => {
     await screen.findByText("앞면 본문");
   });
 
+  it("편집한 내용이 뒷면을 봤다 돌아와도 남아 있다 (표시 유실)", async () => {
+    // 편집은 bodyRef에만 쌓이고 note.body는 창을 연 시점에 멈춰 있다.
+    // 뒷면 전환은 에디터를 리마운트하는데, 그때 낡은 note.body를 주면
+    // 화면이 창 연 시점으로 되돌아간다 — 파일은 멀쩡한데 화면만 빈다.
+    // 그 빈 에디터에서 한 글자라도 치면 이번엔 파일이 진짜 지워진다.
+    setupNote(mkNote("n1", ""));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+
+    // 실제 UI 경로로 편집을 만든다 — 서식 바의 글머리 목록 토글
+    await waitFor(() => expect(screen.getByTitle("글머리 목록")).toBeTruthy());
+    fireEvent.click(screen.getByTitle("글머리 목록"));
+    await waitFor(() => expect(container.querySelector(".tiptap ul li")).toBeTruthy());
+
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(screen.getByText("만든 날")).toBeTruthy();
+    fireEvent.click(screen.getByTitle("앞면으로"));
+    await waitFor(() => expect(container.querySelector(".tiptap")).toBeTruthy());
+    expect(
+      container.querySelector(".tiptap ul li"),
+      "돌아온 화면에 편집한 내용이 있어야 한다",
+    ).toBeTruthy();
+  });
+
   it("뒷면의 파일 위치 열기는 revealNote를 부른다", async () => {
     setupNote(mkNote("n1", "본문"));
     vi.mocked(api.revealNote).mockResolvedValue(undefined);

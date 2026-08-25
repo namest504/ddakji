@@ -315,6 +315,22 @@ describe("NoteApp 뒷면 (딱지 시안)", () => {
     ).toBeTruthy();
   });
 
+  it("뒷면을 봤다 돌아와도 에디터는 같은 인스턴스다 — 리마운트 없음 (#135)", async () => {
+    // 마크다운은 빈 문단을 표현하지 못한다. 리마운트(재파싱)를 거치면
+    // 이미지 사이 빈 줄 같은 화면 상태가 접힌다 (QA 2026-08-25). 뒷면은
+    // 덮개일 뿐이어야 한다 — 에디터를 내렸다 다시 세우면 안 된다.
+    setupNote(mkNote("n1", "본문"));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(container.querySelector(".tiptap")).toBeTruthy());
+    const editorEl = container.querySelector(".tiptap");
+
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    expect(screen.getByText("만든 날")).toBeTruthy();
+    fireEvent.click(screen.getByTitle("앞면으로"));
+    await waitFor(() => expect(container.querySelector(".tiptap")).toBeTruthy());
+    expect(container.querySelector(".tiptap")).toBe(editorEl);
+  });
+
   it("뒷면의 파일 위치 열기는 revealNote를 부른다", async () => {
     setupNote(mkNote("n1", "본문"));
     vi.mocked(api.revealNote).mockResolvedValue(undefined);

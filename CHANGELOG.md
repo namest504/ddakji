@@ -25,6 +25,10 @@
 
 ### 수정
 
+- **뒷면을 봤다 돌아오면 이미지 사이 빈 줄이 사라지던 문제** ([#135]) — 뒷면이
+  본문 화면을 교체하면서 에디터를 내렸다 다시 세웠는데, 그 왕복에서 마크다운이
+  표현하지 못하는 상태(빈 문단·커서·스크롤)가 접혔습니다. 이제 뒷면은 본문
+  위에 덮이는 덮개라 에디터가 산 채로 남습니다
 - **뒷면을 봤다 돌아오면 창을 연 뒤의 편집이 화면에서 사라지던 문제** ([#133]) —
   파일에는 저장돼 있는데 화면만 창을 연 시점으로 되돌아갔고, 그 화면에서
   입력하면 옛 본문이 파일을 덮어쓸 수 있었습니다. 이제 앞면으로 돌아올 때
@@ -208,6 +212,7 @@
 [#115]: https://github.com/namest504/ddakji/issues/115
 [#120]: https://github.com/namest504/ddakji/issues/120
 [#133]: https://github.com/namest504/ddakji/issues/133
+[#135]: https://github.com/namest504/ddakji/issues/135
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

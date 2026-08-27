@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-08-27
+
 ### 추가
 
 - **한/영 UI** ([#143]) — 노트·목록·설정·트레이·다이얼로그가 언어 설정을
@@ -211,7 +213,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.7...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.8...develop
+[0.1.8]: https://github.com/namest504/ddakji/releases/tag/v0.1.8
 [0.1.7]: https://github.com/namest504/ddakji/releases/tag/v0.1.7
 [0.1.6]: https://github.com/namest504/ddakji/releases/tag/v0.1.6
 [0.1.5]: https://github.com/namest504/ddakji/releases/tag/v0.1.5

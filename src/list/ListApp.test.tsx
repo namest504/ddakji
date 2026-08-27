@@ -243,7 +243,7 @@ describe("ListApp 업데이트 (#141)", () => {
   it("새 버전이 없으면 버튼도 없다", async () => {
     render(<ListApp />);
     await waitFor(() => expect(check).toHaveBeenCalled());
-    expect(screen.queryByText(/업데이트/)).toBeNull();
+    expect(screen.queryByTitle(/업데이트/)).toBeNull();
   });
 
   it("설치본은 발견 즉시 내려받아 설치·재시작한다 — 클릭 불필요 (전자동)", async () => {
@@ -251,7 +251,7 @@ describe("ListApp 업데이트 (#141)", () => {
     vi.mocked(check).mockResolvedValue(u);
     render(<ListApp />);
     // 무슨 일이 벌어지는지는 보여 준다 — 조용한 재시작은 오동작처럼 보인다
-    await screen.findByText("설치 중…");
+    await screen.findByTitle("설치 중…");
     await waitFor(() =>
       expect((u as { downloadAndInstall: unknown }).downloadAndInstall).toHaveBeenCalled(),
     );
@@ -268,7 +268,7 @@ describe("ListApp 업데이트 (#141)", () => {
     } as never;
     vi.mocked(check).mockResolvedValue(u);
     render(<ListApp />);
-    const btn = await screen.findByText("v9.9.9 업데이트");
+    const btn = await screen.findByTitle("v9.9.9 업데이트");
     fireEvent.click(btn);
     await waitFor(() =>
       expect(
@@ -283,7 +283,7 @@ describe("ListApp 업데이트 (#141)", () => {
     const u = update("9.9.9");
     vi.mocked(check).mockResolvedValue(u);
     render(<ListApp />);
-    const btn = await screen.findByText("v9.9.9 업데이트");
+    const btn = await screen.findByTitle("v9.9.9 업데이트");
     fireEvent.click(btn);
     await waitFor(() =>
       expect(openUrl).toHaveBeenCalledWith("https://github.com/namest504/ddakji/releases/latest"),
@@ -297,7 +297,7 @@ describe("ListApp 업데이트 (#141)", () => {
     vi.mocked(check).mockRejectedValue(new Error("offline"));
     render(<ListApp />);
     await waitFor(() => expect(check).toHaveBeenCalled());
-    expect(screen.queryByText(/업데이트/)).toBeNull();
+    expect(screen.queryByTitle(/업데이트/)).toBeNull();
   });
 });
 

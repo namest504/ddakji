@@ -913,19 +913,21 @@ body {
   border-radius: var(--r-card);
   overflow: hidden;
 }
-/* 업데이트 버튼 (#141) — 헤더의 다른 아이콘들 사이에서 유일하게 글자 버튼 */
+/* 업데이트 (#141) — 좁은 창에서 글자가 꺾여 아이콘으로 (QA 2026-08-27).
+   무엇인지는 툴팁이 말한다. 색으로 "눌러볼 일"임을 알린다. */
 .update-btn {
-  border: 1px solid var(--field-line);
-  background: transparent;
-  color: inherit;
-  border-radius: var(--r-ctl);
-  padding: 3px 10px;
-  font-size: 12px;
-  cursor: pointer;
+  color: var(--accent-select);
+}
+.update-btn.installing svg {
+  animation: update-spin 1.2s linear infinite;
 }
 .update-btn:disabled {
-  opacity: 0.5;
   cursor: default;
+}
+@keyframes update-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 숨긴 노트 (#153) — 화면에 없는 이유를 목록이 말해 준다 */

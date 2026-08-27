@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-27
+
+### 수정
+
+- **빈 체크박스가 앱을 껐다 켤 때마다 불어나던 문제** ([#166]) — 내용 없는
+  체크박스(`- [ ] `)를 파서가 두 개의 다른 것으로 잘못 읽어, 재시작마다
+  `\[ \]` 리터럴 줄이 하나씩 늘었습니다. 이미 불어난 줄은 지워지지 않으니
+  직접 정리해 주세요 — 앞으로는 다시 생기지 않습니다.
+
 ## [0.2.3] - 2026-08-27
 
 ### 추가
@@ -265,7 +274,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.3...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.4...develop
+[0.2.4]: https://github.com/namest504/ddakji/releases/tag/v0.2.4
 [0.2.3]: https://github.com/namest504/ddakji/releases/tag/v0.2.3
 [0.2.2]: https://github.com/namest504/ddakji/releases/tag/v0.2.2
 [0.2.1]: https://github.com/namest504/ddakji/releases/tag/v0.2.1
@@ -301,6 +311,7 @@
 [#149]: https://github.com/namest504/ddakji/issues/149
 [#153]: https://github.com/namest504/ddakji/issues/153
 [#161]: https://github.com/namest504/ddakji/issues/161
+[#166]: https://github.com/namest504/ddakji/issues/166
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

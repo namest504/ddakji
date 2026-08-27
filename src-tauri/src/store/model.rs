@@ -118,6 +118,14 @@ pub struct Settings {
     /// "system" | "light" | "dark" — system은 OS 설정 추종
     #[serde(default = "default_theme")]
     pub theme: String,
+    /// "system" | "ko" | "en" — 테마와 같은 문법 (#143). GUI·트레이만 따르고
+    /// CLI·MCP는 항상 영어(쉘·AI가 읽는 표면).
+    #[serde(default = "default_language")]
+    pub language: String,
+}
+
+fn default_language() -> String {
+    "system".into()
 }
 
 fn default_theme() -> String {
@@ -144,6 +152,7 @@ impl Default for Settings {
             default_font_size: default_font_size(),
             favorite_fonts: Vec::new(),
             theme: default_theme(),
+            language: default_language(),
         }
     }
 }

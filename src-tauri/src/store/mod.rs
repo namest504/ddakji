@@ -423,17 +423,17 @@ impl Store {
     pub fn rename_group(&mut self, old: &str, new: &str) -> Result<usize> {
         let new = new.trim();
         if new.is_empty() {
-            return Err(Error::Invalid("모음집 이름이 비어 있습니다".into()));
+            return Err(Error::Invalid("INVALID_GROUP_NAME".into()));
         }
         if new == old {
             return Ok(0);
         }
         let members = self.group_notes(old);
         if members.is_empty() {
-            return Err(Error::Invalid(format!("모음집이 없습니다: {old}")));
+            return Err(Error::Invalid("GROUP_NOT_FOUND".into()));
         }
         if self.group_names().iter().any(|g| g == new) {
-            return Err(Error::Invalid("같은 이름의 모음집이 있습니다".into()));
+            return Err(Error::Invalid("GROUP_EXISTS".into()));
         }
         let n = members.len();
         for mut m in members {
@@ -627,6 +627,7 @@ mod tests {
             default_font_size: 20,
             favorite_fonts: vec!["D2Coding".into()],
             theme: "dark".into(),
+            language: "en".into(),
         })
         .unwrap();
         let n = s.create().unwrap();

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { Editor } from "@tiptap/react";
 import * as api from "../../lib/api";
+import { useT } from "../../lib/i18n";
 import type { SaveGuard } from "./useSaveGuard";
 
 interface Options {
@@ -16,6 +17,7 @@ interface Options {
  * 그릴 때만 asset URL로 바꾸므로(RichEditor) 저장 포맷이 오염되지 않는다.
  */
 export function useImageInsert({ noteId, editorRef, guard }: Options) {
+  const t = useT();
   const insertRel = useCallback(
     (rel: string, pos?: number) => {
       const ed = editorRef.current;
@@ -48,7 +50,7 @@ export function useImageInsert({ noteId, editorRef, guard }: Options) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const sel = await open({
       multiple: false,
-      filters: [{ name: "이미지", extensions: ["png", "jpg", "jpeg", "gif", "webp"] }],
+      filters: [{ name: t("imageFilter"), extensions: ["png", "jpg", "jpeg", "gif", "webp"] }],
     });
     if (typeof sel !== "string") return;
     guard(`image:${crypto.randomUUID()}`, async () => {

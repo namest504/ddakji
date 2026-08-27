@@ -1,177 +1,193 @@
-# ddakji 사용법
+# ddakji usage
 
-마크다운 기반 위젯형 스티키 노트. 트레이에 상주하며, 노트 하나가 창 하나입니다.
+[한국어](usage.ko.md) · **English**
 
-## 설치·실행
+Widget-style Markdown sticky notes. Lives in the tray; one note is one window.
 
-- **설치형**: [Releases](../../../releases)에서 `ddakji_x.y.z_x64-setup.exe` 실행
-- **포터블**: `ddakji-x.y.z-portable-x64.zip` 압축 해제 후 `ddakji.exe` 실행
-  - 노트 데이터는 포터블이어도 `%APPDATA%\Ddakji`에 저장됩니다
-  - exe 위치를 옮겼다면 트레이의 "부팅 시 시작"을 껐다 켜서 경로를 갱신하세요
+## Install & run
 
-창을 닫아도 앱은 종료되지 않고 트레이에 남습니다. 완전 종료는 트레이 → 종료.
+- **Installer**: run `ddakji_x.y.z_x64-setup.exe` from [Releases](../../../releases)
+- **Portable**: unzip `ddakji-x.y.z-portable-x64.zip` and run `ddakji.exe`
+  - Note data lives in `%APPDATA%\Ddakji` even for the portable build
+  - If you move the exe, toggle "Start at login" in the tray to refresh the path
 
-## 트레이 · Alt-Tab
+Closing windows doesn't quit the app — it stays in the tray. Quit via tray → Quit.
 
-- **트레이 아이콘**: 새 노트 / 노트 목록 / 모든 노트 표시 / 부팅 시 시작 / 종료
-- **Alt-Tab·작업표시줄**: 노트가 여러 개여도 ddakji 항목은 **하나만** 나타납니다.
-  선택(또는 작업표시줄 아이콘 클릭)하면 노트가 표시됩니다 — 이때 모음집은
-  창 하나로 접힌 상태를 유지합니다. 썸네일에는 가장 최근에 본 노트가 보입니다.
+## Tray · Alt-Tab
 
-## 노트 창
+- **Tray icon**: New note / Note list / Show all notes / Start at login / Quit
+- **Alt-Tab and the taskbar** show **one** ddakji entry no matter how many notes
+  are open. Selecting it (or clicking the taskbar icon) shows your notes —
+  collections stay folded to one window. The thumbnail is the note you looked
+  at most recently.
 
-평소에는 내용만 보입니다. 마우스를 창의 **상단**에 올리면 툴바가, **하단**에 올리면 서식 바가 나타납니다.
+## The note window
 
-### 상단 툴바
+Normally you only see your content. Hover the **top** of the window for the
+toolbar, the **bottom** for the format bar.
 
-| 버튼          | 동작                                                                             |
-| ------------- | -------------------------------------------------------------------------------- |
-| ＋            | 새 노트 (`Ctrl+N`)                                                               |
-| ● (색 원)     | 배경색 7종 선택 — 원의 색이 현재 노트 색                                         |
-| Aa            | 폰트 선택 (프리셋 + 자주 쓰는 폰트)                                              |
-| ↗ (그룹일 때) | 현재 노트를 모음집에서 꺼내 단독 창으로 — 원래 창은 다음 노트로 (`Ctrl+Shift+P`) |
-| 핀            | 항상 위 고정 토글                                                                |
-| A− / A＋      | 글씨 크기 (10–40px)                                                              |
-| ☰            | 노트 목록 창 (`Ctrl+L`)                                                          |
-| ↓ (그룹일 때) | 이 장만 숨기기 — 창은 다음 장으로 (`Ctrl+W`)                                     |
-| ✕             | 이 창 숨기기 — 모음집이면 전체 (`Ctrl+Shift+W`)                                  |
+### Top toolbar
 
-노트 삭제는 딱지를 뒤집어 뒷면에 있습니다 — 오른쪽 아래 빗금 모서리를 누르세요.
+| Button           | What it does                                                             |
+| ---------------- | ------------------------------------------------------------------------ |
+| ＋               | New note (`Ctrl+N`)                                                      |
+| ● (color circle) | Pick one of 7 paper colors — the circle shows the current color          |
+| Aa               | Pick a font (presets + your favorite fonts)                              |
+| ↗ (in a group)   | Pop this note out of its collection into its own window (`Ctrl+Shift+P`) |
+| pin              | Toggle always-on-top                                                     |
+| A− / A＋         | Text size (10–40px)                                                      |
+| ☰               | Note list window (`Ctrl+L`)                                              |
+| ↓ (in a group)   | Hide just this page — the window shows the next one (`Ctrl+W`)           |
+| ✕                | Hide this window — the whole collection if grouped (`Ctrl+Shift+W`)      |
 
-### 숨기기와 삭제, 그리고 휴지통
+Deleting a note lives on its back side — press the hatched corner at the bottom right.
 
-숨기기는 노트를 화면에서만 치웁니다. 숨긴 노트도 파일과 목록에 그대로 있고, 목록에서
-열면 돌아옵니다. 다만 숨겨 둔 동안에는 재시작해도 다시 뜨지 않고, 모음집의 화살표·점에도
-걸리지 않습니다.
+### Hiding, deleting, and the trash
 
-삭제는 노트를 **휴지통으로 보냅니다.** 목록에서도 사라지지만 파일은 남아 있어서,
-목록 창의 휴지통(🗑)에서 **복원**할 수 있습니다. 노트 뒷면의 삭제든, 목록 행의
-휴지통이든, `ddakji-cli delete`든 마찬가지입니다.
+Hiding only clears a note off your screen. Hidden notes keep their file and
+their list entry, and open again from the list. While hidden they don't come
+back on restart and don't appear in collection arrows or dots.
 
-파일이 실제로 사라지는 것은 휴지통 화면의 **영구 삭제**와 **비우기** 두 가지뿐이고,
-이때만 되돌릴 수 없습니다. 노트에 넣은 이미지도 휴지통에 있는 동안 함께 보관됩니다.
+Deleting sends a note **to the trash.** It leaves the list, but the file
+remains, and you can **restore** it from the trash (🗑) in the list window —
+whether it was deleted from the note's back side, the list row, or
+`ddakji-cli delete`.
 
-- 툴바의 빈 영역을 드래그하면 창이 이동합니다. 크기 조절은 창 가장자리 드래그.
-- 글씨 크기는 `Ctrl+휠` 또는 `Ctrl+±`로도 조절됩니다.
+Files only truly disappear on **Delete forever** and **Empty** in the trash
+view — those are the only irreversible actions. Images embedded in a note are
+kept alongside it while it sits in the trash.
 
-### 하단 서식 바
+- Drag the empty part of the toolbar to move the window. Resize at the edges.
+- Text size also responds to `Ctrl+wheel` and `Ctrl+±`.
 
-**B** 굵게 · _I_ 기울임 · <u>U</u> 밑줄 · ~~ab~~ 취소선 · 글머리 목록 · 체크박스 · 들여쓰기/내어쓰기(목록 안에서만 표시) · **서식 지우기**(제목·목록·서식을 본문 텍스트로 초기화) · 이미지 삽입
+### Bottom format bar
 
-이미지는 클릭해 선택한 뒤 **드래그로 위치를 옮길 수 있습니다**. 이미지에 마우스를
-올리면 오른쪽 아래에 빗금 그립이 나타나는데, **끌어서 크기를 조절**하고 **두 번
-누르면 원래 크기로** 돌아갑니다. 크기를 바꾼 이미지만 `<img width>`로 저장되고,
-손대지 않은 이미지는 평문 마크다운(`![](경로)`) 그대로 남습니다.
+**B** bold · _I_ italic · <u>U</u> underline · ~~ab~~ strikethrough · bullet
+list · checkbox · indent/outdent (shown inside lists) · **clear formatting**
+(reset headings/lists/marks to plain text) · insert image
 
-## 마크다운 입력
+Click an image to select it, then **drag to move it**. Hovering an image shows
+a hatched grip at its bottom right — **drag to resize**, **double-press to go
+back to the original size**. Only resized images are saved as `<img width>`;
+untouched ones stay plain Markdown (`![](path)`).
 
-항상 렌더된 상태로 편집합니다. 문법을 **타이핑하면 즉시 서식으로 변환**됩니다:
+## Markdown input
 
-| 입력                    | 결과           |
-| ----------------------- | -------------- |
-| `# `, `## `, `### `     | 제목 1·2·3     |
-| `- ` 또는 `* `          | 글머리 목록    |
-| `1. `                   | 번호 목록      |
-| `> `                    | 인용           |
-| `**굵게**`              | **굵게**       |
-| `*기울임*`              | _기울임_       |
-| `~~취소선~~`            | ~~취소선~~     |
-| `` `코드` ``            | 인라인 코드    |
-| ` ``` `                 | 코드 블록      |
-| `---`                   | 구분선         |
-| `\| a \| b \|` + 구분행 | 표 (아래 참고) |
+You always edit the rendered view. Type the syntax and it **converts as you type**:
 
-**표**는 GFM 문법 그대로 붙여넣거나 타이핑하면 표로 그려집니다:
+| Input                     | Result        |
+| ------------------------- | ------------- |
+| `# `, `## `, `### `       | Heading 1·2·3 |
+| `- ` or `* `              | Bullet list   |
+| `1. `                     | Numbered list |
+| `> `                      | Quote         |
+| `**bold**`                | **bold**      |
+| `*italic*`                | _italic_      |
+| `~~strike~~`              | ~~strike~~    |
+| `` `code` ``              | Inline code   |
+| ` ``` `                   | Code block    |
+| `---`                     | Divider       |
+| `\| a \| b \|` + rule row | Table (below) |
+
+**Tables** render from plain GFM syntax, typed or pasted:
 
 ```
-| 입력 | 동작 |
+| input | action |
 | --- | --- |
-| Esc | 노멀 모드 |
+| Esc | normal mode |
 ```
 
-창이 좁으면 표 영역만 가로로 스크롤됩니다 (코드 블록도 동일).
+In a narrow window only the table scrolls horizontally (same for code blocks).
 
-**마크다운 붙여넣기**: 마크다운 문법이 든 텍스트를 붙여넣으면
-표·체크박스·제목 등이 서식으로 변환되어 들어갑니다.
+**Pasting Markdown**: pasted text containing Markdown syntax comes in as
+formatting — tables, checkboxes, headings and all.
 
-### 단축키
+### Shortcuts
 
-| 키                             | 동작                                                      |
-| ------------------------------ | --------------------------------------------------------- |
-| `Ctrl+B` / `Ctrl+I` / `Ctrl+U` | 굵게 / 기울임 / 밑줄                                      |
-| `Ctrl+Shift+S`                 | 취소선                                                    |
-| `Tab` / `Shift+Tab`            | 목록 들여쓰기 / 내어쓰기                                  |
-| `Enter` (목록에서)             | 다음 항목, 빈 항목에서 한 번 더 누르면 목록 종료          |
-| `Ctrl+휠`, `Ctrl+±`            | 글씨 크기                                                 |
-| `Ctrl+N` / `Ctrl+L`            | 새 노트 / 노트 목록                                       |
-| `Ctrl+W`                       | 이 장만 숨기기 — 모음집이면 창은 남고 다음 장으로         |
-| `Ctrl+Shift+W`                 | 이 창 숨기기 — 모음집 전체                                |
-| `Alt+←/→`                      | 모음집 이전/다음 노트                                     |
-| `Ctrl+Shift+P`                 | 모음집에서 꺼내기 — 단독 창이 되고, 원래 창은 다음 노트로 |
+| Key                            | Action                                                     |
+| ------------------------------ | ---------------------------------------------------------- |
+| `Ctrl+B` / `Ctrl+I` / `Ctrl+U` | Bold / italic / underline                                  |
+| `Ctrl+Shift+S`                 | Strikethrough                                              |
+| `Tab` / `Shift+Tab`            | List indent / outdent                                      |
+| `Enter` (in a list)            | Next item; again on an empty item ends the list            |
+| `Ctrl+wheel`, `Ctrl+±`         | Text size                                                  |
+| `Ctrl+N` / `Ctrl+L`            | New note / note list                                       |
+| `Ctrl+W`                       | Hide this page — in a collection the window shows the next |
+| `Ctrl+Shift+W`                 | Hide this window — the whole collection                    |
+| `Alt+←/→`                      | Previous/next note in the collection                       |
+| `Ctrl+Shift+P`                 | Pop out of the collection — the window shows the next note |
 
-## 이미지
+## Images
 
-세 가지 방법 모두 노트에 인라인으로 들어갑니다:
+All three routes place the image inline:
 
-1. 스크린샷 등 클립보드 이미지 **붙여넣기** (`Ctrl+V`)
-2. 이미지 파일을 창에 **드래그 앤 드롭** (png/jpg/gif/webp)
-3. 하단 서식 바의 **이미지 버튼** → 파일 선택
+1. **Paste** a clipboard image such as a screenshot (`Ctrl+V`)
+2. **Drag & drop** an image file onto the window (png/jpg/gif/webp)
+3. The **image button** on the format bar → file picker
 
-## 업데이트
+## Updates
 
-앱을 켜면 조용히 새 버전을 확인합니다. 새 버전이 있으면 **노트 목록 창** 상단에
-"vX 업데이트" 버튼이 나타나고, 누르면 내려받아 설치한 뒤 다시 시작합니다.
-설치형 전용이며, 포터블로 쓰는 중이면 버튼이 릴리스 페이지를 엽니다.
-확인에 실패해도(오프라인 등) 조용히 넘어가고 다음 시작 때 다시 확인합니다.
+On launch the app quietly checks for a new version. If one exists, an
+"Update to vX" button appears at the top of the **note list window**; pressing
+it downloads, installs, and restarts. Installer builds only — running portable,
+the button opens the releases page instead. A failed check (offline, …) is
+silently retried on the next launch.
 
-## 모음집 (노트 그룹)
+## Collections (note groups)
 
-관련 노트들을 묶어 한 창에서 책장처럼 넘겨볼 수 있습니다.
-**모음집 하나는 항상 창 하나로만 표시됩니다** — 넘기기(화살표·점·`Alt+←/→`)는
-그 창에서만 가능합니다.
+Group related notes and flip through them in one window, like pages.
+**A collection always shows as exactly one window** — paging (arrows, dots,
+`Alt+←/→`) happens inside it.
 
-- **묶기**: **노트 창을 다른 노트 위로 끌어다 놓으면** 합쳐집니다.
-  목록 창에서는 체크 버튼으로 여러 개를 선택해 한 번에 묶을 수 있습니다. 판정은 **마우스 커서가
-  놓인 지점**을 기준으로 합니다 — 커서가 상대 노트 창 위에 있을 때 놓으면
-  합쳐지고, 창이 겹쳐 있어도 커서가 빈 바탕에 있으면 합쳐지지 않습니다.
-  겹치는 동안 창이 어두워지며 예고하고, **마우스를 놓아야** 발동합니다 —
-  옮기다 잠깐 멈춘 것만으로는 합쳐지지 않습니다. 합친 직후 잠깐 뜨는
-  **되돌리기**로 무를 수 있습니다.
-- **넘기기**: `Alt+←/→`, 창 좌우 가장자리에 마우스를 올리면 나오는 ‹ › 화살표,
-  하단 점(●○○) 클릭. 목록에서 모음집의 다른 노트를 열어도 새 창이 생기지 않고
-  모음집 창이 그 노트로 전환됩니다.
-  마지막으로 보던 장은 기억되어 앱을 다시 켜면 그 장이 열립니다(그 장이
-  지워졌거나 숨겨져 있으면 첫 장).
-- **꺼내기**: ↗ 또는 `Ctrl+Shift+P` — 현재 노트가 **모음집에서 빠져** 단독
-  창이 되고, 모음집 창은 다음 노트를 보여줍니다. 다시 넣으려면 드래그로 얹거나
-  목록에서 선택해 묶으세요.
-- **이름 바꾸기**: 목록 창의 그룹 제목에 마우스를 올리면 나오는 연필로.
-  이미 있는 이름과 겹치면 거부됩니다 — 두 모음집을 합치려면 드래그로.
-- **해제**: 꺼내기(↗), 또는 목록 선택 후 "해제".
-  멤버가 하나만 남으면 모음집은 자동으로 풀립니다.
+- **Grouping**: **drag one note window onto another** and they merge.
+  In the list window, use the check button to select several and group them at
+  once. The merge is judged by **where the cursor is when you release** — drop
+  with the cursor over the other note and they merge; overlapping windows with
+  the cursor on empty desktop don't. While overlapping, the window dims as a
+  preview, and nothing happens until you **release the mouse** — pausing
+  mid-drag doesn't merge. A brief **Undo** appears right after a merge.
+- **Paging**: `Alt+←/→`, the ‹ › arrows on the window edges, or the dots
+  (●○○) at the bottom. Opening another member from the list doesn't spawn a
+  window — the collection window switches to it.
+  The last page you viewed is remembered: reopening the app opens that page
+  (or the first, if it was deleted or hidden).
+- **Popping out**: ↗ or `Ctrl+Shift+P` — the current note **leaves the
+  collection** into its own window, and the collection window shows the next
+  note. To put it back, drag it on, or group it from the list.
+- **Renaming**: hover the group heading in the list window and use the pencil.
+  A name that already exists is rejected — merge collections by dragging.
+- **Ungrouping**: pop out (↗), or select in the list and "Ungroup".
+  A collection left with a single member dissolves automatically.
 
-## 노트 목록
+## The note list
 
-트레이 → 노트 목록, 또는 툴바 ☰. 검색(본문·지정 제목)·열기·삭제가 가능하고,
-우측 상단의 휴지통에서 지운 노트를 되돌리거나 완전히 지울 수 있으며, 톱니바퀴로
-설정에 들어갑니다. 각 행의 ⓘ **자세히 보기**에서 목록
-표시용 제목 지정, 만든/수정한 시각 확인, **파일 위치 열기**(탐색기에서 실제
-`.md` 파일 선택)가 가능합니다.
+Tray → Note list, or ☰ in the toolbar. Search (body and custom titles), open,
+delete; the trash at the top right restores or permanently deletes notes; the
+gear opens Settings. Each row's ⓘ **Details** sets a custom list title, shows
+created/modified times, and **opens the file location** (selects the actual
+`.md` in Explorer).
 
-**마크다운 파일 가져오기**: 헤더의 ↓ 버튼으로 기존 `.md` 파일을 골라 새 노트로
-만듭니다. 여러 개를 한 번에 선택할 수 있고, 원본 파일은 건드리지 않습니다.
+**Importing Markdown files**: the ↓ button in the header turns existing `.md`
+files into notes. Multi-select works; originals are left untouched.
 
-## 설정
+## Settings
 
-- **테마**: 시스템(OS 다크 모드 추종) / 라이트 / 다크
-- **새 노트 기본값**: 색·폰트·글씨 크기
-- **자주 쓰는 폰트**: "폰트 추가"로 설치된 폰트를 검색해 등록 — 등록한 폰트는 노트 툴바의 Aa 팝오버에 나타납니다
-- **부팅 시 시작**, **데이터 폴더 열기**, 버전 정보
+- **Theme**: System (follows OS dark mode) / Light / Dark
+- **Language**: System (follows OS language) / 한국어 / English — notes, list, and tray all switch
+- **New note defaults**: color, font, text size
+- **Favorite fonts**: "Add font" searches installed fonts — favorites appear in the note toolbar's Aa popover
+- **Start at login**, **open data folder**, version info
 
-## 데이터
+## Data
 
-노트는 기본적으로 `%APPDATA%\Ddakji\notes\*.md`에 평문 마크다운(+YAML 프론트매터)으로 저장됩니다. 파일명은 `20260805-134024-a1b2c3.md`처럼 생성 시각 기반이라 폴더에서 시간순으로 정렬됩니다. 이미지는 `assets\<노트id>\`에 원본 파일로 저장되고 본문에는 상대 경로만 기록됩니다. 지운 노트는 `trash\`로 옮겨져 그대로 남습니다 — 휴지통에서 비우기 전까지는 파일이 사라지지 않습니다. 백업은 이 폴더를 복사하면 됩니다.
+Notes are stored as plain Markdown (+ YAML frontmatter) under
+`%APPDATA%\Ddakji\notes\*.md`. Filenames are creation-time based
+(`20260805-134024-a1b2c3.md`), so the folder sorts chronologically. Images are
+stored as original files under `assets\<note id>\` with only relative paths in
+the body. Deleted notes move to `trash\` and stay there — no file disappears
+until you empty the trash. Back up by copying the folder.
 
-저장 위치는 설정 → 저장 위치 변경으로 옮길 수 있습니다 (데이터 이동 후 앱 재시작).
+The storage location can be changed in Settings → Change storage location
+(data is moved, then the app restarts).
 
-노트 파일을 밖에서 직접 지우면 열려 있던 해당 노트 창은 자동으로 닫힙니다.
+If a note's file is deleted externally, its open window closes itself.

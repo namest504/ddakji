@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT, type MsgKey } from "../lib/i18n";
 import { getVersion } from "@tauri-apps/api/app";
 import * as api from "../lib/api";
 import type { FontFamily, NoteColor, Settings } from "../lib/api";
@@ -6,14 +7,15 @@ import { clampFontSize, fontStack } from "../lib/noteUtils";
 import { BackIcon } from "../note/icons";
 
 const COLORS: NoteColor[] = ["yellow", "green", "pink", "purple", "blue", "gray", "charcoal"];
-const FONTS: { key: FontFamily; label: string }[] = [
-  { key: "system", label: "시스템" },
-  { key: "serif", label: "세리프" },
-  { key: "mono", label: "고정폭" },
+const FONTS: { key: FontFamily; label: MsgKey }[] = [
+  { key: "system", label: "fontSystem" },
+  { key: "serif", label: "fontSerif" },
+  { key: "mono", label: "fontMono" },
 ];
 const REPO_URL = "https://github.com/namest504/ddakji";
 
 export default function SettingsView({ onBack }: { onBack: () => void }) {
+  const t = useT();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [autostart, setAutostart] = useState(false);
   const [version, setVersion] = useState("");
@@ -81,15 +83,15 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
   return (
     <div className="list settings">
       <div className="list-header">
-        <button className="icon-btn" title="뒤로" onClick={onBack}>
+        <button className="icon-btn" title={t("goBack")} onClick={onBack}>
           <BackIcon />
         </button>
-        <span className="settings-title">설정</span>
+        <span className="settings-title">{t("settings")}</span>
       </div>
       <div className="list-items">
         <div className="inset-group">
           <div className="settings-row" onClick={toggleAutostart}>
-            <span>부팅 시 시작</span>
+            <span>{t("autostart")}</span>
             <span
               className={"switch" + (autostart ? " on" : "")}
               role="switch"
@@ -102,13 +104,13 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
 
         <div className="inset-group">
           <div className="settings-row">
-            <span>테마</span>
+            <span>{t("theme")}</span>
             <span className="seg">
               {(
                 [
-                  ["system", "시스템"],
-                  ["light", "라이트"],
-                  ["dark", "다크"],
+                  ["system", t("themeSystem")],
+                  ["light", t("themeLight")],
+                  ["dark", t("themeDark")],
                 ] as const
               ).map(([k, label]) => (
                 <button
@@ -121,12 +123,32 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
               ))}
             </span>
           </div>
+          <div className="settings-row">
+            <span>{t("language")}</span>
+            <span className="seg">
+              {(
+                [
+                  ["system", t("langSystem")],
+                  ["ko", "한국어"],
+                  ["en", "English"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  className={settings.language === k ? "active" : ""}
+                  onClick={() => patch({ language: k })}
+                >
+                  {label}
+                </button>
+              ))}
+            </span>
+          </div>
         </div>
 
-        <div className="group-label">새 노트 기본값</div>
+        <div className="group-label">{t("newNoteDefaults")}</div>
         <div className="inset-group">
           <div className="settings-row">
-            <span>색상</span>
+            <span>{t("color")}</span>
             <span className="swatch-row">
               {COLORS.map((c) => (
                 <button
@@ -139,7 +161,7 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
             </span>
           </div>
           <div className="settings-row">
-            <span>폰트</span>
+            <span>{t("font")}</span>
             <span className="seg wrap">
               {FONTS.map((f) => (
                 <button
@@ -148,7 +170,7 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
                   className={settings.default_font_family === f.key ? "active" : ""}
                   onClick={() => patch({ default_font_family: f.key })}
                 >
-                  {f.label}
+                  {t(f.label)}
                 </button>
               ))}
               {settings.favorite_fonts.map((f) => (
@@ -164,7 +186,7 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
             </span>
           </div>
           <div className="settings-row">
-            <span>글씨 크기</span>
+            <span>{t("fontSize")}</span>
             <span className="stepper">
               <button
                 onClick={() =>
@@ -185,30 +207,30 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        <div className="group-label">자주 쓰는 폰트</div>
+        <div className="group-label">{t("favoriteFonts")}</div>
         <div className="inset-group">
           {settings.favorite_fonts.map((f) => (
             <div key={f} className="settings-row">
               <span style={{ fontFamily: fontStack(f) }}>{f}</span>
-              <button className="icon-btn" title="제거" onClick={() => removeFavorite(f)}>
+              <button className="icon-btn" title={t("remove")} onClick={() => removeFavorite(f)}>
                 −
               </button>
             </div>
           ))}
           <div className="settings-row link" onClick={togglePicker}>
-            {showPicker ? "닫기" : "＋ 폰트 추가 (설치된 폰트 조회)"}
+            {showPicker ? t("close") : t("addFont")}
           </div>
           {showPicker && (
             <div className="font-picker">
               <input
                 className="font-custom"
-                placeholder="폰트 검색…"
+                placeholder={t("fontSearch")}
                 value={fontQuery}
                 onChange={(e) => setFontQuery(e.target.value)}
                 autoFocus
               />
               <div className="font-list">
-                {sysFonts === null && <div className="font-item">불러오는 중…</div>}
+                {sysFonts === null && <div className="font-item">{t("loading")}</div>}
                 {sysFonts
                   ?.filter((f) => f.toLowerCase().includes(fontQuery.trim().toLowerCase()))
                   .map((f) => (
@@ -224,43 +246,43 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
                     </div>
                   ))}
                 {sysFonts !== null && sysFonts.length === 0 && (
-                  <div className="font-item">폰트 목록을 가져오지 못했습니다</div>
+                  <div className="font-item">{t("fontListFailed")}</div>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        <div className="group-label">저장 위치</div>
+        <div className="group-label">{t("storage")}</div>
         <div className="inset-group">
           <div className="settings-row">
             <span className="row-dim path-text">{rootPath}</span>
           </div>
           <div className="settings-row link" onClick={openData}>
-            데이터 폴더 열기
+            {t("openDataFolder")}
           </div>
           <div
             className="settings-row link"
             onClick={async () => {
               const { open, ask } = await import("@tauri-apps/plugin-dialog");
-              const dir = await open({ directory: true, title: "새 저장 폴더 선택" });
+              const dir = await open({ directory: true, title: t("pickStorageFolder") });
               if (typeof dir !== "string") return;
-              const ok = await ask(`데이터를 다음 위치로 이동하고 앱을 다시 시작합니다:\n${dir}`, {
-                title: "저장 위치 변경",
+              const ok = await ask(t("moveDataConfirm", { dir }), {
+                title: t("changeStorage"),
                 kind: "warning",
-                okLabel: "이동",
-                cancelLabel: "취소",
+                okLabel: t("move"),
+                cancelLabel: t("cancel"),
               });
               if (ok) await api.setStoragePath(dir);
             }}
           >
-            저장 위치 변경…
+            {t("changeStorageEllipsis")}
           </div>
         </div>
 
         <div className="inset-group">
           <div className="settings-row">
-            <span>버전</span>
+            <span>{t("version")}</span>
             <span className="row-dim">{version}</span>
           </div>
           <div

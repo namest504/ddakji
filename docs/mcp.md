@@ -1,15 +1,19 @@
 # ddakji-mcp
 
-MCP(Model Context Protocol) stdio 서버입니다. Claude Desktop 같은 MCP
-클라이언트가 ddakji 노트를 도구로 읽고 쓸 수 있습니다. 포터블 zip에
-`ddakji-mcp.exe`로 함께 들어 있습니다.
+[한국어](mcp.ko.md) · **English**
 
-CLI와 같은 저장소 규칙을 사용하므로 모음집 순서·자동 해제·통째 병합이
-GUI와 동일하게 동작하고, 앱이 실행 중이면 변경이 화면에 바로 반영됩니다.
+An MCP (Model Context Protocol) stdio server. MCP clients like Claude Desktop
+can read and write ddakji notes as tools. Ships as `ddakji-mcp.exe` in the
+portable zip and the installer.
 
-## 등록
+It shares the CLI's storage rules, so collection ordering, auto-dissolve, and
+whole-collection merges behave exactly like the GUI — and if the app is
+running, changes appear on screen immediately.
 
-경로를 직접 적지 말고 **서버에게 물어보세요** — 자기 위치를 넣은 설정을 그대로 뱉습니다:
+## Registration
+
+Don't type the path by hand — **ask the server**: it prints a config block
+with its own location filled in:
 
 ```sh
 ddakji-mcp --print-config
@@ -25,7 +29,7 @@ ddakji-mcp --print-config
 }
 ```
 
-**Claude Desktop** — 위 출력을 `claude_desktop_config.json`에 붙여 넣습니다.
+**Claude Desktop** — paste the output into `claude_desktop_config.json`.
 
 **Claude Code**:
 
@@ -33,21 +37,21 @@ ddakji-mcp --print-config
 claude mcp add ddakji -- /path/to/ddakji-mcp
 ```
 
-## 도구
+## Tools
 
-| 도구            | 동작                                                   |
-| --------------- | ------------------------------------------------------ |
-| `list_notes`    | 전체 노트 (메타·본문 JSON)                             |
-| `get_note`      | 노트 하나 읽기                                         |
-| `create_note`   | 새 노트 — body(마크다운), group·color·title·open 선택  |
-| `append_note`   | 끝에 덧붙이기 — 열린 노트에는 edit보다 안전            |
-| `edit_note`     | 본문 전체 교체                                         |
-| `set_note_meta` | 모음집·색·제목 변경 (빈 문자열 = 해제)                 |
-| `delete_note`   | 휴지통으로 보내기 (`restore_note`로 되돌림)            |
-| `list_trash`    | 휴지통 목록 — 지운 노트와 지운 시각                    |
-| `restore_note`  | 휴지통에서 되살리기                                    |
-| `list_groups`   | 모음집 이름 목록                                       |
-| `merge_notes`   | moved(와 그 모음집 전체)를 target의 모음집으로         |
-| `open_note`     | 노트를 사용자 화면의 앱 창으로 (앱이 꺼져 있으면 시작) |
+| Tool            | What it does                                                |
+| --------------- | ----------------------------------------------------------- |
+| `list_notes`    | Every note (metadata + body JSON)                           |
+| `get_note`      | Read one note                                               |
+| `create_note`   | New note — body (Markdown), optional group/color/title/open |
+| `append_note`   | Append at the end — safer than edit for open notes          |
+| `edit_note`     | Replace the whole body                                      |
+| `set_note_meta` | Change collection/color/title (empty string clears)         |
+| `delete_note`   | Move to the trash (undo with `restore_note`)                |
+| `list_trash`    | List the trash with deletion times                          |
+| `restore_note`  | Restore from the trash                                      |
+| `list_groups`   | List collection names                                       |
+| `merge_notes`   | Merge moved (and its collection) into target's collection   |
+| `open_note`     | Open a note window on the user's screen (starts the app)    |
 
-도구 실패(없는 노트 등)는 `isError` 결과로 돌아옵니다 — `NOTE_NOT_FOUND` 등.
+Tool failures (missing note, …) come back as `isError` results — e.g. `NOTE_NOT_FOUND`.

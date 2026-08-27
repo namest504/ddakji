@@ -871,10 +871,18 @@ pub fn get_settings(store: StoreState) -> Result<Settings> {
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> Result<()> {
-    lock(&store)?.set_settings(&settings)?;
-    // 다른 창(노트들)이 테마·즐겨찾기 변경을 즉시 반영하도록 알린다
+    let lang_changed = {
+        let mut s = lock(&store)?;
+        let changed = s.settings().language != settings.language;
+        s.set_settings(&settings)?;
+        changed
+    };
+    // 다른 창(노트들)이 테마·즐겨찾기·언어 변경을 즉시 반영하도록 알린다
     use tauri::Emitter;
     let _ = app.emit("settings-changed", ());
+    if lang_changed {
+        crate::tray::rebuild_menu(&app); // 트레이는 Rust가 그린다 (#143)
+    }
     Ok(())
 }
 

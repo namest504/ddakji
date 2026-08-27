@@ -5,7 +5,15 @@ import { useLang, useT } from "../lib/i18n";
 import type { Note } from "../lib/api";
 import { filterNotes, noteTitle, relativeTime } from "../lib/noteUtils";
 import { CheckboxIcon } from "../note/icons";
-import { GearIcon, ImportIcon, InfoIcon, PencilIcon, PlusIcon, TrashIcon } from "../note/icons";
+import {
+  GearIcon,
+  ImportIcon,
+  InfoIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+  UpdateIcon,
+} from "../note/icons";
 import DetailView from "./DetailView";
 import SettingsView from "./SettingsView";
 import TrashView from "./TrashView";
@@ -142,8 +150,18 @@ export default function ListApp() {
           <TrashIcon />
         </button>
         {updater && (
-          <button className="update-btn" disabled={updater.installing} onClick={updater.run}>
-            {updater.installing ? t("installingUpdate") : t("updateTo", { v: updater.version })}
+          <button
+            className={"icon-btn update-btn" + (updater.installing ? " installing" : "")}
+            disabled={updater.installing}
+            title={
+              updater.installing ? t("installingUpdate") : t("updateTo", { v: updater.version })
+            }
+            aria-label={
+              updater.installing ? t("installingUpdate") : t("updateTo", { v: updater.version })
+            }
+            onClick={updater.run}
+          >
+            <UpdateIcon />
           </button>
         )}
         <button className="icon-btn" title={t("settings")} onClick={() => setView("settings")}>

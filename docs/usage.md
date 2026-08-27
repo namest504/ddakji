@@ -125,6 +125,21 @@ All three routes place the image inline:
 2. **Drag & drop** an image file onto the window (png/jpg/gif/webp)
 3. The **image button** on the format bar → file picker
 
+## Sharing & export
+
+From the **back side** of a note (hatched corner, bottom right):
+
+- **Copy formatted** — puts styled HTML (images embedded) and plain Markdown on
+  the clipboard together. Rich apps (mail, Notion, Word) get formatting;
+  plain-text targets get Markdown.
+- **Markdown** — saves a `.md`. If the note has images you get a **zip** with
+  `note.md` + `assets/`, so image paths work as soon as it's unzipped.
+- **HTML** — a **single self-contained HTML file** with images embedded.
+  Double-click and the structure and images render in any browser.
+
+Either way, machine-local details (frontmatter: window position, fonts) are
+never included.
+
 ## Updates
 
 On launch the app quietly checks for a new version. If one exists, an

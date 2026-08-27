@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { useT } from "../lib/i18n";
+import { useLang, useT } from "../lib/i18n";
+import { buildHtmlDoc, collectAssetRefs, embedAssets, exportBodyHtml } from "../lib/exportNote";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Editor } from "@tiptap/react";
 import * as api from "../lib/api";
@@ -25,6 +26,7 @@ import { useWindowSync } from "./hooks/useWindowSync";
  */
 export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   const t = useT();
+  const lang = useLang();
   const { saveError, guard, retry } = useSaveGuard();
   const doc = useNoteDocument(initialNoteId, guard);
   const {
@@ -87,6 +89,46 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   if (!note || base === null) return null;
   const m = note.meta;
   const inGroup = members.length > 1;
+
+  // ── 공유 (#149): 렌더는 JSON에서(원본 상대경로), 이미지는 data URI로 내장 ──
+  const embeddedHtml = async () => {
+    const ed = editorRef.current;
+    if (!ed) return null;
+    const html = exportBodyHtml(ed.getJSON());
+    const refs = collectAssetRefs(html, noteId);
+    const pairs = await Promise.all(
+      refs.map(async (r) => [r, await api.assetDataUri(noteId, r)] as const),
+    );
+    return embedAssets(html, new Map(pairs));
+  };
+
+  const exportName = () => (note?.meta.title?.trim() || noteId).replace(/[\\/:*?"<>|]/g, "-");
+
+  const copyFormatted = async () => {
+    const html = await embeddedHtml();
+    if (html === null) return;
+    const { writeHtml } = await import("@tauri-apps/plugin-clipboard-manager");
+    // 서식을 못 받는 앱(터미널 등)은 평문 마크다운을 받는다
+    await writeHtml(html, mountBody() ?? note?.body ?? "");
+  };
+
+  const exportMd = async () => {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const dest = await save({ defaultPath: `${exportName()}.md` });
+    if (!dest) return;
+    guard("export", () => api.exportNoteMd(noteId, dest));
+  };
+
+  const exportHtml = async () => {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const dest = await save({ defaultPath: `${exportName()}.html` });
+    if (!dest) return;
+    guard("export", async () => {
+      const html = await embeddedHtml();
+      if (html === null) return;
+      await api.writeTextFile(dest, buildHtmlDoc(exportName(), lang, html));
+    });
+  };
 
   const onDelete = async () => {
     // window.confirm은 WebView2가 웹뷰 영역 안에 그려서 작은 노트 창에서는
@@ -165,7 +207,14 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         </>
       )}
       {flipped && (
-        <NoteBack note={note} onReveal={() => api.revealNote(noteId)} onDelete={onDelete} />
+        <NoteBack
+          note={note}
+          onReveal={() => api.revealNote(noteId)}
+          onDelete={onDelete}
+          onCopyFormatted={copyFormatted}
+          onExportMd={exportMd}
+          onExportHtml={exportHtml}
+        />
       )}
       <div
         key={noteId}

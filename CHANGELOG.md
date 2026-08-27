@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-27
+
 ### 수정
 
 - **빈 체크박스가 앱을 껐다 켤 때마다 불어나던 문제** ([#166]) — 내용 없는
@@ -272,7 +274,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.3...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.4...develop
+[0.2.4]: https://github.com/namest504/ddakji/releases/tag/v0.2.4
 [0.2.3]: https://github.com/namest504/ddakji/releases/tag/v0.2.3
 [0.2.2]: https://github.com/namest504/ddakji/releases/tag/v0.2.2
 [0.2.1]: https://github.com/namest504/ddakji/releases/tag/v0.2.1

@@ -304,6 +304,43 @@ fn exe_kind_of(path: &str) -> &'static str {
     }
 }
 
+/// AI 연동 (#161) — 설정 화면의 입구. 전제: 사용자는 README를 읽지 않는다.
+#[tauri::command]
+pub fn install_ai_skill() -> Result<String> {
+    let root = crate::skill::default_skills_root()
+        .ok_or_else(|| Error::Invalid("home directory not found".into()))?;
+    Ok(crate::skill::install_skill_to(&root)?.display().to_string())
+}
+
+/// 자기 옆의 ddakji-mcp 경로를 채운 MCP 등록 JSON (#161)
+#[tauri::command]
+pub fn mcp_config() -> Result<String> {
+    let exe = std::env::current_exe().map_err(Error::Io)?;
+    let mcp = exe
+        .parent()
+        .map(|d| {
+            d.join(if cfg!(windows) {
+                "ddakji-mcp.exe"
+            } else {
+                "ddakji-mcp"
+            })
+        })
+        .filter(|p| p.exists())
+        .ok_or_else(|| Error::Invalid("ddakji-mcp not found next to the app".into()))?;
+    Ok(crate::skill::mcp_client_config(&mcp))
+}
+
+/// 앱 폴더(=CLI가 있는 곳)를 탐색기로 (#161) — CLI 존재의 발견
+#[tauri::command]
+pub fn open_app_dir() -> Result<()> {
+    let dir = std::env::current_exe()
+        .map_err(Error::Io)?
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| Error::Invalid("no parent dir".into()))?;
+    tauri_plugin_opener::open_path(dir, None::<&str>).map_err(|e| Error::External(e.to_string()))
+}
+
 /// 노트 내보내기 (#149) — dest는 저장 다이얼로그가 준 경로(확장자는 내용에
 /// 따라 .md/.zip으로 바뀔 수 있어 실제 경로를 돌려준다)
 #[tauri::command]

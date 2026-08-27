@@ -17,6 +17,7 @@ pub mod fonts;
 pub mod i18n;
 pub mod pointer;
 pub mod session;
+pub mod skill;
 pub mod store;
 pub mod tray;
 pub mod windows;
@@ -69,6 +70,9 @@ pub fn run() {
             commands::open_data_dir,
             commands::reveal_note,
             commands::list_system_fonts,
+            commands::install_ai_skill,
+            commands::open_app_dir,
+            commands::mcp_config,
             commands::export_note_md,
             commands::asset_data_uri,
             commands::write_text_file,

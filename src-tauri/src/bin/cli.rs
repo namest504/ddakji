@@ -13,10 +13,7 @@ use clap::{Parser, Subcommand};
 
 use ddakji_lib::store::{MetaPatch, Note, Store};
 
-/// AI 에이전트용 사용 설명서. **바이너리에 박아 둔다** — 스킬이 레포 밖에
-/// 따로 살면 앱이 바뀌어도 따라오지 않는다(휴지통이 생긴 뒤에도 "되돌릴 수
-/// 없다"고 적혀 있던 전례). 이렇게 두면 버전과 함께 움직인다.
-const SKILL_MD: &str = include_str!("../../../skills/ddakji/SKILL.md");
+use ddakji_lib::skill::{default_skills_root, install_skill_to, SKILL_MD};
 
 #[derive(Parser)]
 #[command(
@@ -271,14 +268,9 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
                 return Ok(SKILL_MD.trim_end().to_string());
             }
             let root = dir
-                .or_else(skills_root)
+                .or_else(default_skills_root)
                 .ok_or("Skills folder not found — pass --dir (e.g. ~/.claude/skills)")?;
-            let target = root.join("ddakji");
-            std::fs::create_dir_all(&target)
-                .map_err(|e| format!("Cannot create the folder ({}): {e}", target.display()))?;
-            let path = target.join("SKILL.md");
-            std::fs::write(&path, SKILL_MD)
-                .map_err(|e| format!("Cannot write the file ({}): {e}", path.display()))?;
+            let path = install_skill_to(&root).map_err(|e| e.to_string())?;
             Ok(format!("{}", path.display()))
         }
         Cmd::Trash => {
@@ -335,13 +327,6 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
             }
         }
     }
-}
-
-/// 스킬 루트 `~/.claude/skills` — HOME(유닉스)과 USERPROFILE(윈도우) 둘 다 본다
-fn skills_root() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(|h| PathBuf::from(h).join(".claude").join("skills"))
 }
 
 /// GUI 실행 파일 — CLI와 같은 폴더의 ddakji(.exe)

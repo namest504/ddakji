@@ -193,6 +193,8 @@ files into notes. Multi-select works; originals are left untouched.
 - **Language**: System (follows OS language) / 한국어 / English — notes, list, and tray all switch
 - **New note defaults**: color, font, text size
 - **Favorite fonts**: "Add font" searches installed fonts — favorites appear in the note toolbar's Aa popover
+- **AI integration**: **Install the Claude skill** (teaches the AI to use your notes — one click),
+  **Copy MCP config** (paste into Claude Desktop and friends), **Open CLI location**
 - **Start at login**, **open data folder**, version info
 
 ## Data

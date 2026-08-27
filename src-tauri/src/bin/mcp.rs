@@ -53,13 +53,7 @@ fn main() {
     }
 }
 
-/// Claude Desktop 등의 `mcpServers` 항목 — 그대로 붙여 넣을 수 있게 들여쓴다.
-fn client_config(exe: &std::path::Path) -> String {
-    serde_json::to_string_pretty(&json!({
-        "mcpServers": { "ddakji": { "command": exe.display().to_string() } }
-    }))
-    .unwrap_or_default()
-}
+use ddakji_lib::skill::mcp_client_config as client_config;
 
 /// 요청 하나 처리. 알림(id 없음)은 None — 응답하지 않는다.
 fn handle(store: &Store, req: &Value) -> Option<Value> {

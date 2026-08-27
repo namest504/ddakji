@@ -66,7 +66,3 @@ ddakji-mcp --print-config              # MCP 클라이언트 등록용 JSON 출�
 ## 스택
 
 Tauri 2 · React · TypeScript · TipTap
-
-## 데모
-
-마크다운을 치는 대로 제목·체크리스트·굵게가 그려지고, 체크박스는 클릭으로 끄고, 색은 툴바에서 바꿉니다:

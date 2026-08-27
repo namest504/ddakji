@@ -1,4 +1,5 @@
 import { InputRule } from "@tiptap/core";
+import { currentLang, translate } from "../lib/i18n";
 import { TextSelection } from "@tiptap/pm/state";
 import Image from "@tiptap/extension-image";
 import { TaskItem } from "@tiptap/extension-list";
@@ -134,7 +135,7 @@ export const assetImage = (base: string) =>
         const img = document.createElement("img");
         const grip = document.createElement("span");
         grip.className = "img-grip";
-        grip.title = "끌어서 크기 조절 · 두 번 누르면 원래 크기";
+        grip.title = translate(currentLang(), "resizeGrip");
 
         const paint = (n: typeof node) => {
           const src = String(n.attrs.src ?? "");

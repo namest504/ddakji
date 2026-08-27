@@ -55,6 +55,7 @@ export const ko = {
   indent: "들여쓰기 (Tab)",
   outdent: "내어쓰기 (Shift+Tab)",
   insertImage: "이미지 삽입",
+  resizeGrip: "끌어서 크기 조절 · 두 번 누르면 원래 크기",
   clearFormat: "서식 지우기 (본문으로)",
   imageFilter: "이미지",
   // 목록
@@ -77,6 +78,10 @@ export const ko = {
   title: "제목",
   createdDate: "만든 날짜",
   updatedDate: "수정한 날짜",
+  restore: "복원",
+  trashEmpty: "휴지통이 비어 있습니다.",
+  openNote: "노트 열기",
+  viewUsage: "사용법 보기",
   // 휴지통
   trashHint: "지운 노트는 여기 남고, 언제든 되돌릴 수 있습니다.",
   restoreNote: "이 노트를 목록으로 되돌린다",
@@ -169,6 +174,7 @@ export const en: Record<MsgKey, string> = {
   indent: "Indent (Tab)",
   outdent: "Outdent (Shift+Tab)",
   insertImage: "Insert image",
+  resizeGrip: "Drag to resize · double-press for original size",
   clearFormat: "Clear formatting",
   imageFilter: "Images",
   search: "Search",
@@ -190,6 +196,10 @@ export const en: Record<MsgKey, string> = {
   title: "Title",
   createdDate: "Created",
   updatedDate: "Modified",
+  restore: "Restore",
+  trashEmpty: "The trash is empty.",
+  openNote: "Open note",
+  viewUsage: "How to use",
   trashHint: "Deleted notes stay here — restore them anytime.",
   restoreNote: "Restore this note to the list",
   purge: "Delete forever",
@@ -250,6 +260,13 @@ export function translate(lang: Lang, key: MsgKey, vars?: Record<string, string 
 
 const LangContext = createContext<Lang>("ko");
 
+// React 밖(에디터 확장의 DOM 조작 등)에서 쓰는 현재 언어. Provider가 갱신한다.
+// 훅을 못 쓰는 자리 전용 — 컴포넌트에서는 useT/useLang을 쓸 것.
+let current: Lang = "ko";
+export function currentLang(): Lang {
+  return current;
+}
+
 /** 설정을 읽어 언어를 정하고, settings-changed에 따라 산다 (#143) */
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLang] = useState<Lang>(() => resolveLang("system"));
@@ -271,6 +288,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       if (un) un();
     };
   }, []);
+  useEffect(() => {
+    current = lang; // 훅 밖 소비자(에디터 확장)용 스냅숏
+  }, [lang]);
   return <LangContext.Provider value={lang}>{children}</LangContext.Provider>;
 }
 

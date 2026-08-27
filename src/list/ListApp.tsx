@@ -278,7 +278,7 @@ export default function ListApp() {
               setSelected(new Set());
             }}
           >
-            취소
+            {t("cancel")}
           </button>
         </div>
       )}

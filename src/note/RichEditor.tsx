@@ -5,6 +5,7 @@ import { TaskList } from "@tiptap/extension-list";
 import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "tiptap-markdown";
 import { TaskItemSafe, assetImage } from "./extensions";
+import { fromEditorMarkdown, toEditorMarkdown } from "../lib/mdCompat";
 
 interface Props {
   body: string; // 초기 마크다운 (마운트 시 1회 — 이후 진실은 에디터)
@@ -33,7 +34,8 @@ export default function RichEditor({ body, base, onChange, onEditor, onPasteFile
       // transformPastedText: 마크다운 텍스트를 붙여넣으면 서식으로 파싱 (#72)
       Markdown.configure({ html: true, transformPastedText: true }),
     ],
-    content: body,
+    // 빈 체크박스 증식 버그(#166)의 관문 — 들어갈 때 주입, 나올 때 제거
+    content: toEditorMarkdown(body),
     autofocus: "end",
     editorProps: {
       attributes: { class: "editor tiptap" },
@@ -62,7 +64,7 @@ export default function RichEditor({ body, base, onChange, onEditor, onPasteFile
     },
     onUpdate: ({ editor }) => {
       const storage = editor.storage as { markdown?: { getMarkdown: () => string } };
-      onChange(storage.markdown?.getMarkdown() ?? "");
+      onChange(fromEditorMarkdown(storage.markdown?.getMarkdown() ?? ""));
     },
   });
 

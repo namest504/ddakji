@@ -618,6 +618,22 @@ describe("NoteApp 본문 보존 (#120)", () => {
   });
 });
 
+describe("NoteApp 빈 체크박스 보존 (#166)", () => {
+  it("빈 체크박스 본문이 편집 없이도 그대로 저장된다 — 자리표시자 유출 없음", async () => {
+    setupNote(mkNote("n1", "- [ ] \n\n- 할 일\n\n- [x] 완료\n"));
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent(window, new Event("blur"));
+    await waitFor(() => expect(api.saveBody).toHaveBeenCalled());
+    const [, body] = vi.mocked(api.saveBody).mock.calls[0];
+    // 자리표시자 주입이 마운트에서 정규화 트랜잭션을 한 번 일으켜 꼬리
+    // 개행은 다듬어질 수 있다 — 의미(체크박스 수·내용)가 보존되면 된다
+    expect(body.trimEnd()).toBe("- [ ] \n\n- 할 일\n\n- [x] 완료".trimEnd());
+    expect(body).not.toContain("\u200b");
+    expect(body).not.toContain("\\[");
+  });
+});
+
 describe("NoteApp 공유 (#149)", () => {
   it("서식 복사는 이미지가 data URI로 내장된 HTML과 평문 마크다운을 함께 담는다", async () => {
     const { writeHtml } = await import("@tauri-apps/plugin-clipboard-manager");

@@ -11,13 +11,15 @@ import { translate, type Lang } from "./i18n";
  * 변환 없는 확장으로 새로 렌더한다. 공유물에 이 기계의 경로가 섞이지 않는다.
  */
 export function exportBodyHtml(doc: JSONContent): string {
-  return generateHTML(doc, [
+  const html = generateHTML(doc, [
     StarterKit,
     TaskList,
     TaskItemSafe.configure({ nested: true }),
     TableKit.configure({ table: { resizable: false } }),
     ResizableImage,
   ]);
+  // 빈 체크박스 자리표시자(#166)는 에디터 내부용 — 공유물에 새지 않게
+  return html.replaceAll("\u200b", "");
 }
 
 /** HTML 안의 이 노트 에셋 상대경로 전부 (중복 제거) */

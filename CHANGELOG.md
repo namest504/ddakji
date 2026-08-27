@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-27
+
 ### 수정
 
 - 업데이트 버튼 글자가 좁은 창에서 여러 줄로 꺾이던 문제 — 아이콘 버튼으로
@@ -255,7 +257,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.1...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.2...develop
+[0.2.2]: https://github.com/namest504/ddakji/releases/tag/v0.2.2
 [0.2.1]: https://github.com/namest504/ddakji/releases/tag/v0.2.1
 [0.2.0]: https://github.com/namest504/ddakji/releases/tag/v0.2.0
 [0.1.8]: https://github.com/namest504/ddakji/releases/tag/v0.1.8

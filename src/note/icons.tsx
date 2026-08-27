@@ -138,6 +138,24 @@ export const BackIcon = () => (
   </svg>
 );
 
+export const UpdateIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+    <path
+      d="M13.2 8.6a5.3 5.3 0 1 1-1.3-4.4"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+    />
+    <path
+      d="M13.6 1.6v3h-3"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 export const PencilIcon = () => (
   <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
     <path

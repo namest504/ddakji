@@ -2,7 +2,7 @@ import { useState } from "react";
 import * as api from "../lib/api";
 import type { FontFamily, Note, NoteColor } from "../lib/api";
 import { fontStack } from "../lib/noteUtils";
-import { CloseIcon, GroupIcon, HideIcon, ListIcon, PinIcon, PlusIcon, PopOutIcon } from "./icons";
+import { CloseIcon, HideIcon, ListIcon, PinIcon, PlusIcon, PopOutIcon } from "./icons";
 
 const COLORS: NoteColor[] = ["yellow", "green", "pink", "purple", "blue", "gray", "charcoal"];
 const FONTS: { key: FontFamily; label: string }[] = [
@@ -15,7 +15,6 @@ interface Props {
   note: Note;
   onColor: (c: NoteColor) => void;
   onFont: (f: FontFamily) => void;
-  onGroup: (name: string | null) => void;
   canPopOut: boolean;
   onPopOut: () => void;
   onPin: () => void;
@@ -29,21 +28,14 @@ interface Props {
 }
 
 export default function Toolbar(p: Props) {
-  const [popover, setPopover] = useState<"colors" | "fonts" | "groups" | null>(null);
+  const [popover, setPopover] = useState<"colors" | "fonts" | null>(null);
   const [favFonts, setFavFonts] = useState<string[]>([]);
-  const [groups, setGroups] = useState<string[]>([]);
-  const toggle = (v: "colors" | "fonts" | "groups") => {
+  const toggle = (v: "colors" | "fonts") => {
     // 목록성 데이터는 팝오버를 열 때마다 새로 읽는다
     if (v === "fonts" && popover !== "fonts") {
       api
         .getSettings()
         .then((s) => setFavFonts(s.favorite_fonts))
-        .catch(() => {});
-    }
-    if (v === "groups" && popover !== "groups") {
-      api
-        .listGroups()
-        .then(setGroups)
         .catch(() => {});
     }
     setPopover(popover === v ? null : v);
@@ -60,9 +52,6 @@ export default function Toolbar(p: Props) {
       </button>
       <button title="폰트" className="font-btn" onClick={() => toggle("fonts")}>
         Aa
-      </button>
-      <button title="모음집" className={m.group ? "active" : ""} onClick={() => toggle("groups")}>
-        <GroupIcon />
       </button>
       {p.canPopOut && (
         <button title="모음집에서 꺼내기 (Ctrl+Shift+P)" onClick={p.onPopOut}>
@@ -110,51 +99,6 @@ export default function Toolbar(p: Props) {
               }}
             />
           ))}
-        </div>
-      )}
-      {popover === "groups" && (
-        <div className="color-row font-row">
-          {groups.map((g) => (
-            <button
-              key={g}
-              className={m.group === g ? "active" : ""}
-              onClick={() => {
-                p.onGroup(g);
-                setPopover(null);
-              }}
-            >
-              {g}
-            </button>
-          ))}
-          <input
-            className="font-custom"
-            placeholder="새 모음집 이름"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const v = e.currentTarget.value.trim();
-                e.currentTarget.blur();
-                if (v) {
-                  p.onGroup(v);
-                  setPopover(null);
-                }
-              }
-              if (e.key === "Escape") {
-                e.currentTarget.blur();
-                setPopover(null);
-              }
-            }}
-          />
-          {m.group && (
-            <button
-              onClick={() => {
-                p.onGroup(null);
-                setPopover(null);
-              }}
-            >
-              제외
-            </button>
-          )}
         </div>
       )}
       {popover === "fonts" && (

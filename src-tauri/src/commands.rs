@@ -279,6 +279,22 @@ pub fn set_storage_path(
     app.restart();
 }
 
+/// 모음집 이름 바꾸기 (#139) — 목록의 그룹 헤더 인라인 편집이 부른다
+#[tauri::command]
+pub async fn rename_group(
+    app: AppHandle,
+    store: StoreState<'_>,
+    old: String,
+    new: String,
+) -> Result<usize> {
+    use tauri::Emitter;
+    let n = lock(&store)?.rename_group(&old, &new)?;
+    if n > 0 {
+        let _ = app.emit("groups-changed", ());
+    }
+    Ok(n)
+}
+
 #[tauri::command]
 pub fn set_last_viewed(state: State<LastViewed>, id: String) {
     if let Ok(mut g) = state.0.lock() {

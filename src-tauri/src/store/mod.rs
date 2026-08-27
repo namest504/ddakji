@@ -156,9 +156,11 @@ impl Store {
             return Ok(()); // 같은 장을 다시 보는 것뿐 — 쓰기 생략
         }
         cursors.insert(group.to_string(), id.to_string());
-        let state = SessionState {
-            group_cursors: cursors,
-        };
+        self.write_cursors(cursors)
+    }
+
+    fn write_cursors(&self, group_cursors: HashMap<String, String>) -> Result<()> {
+        let state = SessionState { group_cursors };
         let path = self.root.join("session.json");
         let tmp = self
             .root
@@ -412,6 +414,39 @@ impl Store {
             }
         }
         Ok(true)
+    }
+
+    /// 모음집 이름 바꾸기 (#139). 멤버 전원의 group만 고쳐 쓴다 —
+    /// `save_meta`의 "이동=끝 편입"·"혼자 남으면 해제" 규칙은 **이적**의
+    /// 규칙이지 개명의 규칙이 아니므로 일부러 우회한다(group_order 보존).
+    /// 이미 있는 이름과의 충돌은 거부 — 통합은 드래그의 몫이다.
+    pub fn rename_group(&mut self, old: &str, new: &str) -> Result<usize> {
+        let new = new.trim();
+        if new.is_empty() {
+            return Err(Error::Invalid("모음집 이름이 비어 있습니다".into()));
+        }
+        if new == old {
+            return Ok(0);
+        }
+        let members = self.group_notes(old);
+        if members.is_empty() {
+            return Err(Error::Invalid(format!("모음집이 없습니다: {old}")));
+        }
+        if self.group_names().iter().any(|g| g == new) {
+            return Err(Error::Invalid("같은 이름의 모음집이 있습니다".into()));
+        }
+        let n = members.len();
+        for mut m in members {
+            m.meta.group = Some(new.to_string());
+            self.write_atomic(&m)?;
+        }
+        // 마지막으로 보던 장 기억도 새 이름으로 — 안 옮기면 개명 순간 증발한다
+        let mut cursors = self.group_cursors();
+        if let Some(id) = cursors.remove(old) {
+            cursors.insert(new.to_string(), id);
+            self.write_cursors(cursors)?;
+        }
+        Ok(n)
     }
 
     pub fn group_names(&self) -> Vec<String> {
@@ -1564,5 +1599,72 @@ mod tests {
         fs::write(d.path().join("session.json"), "{망가진 json").unwrap();
         let s = Store::new(d.path()).unwrap();
         assert!(s.group_cursors().is_empty());
+    }
+
+    #[test]
+    fn rename_group_preserves_members_order_and_cursor() {
+        let d = TempDir::new().unwrap();
+        let mut s = Store::new(d.path()).unwrap();
+        // 순서가 뒤섞인 3멤버 모음집
+        let mut ids = vec![];
+        for (i, body) in ["첫", "둘", "셋"].iter().enumerate() {
+            let n = s.create().unwrap();
+            s.save_body(&n.meta.id, body).unwrap();
+            s.save_meta(
+                &n.meta.id,
+                &MetaPatch {
+                    group: Some("옛이름".into()),
+                    group_order: Some((12 - i) as u32), // 12, 11, 10 — 생성순과 반대
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            ids.push(n.meta.id);
+        }
+        s.set_group_cursor("옛이름", &ids[1]).unwrap();
+
+        let n = s.rename_group("옛이름", "새이름").unwrap();
+        assert_eq!(n, 3);
+
+        assert!(s.group_notes("옛이름").is_empty());
+        let renamed = s.group_notes("새이름");
+        assert_eq!(renamed.len(), 3);
+        // group_order 값이 그대로다 — "이동=끝 편입" 규칙을 타면 0,1,2로 뭉개진다
+        let mut orders: Vec<u32> = renamed.iter().map(|m| m.meta.group_order).collect();
+        orders.sort();
+        assert_eq!(orders, vec![10, 11, 12]);
+        // 마지막으로 보던 장 기억도 새 이름으로 따라온다
+        assert_eq!(
+            s.group_cursors().get("새이름").map(String::as_str),
+            Some(ids[1].as_str())
+        );
+        assert!(!s.group_cursors().contains_key("옛이름"));
+    }
+
+    #[test]
+    fn rename_group_rejects_collision_and_blank() {
+        let d = TempDir::new().unwrap();
+        let mut s = Store::new(d.path()).unwrap();
+        for g in ["하나", "둘"] {
+            for _ in 0..2 {
+                let n = s.create().unwrap();
+                s.save_meta(
+                    &n.meta.id,
+                    &MetaPatch {
+                        group: Some(g.into()),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            }
+        }
+        // 충돌: 통합은 드래그의 몫 — 이름 바꾸기는 이름만 바꾼다 (#139)
+        assert!(s.rename_group("하나", "둘").is_err());
+        // 공백·빈 이름 거부, 없는 그룹 거부
+        assert!(s.rename_group("하나", "  ").is_err());
+        assert!(s.rename_group("없는그룹", "셋").is_err());
+        // 같은 이름은 무해한 무시
+        assert_eq!(s.rename_group("하나", "하나").unwrap(), 0);
+        assert_eq!(s.group_notes("하나").len(), 2);
     }
 }

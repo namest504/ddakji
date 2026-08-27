@@ -3,7 +3,7 @@ import * as api from "../lib/api";
 import type { Note } from "../lib/api";
 import { filterNotes, noteTitle, relativeTime } from "../lib/noteUtils";
 import { CheckboxIcon } from "../note/icons";
-import { GearIcon, ImportIcon, InfoIcon, PlusIcon, TrashIcon } from "../note/icons";
+import { GearIcon, ImportIcon, InfoIcon, PencilIcon, PlusIcon, TrashIcon } from "../note/icons";
 import DetailView from "./DetailView";
 import SettingsView from "./SettingsView";
 import TrashView from "./TrashView";
@@ -14,6 +14,10 @@ export default function ListApp() {
   const [view, setView] = useState<"list" | "settings" | "trash">("list");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
+  // 모음집 이름 인라인 편집 (#139) — 어느 그룹을, 무슨 값으로, 실패 사유는
+  const [renaming, setRenaming] = useState<{ group: string; value: string; error?: string } | null>(
+    null,
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const reload = useCallback(() => {
@@ -136,7 +140,50 @@ export default function ListApp() {
           <div key={g ?? "__loose"}>
             {(g || sections.length > 1) && (
               <div className="group-label">
-                {g ?? "노트"}
+                {g && renaming?.group === g ? (
+                  <span className="group-rename">
+                    <input
+                      className="font-custom"
+                      autoFocus
+                      value={renaming.value}
+                      onChange={(e) => setRenaming({ group: g, value: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const next = renaming.value.trim();
+                          if (!next || next === g) {
+                            setRenaming(null);
+                            return;
+                          }
+                          api
+                            .renameGroup(g, next)
+                            .then(() => {
+                              setRenaming(null);
+                              reload();
+                            })
+                            // 거부 사유를 입력 밑에 그대로 — 고쳐서 재시도할 수 있게 연다
+                            .catch((err) =>
+                              setRenaming({ group: g, value: next, error: String(err) }),
+                            );
+                        }
+                        if (e.key === "Escape") setRenaming(null);
+                      }}
+                    />
+                    {renaming.error && <span className="group-rename-error">{renaming.error}</span>}
+                  </span>
+                ) : (
+                  <>
+                    {g ?? "노트"}
+                    {g && (
+                      <button
+                        className="group-rename-btn"
+                        title="이름 바꾸기"
+                        onClick={() => setRenaming({ group: g, value: g })}
+                      >
+                        <PencilIcon />
+                      </button>
+                    )}
+                  </>
+                )}
                 <span className="group-count">{arr.length}</span>
               </div>
             )}

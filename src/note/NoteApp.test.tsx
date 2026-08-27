@@ -276,6 +276,17 @@ describe("NoteApp 외부 변경 리로드 (#12)", () => {
   });
 });
 
+describe("NoteApp 툴바 정리 (#139)", () => {
+  it("모음집 팝오버 버튼이 없다 — 할당은 드래그·목록, 명명은 목록에서", async () => {
+    setupNote(mkNote("n1", "본문", { group: "모음" }), ["n1", "n2"]);
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    expect(screen.queryByTitle("모음집")).toBeNull();
+    // 꺼내기는 남는다 — 팝오버의 '제외'가 이관된 자리
+    expect(screen.getByTitle("모음집에서 꺼내기 (Ctrl+Shift+P)")).toBeTruthy();
+  });
+});
+
 describe("NoteApp 뒷면 (딱지 시안)", () => {
   it("빗금 그립을 누르면 뒷면 정보가 나오고, 다시 누르면 앞면으로 돌아온다", async () => {
     setupNote(mkNote("n1", "앞면 본문", { group: "모음" }), ["n1", "n2"]);

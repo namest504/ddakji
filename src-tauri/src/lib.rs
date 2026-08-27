@@ -64,6 +64,7 @@ pub fn run() {
             commands::open_data_dir,
             commands::reveal_note,
             commands::list_system_fonts,
+            commands::rename_group,
             commands::set_last_viewed,
             commands::get_last_viewed,
             commands::set_storage_path,

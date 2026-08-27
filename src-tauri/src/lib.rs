@@ -13,6 +13,7 @@ pub mod bridge;
 pub mod commands;
 pub mod error;
 pub mod fonts;
+pub mod i18n;
 pub mod pointer;
 pub mod session;
 pub mod store;

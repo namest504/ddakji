@@ -1,4 +1,5 @@
 import type { Note } from "../lib/api";
+import { useT } from "../lib/i18n";
 import { fullDateTime } from "../lib/noteUtils";
 
 /**
@@ -14,26 +15,27 @@ export default function NoteBack({
   onReveal: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const m = note.meta;
   return (
     <div className="content note-back slide-next">
-      <div className="back-title">뒷면</div>
+      <div className="back-title">{t("backTitle")}</div>
       <div className="back-row">
-        <span className="back-k">만든 날</span>
+        <span className="back-k">{t("createdAt")}</span>
         <span>{fullDateTime(m.created_at)}</span>
       </div>
       <div className="back-row">
-        <span className="back-k">모음집</span>
-        <span>{m.group ?? "없음"}</span>
+        <span className="back-k">{t("group")}</span>
+        <span>{m.group ?? t("none")}</span>
       </div>
       <div className="back-row">
-        <span className="back-k">파일</span>
+        <span className="back-k">{t("file")}</span>
         <span className="path-text">{m.id}.md</span>
       </div>
       <div className="back-actions">
-        <button onClick={onReveal}>파일 위치 열기</button>
+        <button onClick={onReveal}>{t("revealFile")}</button>
         <button className="back-danger" onClick={onDelete}>
-          삭제
+          {t("delete")}
         </button>
       </div>
     </div>

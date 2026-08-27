@@ -19,20 +19,20 @@ fn main() {
         match std::env::current_exe() {
             Ok(p) => println!("{}", client_config(&p)),
             Err(e) => {
-                eprintln!("실행 파일 경로를 알 수 없습니다: {e}");
+                eprintln!("Cannot resolve the executable path: {e}");
                 std::process::exit(1);
             }
         }
         return;
     }
     let Some(root) = ddakji_lib::store::default_data_root() else {
-        eprintln!("데이터 폴더를 찾을 수 없습니다");
+        eprintln!("Data folder not found");
         std::process::exit(1);
     };
     let store = match Store::new(&root) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("저장소를 열 수 없습니다: {e}");
+            eprintln!("Cannot open the store: {e}");
             std::process::exit(1);
         }
     };
@@ -108,46 +108,46 @@ fn handle(store: &Store, req: &Value) -> Option<Value> {
 }
 
 fn tool_defs() -> Value {
-    let id_prop = json!({ "type": "string", "description": "노트 id (list_notes로 확인)" });
+    let id_prop = json!({ "type": "string", "description": "Note id (find via list_notes)" });
     json!([
         {
             "name": "list_notes",
-            "description": "모든 노트를 메타·본문 포함 JSON으로 나열한다",
+            "description": "List every note as JSON with metadata and body",
             "inputSchema": { "type": "object", "properties": {} },
         },
         {
             "name": "get_note",
-            "description": "노트 하나를 읽는다",
+            "description": "Read one note",
             "inputSchema": { "type": "object", "properties": { "id": id_prop }, "required": ["id"] },
         },
         {
             "name": "create_note",
-            "description": "새 노트를 만든다. 본문은 마크다운 (제목·체크박스·GFM 표 지원)",
+            "description": "Create a note. Body is Markdown (headings, checkboxes, GFM tables)",
             "inputSchema": { "type": "object", "properties": {
-                "body": { "type": "string", "description": "마크다운 본문" },
-                "group": { "type": "string", "description": "모음집 이름 (선택)" },
-                "color": { "type": "string", "description": "yellow·green·pink·purple·blue·gray·charcoal (선택)" },
-                "title": { "type": "string", "description": "목록 표시용 제목 (선택)" },
-                "open": { "type": "boolean", "description": "true면 사용자 화면에 창을 띄운다 (선택)" },
+                "body": { "type": "string", "description": "Markdown body" },
+                "group": { "type": "string", "description": "Collection name (optional)" },
+                "color": { "type": "string", "description": "yellow, green, pink, purple, blue, gray, charcoal (optional)" },
+                "title": { "type": "string", "description": "Title shown in the list (optional)" },
+                "open": { "type": "boolean", "description": "true opens a window on the user's screen (optional)" },
             }, "required": ["body"] },
         },
         {
             "name": "append_note",
-            "description": "노트 끝에 마크다운을 덧붙인다 (빈 줄로 구분). 열린 노트에는 edit보다 안전하다",
+            "description": "Append Markdown to a note (separated by a blank line). Safer than edit for open notes",
             "inputSchema": { "type": "object", "properties": {
                 "id": id_prop, "text": { "type": "string" },
             }, "required": ["id", "text"] },
         },
         {
             "name": "edit_note",
-            "description": "노트 본문 전체를 교체한다. 사용자가 편집 중일 수 있으니 append_note를 우선 고려",
+            "description": "Replace the whole body. The user may be editing — prefer append_note",
             "inputSchema": { "type": "object", "properties": {
                 "id": id_prop, "body": { "type": "string" },
             }, "required": ["id", "body"] },
         },
         {
             "name": "set_note_meta",
-            "description": "모음집·색·제목을 바꾼다. 빈 문자열은 해제. 모음집에 멤버가 1명 남으면 자동 해제된다",
+            "description": "Change collection, color, or title. Empty string clears. A collection left with one member dissolves",
             "inputSchema": { "type": "object", "properties": {
                 "id": id_prop,
                 "group": { "type": "string" }, "color": { "type": "string" }, "title": { "type": "string" },
@@ -155,34 +155,34 @@ fn tool_defs() -> Value {
         },
         {
             "name": "delete_note",
-            "description": "노트를 휴지통으로 보낸다 (앱의 휴지통에서 복원 가능 — 그래도 사용자가 명시적으로 요청한 경우에만)",
+            "description": "Move a note to the trash (restorable — still, only on explicit user request)",
             "inputSchema": { "type": "object", "properties": { "id": id_prop }, "required": ["id"] },
         },
         {
             "name": "list_trash",
-            "description": "휴지통 목록 — 지운 노트와 지운 시각(deleted_at). 최근에 지운 것부터",
+            "description": "List trashed notes with deleted_at, newest first",
             "inputSchema": { "type": "object", "properties": {} },
         },
         {
             "name": "restore_note",
-            "description": "휴지통의 노트를 되살린다 (delete_note를 되돌리는 방법)",
+            "description": "Restore a note from the trash (the undo for delete_note)",
             "inputSchema": { "type": "object", "properties": { "id": id_prop }, "required": ["id"] },
         },
         {
             "name": "list_groups",
-            "description": "모음집 이름 목록",
+            "description": "List collection names",
             "inputSchema": { "type": "object", "properties": {} },
         },
         {
             "name": "merge_notes",
-            "description": "moved 노트(와 그 모음집 전체)를 target 노트의 모음집으로 통합한다",
+            "description": "Merge moved (and its whole collection) into target's collection",
             "inputSchema": { "type": "object", "properties": {
                 "moved_id": id_prop, "target_id": id_prop,
             }, "required": ["moved_id", "target_id"] },
         },
         {
             "name": "open_note",
-            "description": "노트를 사용자 화면의 앱 창으로 연다 (앱이 꺼져 있으면 시작)",
+            "description": "Open a note in an app window on the user's screen (starts the app if needed)",
             "inputSchema": { "type": "object", "properties": { "id": id_prop }, "required": ["id"] },
         },
     ])
@@ -190,7 +190,7 @@ fn tool_defs() -> Value {
 
 fn call_tool(store: &Store, name: &str, args: &Value) -> Result<String, String> {
     let arg = |k: &str| args.get(k).and_then(Value::as_str).map(String::from);
-    let need = |k: &str| arg(k).ok_or_else(|| format!("'{k}' 인자가 필요합니다"));
+    let need = |k: &str| arg(k).ok_or_else(|| format!("missing required argument '{k}'"));
     match name {
         "list_notes" => to_json(&store.list()),
         "get_note" => {
@@ -245,7 +245,7 @@ fn call_tool(store: &Store, name: &str, args: &Value) -> Result<String, String> 
                 ..Default::default()
             };
             if patch.group.is_none() && patch.color.is_none() && patch.title.is_none() {
-                return Err("바꿀 항목이 없습니다 — group/color/title 중 하나 이상".into());
+                return Err("Nothing to change — pass at least one of group/color/title".into());
             }
             to_json(
                 &store

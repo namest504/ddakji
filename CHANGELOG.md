@@ -9,6 +9,10 @@
 
 ### 추가
 
+- **한/영 UI** ([#143]) — 노트·목록·설정·트레이·다이얼로그가 언어 설정을
+  따릅니다: 시스템(OS 언어 추종, 기본)/한국어/English. 설정에서 바꾸면 즉시
+  적용됩니다. `ddakji-cli`·`ddakji-mcp`는 셸과 AI가 읽는 표면이라 영어로
+  통일했고, GitHub 문서는 영어 정본에 `.ko.md` 한국어판이 나란히 있습니다
 - **자동 업데이트** ([#141]) — 앱을 켜면 조용히 새 버전을 확인하고, 있으면
   노트 목록 창에 "vX 업데이트" 버튼이 나타납니다. 누르면 내려받아 설치하고
   다시 시작합니다(설치형 전용 — 포터블은 릴리스 페이지가 열립니다).
@@ -234,6 +238,7 @@
 [#135]: https://github.com/namest504/ddakji/issues/135
 [#139]: https://github.com/namest504/ddakji/issues/139
 [#141]: https://github.com/namest504/ddakji/issues/141
+[#143]: https://github.com/namest504/ddakji/issues/143
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

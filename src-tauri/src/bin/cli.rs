@@ -22,16 +22,16 @@ const SKILL_MD: &str = include_str!("../../../skills/ddakji/SKILL.md");
 #[command(
     name = "ddakji-cli",
     version,
-    about = "ddakji 노트를 명령줄에서 다룹니다",
-    after_help = "본문 인자 자리에 '-'를 주면 stdin에서 읽습니다.\n\
-                  예) echo '# 회의' | ddakji-cli add -"
+    about = "Manage ddakji notes from the command line",
+    after_help = "Pass '-' in place of a body argument to read from stdin.\n\
+                  e.g. echo '# meeting' | ddakji-cli add -"
 )]
 struct Cli {
-    /// 결과를 JSON으로 출력 (스크립트·AI 연동용)
+    /// Print results as JSON (for scripts and AI clients)
     #[arg(long, global = true)]
     json: bool,
 
-    /// 데이터 폴더를 직접 지정 (기본: 앱과 같은 위치)
+    /// Use a specific data folder (default: same as the app)
     #[arg(long, global = true, value_name = "DIR")]
     data_dir: Option<PathBuf>,
 
@@ -41,13 +41,13 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// 노트 목록 (id · 모음집 · 첫 줄)
+    /// List notes (id, collection, first line)
     List,
-    /// 노트 하나의 본문 출력 (--json이면 메타 포함 전체)
+    /// Print a note's body (--json for the full note with metadata)
     Get { id: String },
-    /// 새 노트 생성 — 본문은 인자 또는 stdin('-')
+    /// Create a note — body from the argument or stdin ('-')
     Add {
-        /// 본문 텍스트, '-'면 stdin
+        /// Body text, '-' for stdin
         body: String,
         #[arg(long)]
         group: Option<String>,
@@ -55,53 +55,53 @@ enum Cmd {
         color: Option<String>,
         #[arg(long)]
         title: Option<String>,
-        /// 만든 노트를 앱 창으로 바로 연다
+        /// Open the new note in an app window
         #[arg(long)]
         open: bool,
     },
-    /// 기존 노트 끝에 본문 덧붙이기
+    /// Append to the end of a note
     Append {
         id: String,
-        /// 덧붙일 텍스트, '-'면 stdin
+        /// Text to append, '-' for stdin
         text: String,
     },
-    /// 본문 전체 교체
+    /// Replace the whole body
     Edit {
         id: String,
-        /// 새 본문, '-'면 stdin
+        /// New body, '-' for stdin
         body: String,
     },
-    /// 메타 변경 — 모음집·색·제목 (빈 문자열 = 해제)
+    /// Change metadata — collection, color, title (empty string clears)
     Set {
         id: String,
-        /// 모음집 이름, ""면 모음집에서 제외
+        /// Collection name, "" removes the note from its collection
         #[arg(long)]
         group: Option<String>,
         #[arg(long)]
         color: Option<String>,
-        /// 목록 표시용 제목, ""면 본문 파생으로 복귀
+        /// Title shown in the list, "" reverts to body-derived
         #[arg(long)]
         title: Option<String>,
     },
-    /// 노트를 휴지통으로 (모음집에 1명 남으면 자동 해제) — `restore`로 되돌린다
+    /// Move a note to the trash (undo with `restore`)
     Delete { id: String },
-    /// 휴지통 목록 (id · 지운 시각 · 첫 줄) — 최근에 지운 것부터
+    /// List trashed notes (id, deleted time, first line), newest first
     Trash,
-    /// 휴지통의 노트를 되살린다
+    /// Restore a note from the trash
     Restore { id: String },
-    /// 노트를 앱 창으로 연다 — 실행 중인 앱에 전달하고, 없으면 앱을 시작
+    /// Open a note in an app window (starts the app if needed)
     Open { id: String },
-    /// 모음집 이름 목록
+    /// List collection names
     Groups,
-    /// moved 노트(와 그 모음집 전체)를 target의 모음집으로 통합
+    /// Merge moved (and its whole collection) into target's collection
     Merge { moved: String, target: String },
-    /// AI 에이전트용 사용 설명서를 출력하거나 스킬 폴더에 심는다
+    /// Print or install the AI agent guide
     Skill {
-        /// stdout 대신 스킬 폴더에 파일로 심는다 (있으면 덮어쓴다)
+        /// Install into the skills folder instead of printing (overwrites)
         #[arg(long)]
         install: bool,
-        /// 심을 스킬 루트 (기본: ~/.claude/skills). WSL에서 부를 때 필요하다 —
-        /// Windows 실행 파일은 리눅스 쪽 홈을 알지 못한다
+        /// Skills root to install into (default: ~/.claude/skills). Needed from
+        /// WSL — a Windows exe cannot see the Linux home
         #[arg(long, value_name = "DIR")]
         dir: Option<PathBuf>,
     },
@@ -116,14 +116,14 @@ fn main() -> ExitCode {
     {
         Some(r) => r,
         None => {
-            eprintln!("데이터 폴더를 찾을 수 없습니다 — --data-dir로 지정하세요");
+            eprintln!("Data folder not found — pass --data-dir");
             return ExitCode::FAILURE;
         }
     };
     let store = match Store::new(&root) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("저장소를 열 수 없습니다 ({}): {e}", root.display());
+            eprintln!("Cannot open the store ({}): {e}", root.display());
             return ExitCode::FAILURE;
         }
     };
@@ -149,7 +149,7 @@ fn read_body(arg: String) -> Result<String, String> {
     let mut buf = String::new();
     std::io::stdin()
         .read_to_string(&mut buf)
-        .map_err(|e| format!("stdin 읽기 실패: {e}"))?;
+        .map_err(|e| format!("Failed to read stdin: {e}"))?;
     Ok(buf)
 }
 
@@ -245,7 +245,9 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
             title,
         } => {
             if group.is_none() && color.is_none() && title.is_none() {
-                return Err("바꿀 항목이 없습니다 — --group/--color/--title 중 하나 이상".into());
+                return Err(
+                    "Nothing to change — pass at least one of --group/--color/--title".into(),
+                );
             }
             let patch = MetaPatch {
                 group,
@@ -268,15 +270,15 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
             if !install {
                 return Ok(SKILL_MD.trim_end().to_string());
             }
-            let root = dir.or_else(skills_root).ok_or(
-                "스킬 폴더를 찾을 수 없습니다 — --dir로 지정하세요 (예: ~/.claude/skills)",
-            )?;
+            let root = dir
+                .or_else(skills_root)
+                .ok_or("Skills folder not found — pass --dir (e.g. ~/.claude/skills)")?;
             let target = root.join("ddakji");
             std::fs::create_dir_all(&target)
-                .map_err(|e| format!("폴더를 만들 수 없습니다 ({}): {e}", target.display()))?;
+                .map_err(|e| format!("Cannot create the folder ({}): {e}", target.display()))?;
             let path = target.join("SKILL.md");
             std::fs::write(&path, SKILL_MD)
-                .map_err(|e| format!("파일을 쓸 수 없습니다 ({}): {e}", path.display()))?;
+                .map_err(|e| format!("Cannot write the file ({}): {e}", path.display()))?;
             Ok(format!("{}", path.display()))
         }
         Cmd::Trash => {
@@ -329,7 +331,7 @@ fn run(store: &Store, cmd: Cmd, json: bool) -> Result<String, String> {
             } else if changed {
                 Ok(group)
             } else {
-                Ok("이미 같은 모음집입니다".into())
+                Ok("Already in the same collection".into())
             }
         }
     }
@@ -352,12 +354,12 @@ fn gui_exe() -> Result<std::path::PathBuf, String> {
     let exe = std::env::current_exe()
         .map_err(|e| e.to_string())?
         .parent()
-        .ok_or("실행 경로를 알 수 없습니다")?
+        .ok_or("Cannot resolve the executable path")?
         .join(name);
     if exe.is_file() {
         Ok(exe)
     } else {
-        Err(format!("GUI 실행 파일이 없습니다: {}", exe.display()))
+        Err(format!("App executable not found: {}", exe.display()))
     }
 }
 
@@ -367,7 +369,7 @@ fn launch_gui(id: &str) -> Result<(), String> {
     std::process::Command::new(gui_exe()?)
         .args(["--open", id])
         .spawn()
-        .map_err(|e| format!("앱 실행 실패: {e}"))?;
+        .map_err(|e| format!("Failed to launch the app: {e}"))?;
     Ok(())
 }
 
@@ -562,7 +564,7 @@ mod tests {
         let (_d, s) = store();
         let id = add(&s, "열 노트");
         let e = run(&s, Cmd::Open { id }, false).unwrap_err();
-        assert!(e.contains("GUI 실행 파일이 없습니다"), "{e}");
+        assert!(e.contains("App executable not found"), "{e}");
     }
 
     #[test]

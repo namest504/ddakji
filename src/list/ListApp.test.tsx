@@ -9,6 +9,7 @@ vi.mock("../lib/api", () => ({
   saveMeta: vi.fn(),
   renameGroup: vi.fn(),
   exeKind: vi.fn(),
+  getSettings: vi.fn(),
   importMarkdown: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/window", () => ({
@@ -277,5 +278,26 @@ describe("ListApp 업데이트 (#141)", () => {
     render(<ListApp />);
     await waitFor(() => expect(check).toHaveBeenCalled());
     expect(screen.queryByText(/업데이트/)).toBeNull();
+  });
+});
+
+describe("ListApp 언어 설정 (#143)", () => {
+  it("설정이 en이면 UI가 영어로 렌더된다", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue({
+      default_color: "yellow",
+      default_font_family: "system",
+      default_font_size: 16,
+      favorite_fonts: [],
+      theme: "system",
+      language: "en",
+    });
+    const { I18nProvider } = await import("../lib/i18n");
+    render(
+      <I18nProvider>
+        <ListApp />
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByPlaceholderText("Search")).toBeTruthy());
+    expect(screen.getByTitle("New note")).toBeTruthy();
   });
 });

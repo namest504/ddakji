@@ -52,6 +52,8 @@ export interface Settings {
   default_font_size: number;
   favorite_fonts: string[];
   theme: "system" | "light" | "dark";
+  /** "system"은 OS 언어 추종 (#143) */
+  language: "system" | "ko" | "en";
 }
 
 export const listNotes = () => invoke<Note[]>("list_notes");

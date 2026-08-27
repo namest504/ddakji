@@ -88,6 +88,13 @@ export const listSystemFonts = () => invoke<string[]>("list_system_fonts");
 export const setLastViewed = (id: string) => invoke<void>("set_last_viewed", { id });
 export const setStoragePath = (newPath: string) => invoke<void>("set_storage_path", { newPath });
 export const navGroup = (dir: 1 | -1) => invoke<Note | null>("nav_group", { dir });
+/** 노트 내보내기 (#149) — 실제로 쓴 경로를 돌려준다 (.md 또는 .zip) */
+export const exportNoteMd = (id: string, dest: string) =>
+  invoke<string>("export_note_md", { id, dest });
+export const assetDataUri = (id: string, rel: string) =>
+  invoke<string>("asset_data_uri", { id, rel });
+export const writeTextFile = (dest: string, content: string) =>
+  invoke<void>("write_text_file", { dest, content });
 /** 설치본이면 "installed", 포터블이면 "portable" (#141) */
 export const exeKind = () => invoke<"installed" | "portable">("exe_kind");
 /** 모음집 이름 바꾸기 — 충돌·빈 이름이면 reject (#139) */

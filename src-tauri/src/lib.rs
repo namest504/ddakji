@@ -12,6 +12,7 @@ pub mod args;
 pub mod bridge;
 pub mod commands;
 pub mod error;
+pub mod export;
 pub mod fonts;
 pub mod i18n;
 pub mod pointer;
@@ -44,6 +45,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -67,6 +69,9 @@ pub fn run() {
             commands::open_data_dir,
             commands::reveal_note,
             commands::list_system_fonts,
+            commands::export_note_md,
+            commands::asset_data_uri,
+            commands::write_text_file,
             commands::exe_kind,
             commands::rename_group,
             commands::set_last_viewed,

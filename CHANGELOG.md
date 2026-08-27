@@ -7,6 +7,14 @@
 
 ## [Unreleased]
 
+### 추가
+
+- **공유·내보내기** ([#149]) — 딱지 뒷면에서 ①**서식 복사**(클립보드에 서식
+  HTML+평문 마크다운, 이미지 내장) ②**마크다운 저장**(이미지가 있으면
+  `note.md`+`assets/` zip — 풀면 경로가 바로 통함) ③**HTML 저장**(이미지까지
+  내장한 한 파일 — 브라우저에서 그대로 보임). 창 위치·폰트 같은 내부 정보는
+  담기지 않습니다.
+
 ### 수정
 
 - 영어 모드에서 한국어로 남아 있던 조각들 ([#143]) — "사용법 보기"(문서도
@@ -249,6 +257,7 @@
 [#139]: https://github.com/namest504/ddakji/issues/139
 [#141]: https://github.com/namest504/ddakji/issues/141
 [#143]: https://github.com/namest504/ddakji/issues/143
+[#149]: https://github.com/namest504/ddakji/issues/149
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

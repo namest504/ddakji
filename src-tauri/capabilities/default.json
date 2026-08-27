@@ -18,6 +18,8 @@
     "core:window:allow-outer-size",
     "core:window:allow-scale-factor",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-write-html"
   ]
 }

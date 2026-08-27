@@ -298,6 +298,26 @@ pub fn exe_kind() -> &'static str {
     }
 }
 
+/// 노트 내보내기 (#149) — dest는 저장 다이얼로그가 준 경로(확장자는 내용에
+/// 따라 .md/.zip으로 바뀔 수 있어 실제 경로를 돌려준다)
+#[tauri::command]
+pub fn export_note_md(store: StoreState, id: String, dest: String) -> Result<String> {
+    crate::export::export_md(&*lock(&store)?, &id, std::path::Path::new(&dest))
+}
+
+/// 이미지 → data URI (#149) — 프런트가 내보내기 HTML·클립보드에 내장한다
+#[tauri::command]
+pub fn asset_data_uri(store: StoreState, id: String, rel: String) -> Result<String> {
+    crate::export::asset_data_uri(&*lock(&store)?, &id, &rel)
+}
+
+/// 텍스트 파일 저장 (#149) — 내보내기 HTML 등, 경로는 저장 다이얼로그 출신
+#[tauri::command]
+pub fn write_text_file(dest: String, content: String) -> Result<()> {
+    std::fs::write(dest, content)?;
+    Ok(())
+}
+
 /// 모음집 이름 바꾸기 (#139) — 목록의 그룹 헤더 인라인 편집이 부른다
 #[tauri::command]
 pub async fn rename_group(

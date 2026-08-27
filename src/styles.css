@@ -912,6 +912,21 @@ body {
   border-radius: var(--r-card);
   overflow: hidden;
 }
+/* 업데이트 버튼 (#141) — 헤더의 다른 아이콘들 사이에서 유일하게 글자 버튼 */
+.update-btn {
+  border: 1px solid var(--field-line);
+  background: transparent;
+  color: inherit;
+  border-radius: var(--r-ctl);
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.update-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .group-label {
   margin: 16px 24px 0;
   font-size: 12px;

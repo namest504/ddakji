@@ -9,6 +9,10 @@
 
 ### 추가
 
+- **자동 업데이트** ([#141]) — 앱을 켜면 조용히 새 버전을 확인하고, 있으면
+  노트 목록 창에 "vX 업데이트" 버튼이 나타납니다. 누르면 내려받아 설치하고
+  다시 시작합니다(설치형 전용 — 포터블은 릴리스 페이지가 열립니다).
+  업데이트 파일은 서명을 검증한 뒤에만 설치됩니다
 - **모음집 이름 바꾸기** ([#139]) — 노트 목록의 그룹 제목에 마우스를 올리면
   나오는 연필로 이름을 바꿉니다. 멤버 순서와 "마지막으로 보던 장" 기억이
   유지되고, 이미 있는 이름과 겹치면 거부합니다(두 모음집을 합치려면 드래그로).
@@ -229,6 +233,7 @@
 [#133]: https://github.com/namest504/ddakji/issues/133
 [#135]: https://github.com/namest504/ddakji/issues/135
 [#139]: https://github.com/namest504/ddakji/issues/139
+[#141]: https://github.com/namest504/ddakji/issues/141
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

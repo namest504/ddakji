@@ -86,6 +86,8 @@ export const listSystemFonts = () => invoke<string[]>("list_system_fonts");
 export const setLastViewed = (id: string) => invoke<void>("set_last_viewed", { id });
 export const setStoragePath = (newPath: string) => invoke<void>("set_storage_path", { newPath });
 export const navGroup = (dir: 1 | -1) => invoke<Note | null>("nav_group", { dir });
+/** 설치본이면 "installed", 포터블이면 "portable" (#141) */
+export const exeKind = () => invoke<"installed" | "portable">("exe_kind");
 /** 모음집 이름 바꾸기 — 충돌·빈 이름이면 reject (#139) */
 export const renameGroup = (old: string, next: string) =>
   invoke<number>("rename_group", { old, new: next });

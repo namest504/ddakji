@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../lib/api";
+import { useUpdater } from "./useUpdater";
 import type { Note } from "../lib/api";
 import { filterNotes, noteTitle, relativeTime } from "../lib/noteUtils";
 import { CheckboxIcon } from "../note/icons";
@@ -19,6 +20,8 @@ export default function ListApp() {
     null,
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const updater = useUpdater();
 
   const reload = useCallback(() => {
     api.listNotes().then(setNotes);
@@ -131,6 +134,11 @@ export default function ListApp() {
         <button className="icon-btn" title="휴지통" onClick={() => setView("trash")}>
           <TrashIcon />
         </button>
+        {updater && (
+          <button className="update-btn" disabled={updater.installing} onClick={updater.run}>
+            {updater.installing ? "설치 중…" : `v${updater.version} 업데이트`}
+          </button>
+        )}
         <button className="icon-btn" title="설정" onClick={() => setView("settings")}>
           <GearIcon />
         </button>

@@ -8,6 +8,7 @@ vi.mock("../lib/api", () => ({
   openNote: vi.fn(),
   saveMeta: vi.fn(),
   renameGroup: vi.fn(),
+  exeKind: vi.fn(),
   importMarkdown: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/window", () => ({
@@ -17,10 +18,16 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn(), open: vi.fn() }));
+vi.mock("@tauri-apps/plugin-updater", () => ({ check: vi.fn() }));
+vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
 import * as api from "../lib/api";
 import type { Note, NoteMeta } from "../lib/api";
 import { ask, open } from "@tauri-apps/plugin-dialog";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import ListApp from "./ListApp";
 
 const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note => ({
@@ -47,6 +54,8 @@ const rowTitles = (el: HTMLElement) =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.listNotes).mockResolvedValue([]);
+  vi.mocked(api.exeKind).mockResolvedValue("installed");
+  vi.mocked(check).mockResolvedValue(null);
 });
 afterEach(cleanup);
 
@@ -223,5 +232,50 @@ describe("ListApp 모음집 이름 바꾸기 (#139)", () => {
     expect(api.renameGroup).not.toHaveBeenCalled();
     expect(screen.queryByDisplayValue("버릴이름")).toBeNull();
     expect(screen.getByText("데일리")).toBeTruthy();
+  });
+});
+
+describe("ListApp 업데이트 (#141)", () => {
+  const update = (v: string) =>
+    ({ version: v, downloadAndInstall: vi.fn().mockResolvedValue(undefined) }) as never;
+
+  it("새 버전이 없으면 버튼도 없다", async () => {
+    render(<ListApp />);
+    await waitFor(() => expect(check).toHaveBeenCalled());
+    expect(screen.queryByText(/업데이트/)).toBeNull();
+  });
+
+  it("새 버전이 있으면 버튼이 뜨고, 누르면 설치·재시작한다", async () => {
+    const u = update("9.9.9");
+    vi.mocked(check).mockResolvedValue(u);
+    render(<ListApp />);
+    const btn = await screen.findByText("v9.9.9 업데이트");
+    fireEvent.click(btn);
+    await waitFor(() =>
+      expect((u as { downloadAndInstall: unknown }).downloadAndInstall).toHaveBeenCalled(),
+    );
+    await waitFor(() => expect(relaunch).toHaveBeenCalled());
+  });
+
+  it("포터블 실행이면 설치 대신 릴리스 페이지를 연다", async () => {
+    vi.mocked(api.exeKind).mockResolvedValue("portable");
+    const u = update("9.9.9");
+    vi.mocked(check).mockResolvedValue(u);
+    render(<ListApp />);
+    const btn = await screen.findByText("v9.9.9 업데이트");
+    fireEvent.click(btn);
+    await waitFor(() =>
+      expect(openUrl).toHaveBeenCalledWith("https://github.com/namest504/ddakji/releases/latest"),
+    );
+    expect(
+      (u as { downloadAndInstall: unknown }).downloadAndInstall as never,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("확인 실패는 조용히 넘어간다 — 다음 시작 때 다시", async () => {
+    vi.mocked(check).mockRejectedValue(new Error("offline"));
+    render(<ListApp />);
+    await waitFor(() => expect(check).toHaveBeenCalled());
+    expect(screen.queryByText(/업데이트/)).toBeNull();
   });
 });

@@ -45,7 +45,8 @@ Deleting a note lives on its back side — press the hatched corner at the botto
 ### Hiding, deleting, and the trash
 
 Hiding only clears a note off your screen. Hidden notes keep their file and
-their list entry, and open again from the list. While hidden they don't come
+their list entry — dimmed with a **Hidden** chip so you can tell — and open
+again from the list. While hidden they don't come
 back on restart and don't appear in collection arrows or dots.
 
 Deleting sends a note **to the trash.** It leaves the list, but the file

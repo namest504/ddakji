@@ -206,7 +206,7 @@ export default function ListApp() {
               {arr.map((n) => (
                 <div
                   key={n.meta.id}
-                  className="list-row"
+                  className={"list-row" + (n.meta.hidden ? " row-hidden" : "")}
                   onClick={() => (selecting ? toggleSel(n.meta.id) : api.openNote(n.meta.id))}
                 >
                   {selecting && (
@@ -214,6 +214,7 @@ export default function ListApp() {
                   )}
                   <span className="dot" data-color={n.meta.color} />
                   <span className="title">{noteTitle(n)}</span>
+                  {n.meta.hidden && <span className="hidden-chip">{t("hiddenChip")}</span>}
                   <span className="row-dim">{relativeTime(n.meta.updated_at, lang)}</span>
                   {!selecting && (
                     <>

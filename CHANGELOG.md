@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+### 추가
+
+- **목록에서 숨긴 노트가 구별됩니다** ([#153]) — 흐려진 제목과 "숨김" 칩.
+  열면 돌아오는 동작은 그대로입니다.
+
+### 수정
+
+- **설치본이 포터블로 오판되던 문제** — 실행 위치 판별이 실제 설치
+  경로(`AppData\Local\ddakji`)가 아닌 존재하지 않는 경로를 보고 있어,
+  업데이트 버튼이 설치 대신 릴리스 페이지만 열 뻔했습니다. 문서의 CLI
+  경로 안내도 같이 바로잡았습니다.
+
 ## [0.2.0] - 2026-08-27
 
 ### 추가
@@ -261,6 +273,7 @@
 [#141]: https://github.com/namest504/ddakji/issues/141
 [#143]: https://github.com/namest504/ddakji/issues/143
 [#149]: https://github.com/namest504/ddakji/issues/149
+[#153]: https://github.com/namest504/ddakji/issues/153
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

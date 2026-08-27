@@ -17,14 +17,14 @@ Use `ddakji-cli` from PATH if available. Otherwise probe in this order —
 | Order | Location                                                     |
 | ----- | ------------------------------------------------------------ |
 | 1     | `ddakji-cli` (PATH)                                          |
-| 2     | Installed — `%LOCALAPPDATA%\Programs\ddakji\ddakji-cli.exe`  |
+| 2     | Installed — `%LOCALAPPDATA%\ddakji\ddakji-cli.exe`           |
 | 3     | Portable — `ddakji-cli.exe` next to the unzipped app         |
 | 4     | Dev build — `<repo>/src-tauri/target/release/ddakji-cli.exe` |
 
 From WSL you can call the Windows executable directly (interop):
 
 ```sh
-CLI=$(command -v ddakji-cli || echo /mnt/c/Users/$USER/AppData/Local/Programs/ddakji/ddakji-cli.exe)
+CLI=$(command -v ddakji-cli || echo /mnt/c/Users/$USER/AppData/Local/ddakji/ddakji-cli.exe)
 $CLI list
 ```
 

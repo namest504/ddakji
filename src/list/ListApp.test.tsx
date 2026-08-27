@@ -301,3 +301,20 @@ describe("ListApp 언어 설정 (#143)", () => {
     expect(screen.getByTitle("New note")).toBeTruthy();
   });
 });
+
+describe("ListApp 숨김 표시 (#153)", () => {
+  it("숨긴 노트는 흐려지고 숨김 칩이 붙는다", async () => {
+    vi.mocked(api.listNotes).mockResolvedValue([
+      mkNote("a", "보이는 노트"),
+      mkNote("b", "숨긴 노트", { hidden: true }),
+    ]);
+    const { container } = render(<ListApp />);
+    await screen.findByText("숨긴 노트");
+    const rows = container.querySelectorAll(".list-row");
+    expect(rows[0].className).not.toContain("row-hidden");
+    expect(rows[1].className).toContain("row-hidden");
+    expect(screen.getByText("숨김")).toBeTruthy();
+    // 보이는 노트에는 칩이 없다
+    expect(screen.getAllByText("숨김")).toHaveLength(1);
+  });
+});

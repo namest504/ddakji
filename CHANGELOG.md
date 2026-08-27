@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-27
+
 ### 추가
 
 - **공유·내보내기** ([#149]) — 딱지 뒷면에서 ①**서식 복사**(클립보드에 서식
@@ -228,7 +230,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.8...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.0...develop
+[0.2.0]: https://github.com/namest504/ddakji/releases/tag/v0.2.0
 [0.1.8]: https://github.com/namest504/ddakji/releases/tag/v0.1.8
 [0.1.7]: https://github.com/namest504/ddakji/releases/tag/v0.1.7
 [0.1.6]: https://github.com/namest504/ddakji/releases/tag/v0.1.6

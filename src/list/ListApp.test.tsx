@@ -246,14 +246,34 @@ describe("ListApp 업데이트 (#141)", () => {
     expect(screen.queryByText(/업데이트/)).toBeNull();
   });
 
-  it("새 버전이 있으면 버튼이 뜨고, 누르면 설치·재시작한다", async () => {
+  it("설치본은 발견 즉시 내려받아 설치·재시작한다 — 클릭 불필요 (전자동)", async () => {
     const u = update("9.9.9");
+    vi.mocked(check).mockResolvedValue(u);
+    render(<ListApp />);
+    // 무슨 일이 벌어지는지는 보여 준다 — 조용한 재시작은 오동작처럼 보인다
+    await screen.findByText("설치 중…");
+    await waitFor(() =>
+      expect((u as { downloadAndInstall: unknown }).downloadAndInstall).toHaveBeenCalled(),
+    );
+    await waitFor(() => expect(relaunch).toHaveBeenCalled());
+  });
+
+  it("자동 설치가 실패하면 버튼으로 남아 다시 시도할 수 있다", async () => {
+    const u = {
+      version: "9.9.9",
+      downloadAndInstall: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("net"))
+        .mockResolvedValue(undefined),
+    } as never;
     vi.mocked(check).mockResolvedValue(u);
     render(<ListApp />);
     const btn = await screen.findByText("v9.9.9 업데이트");
     fireEvent.click(btn);
     await waitFor(() =>
-      expect((u as { downloadAndInstall: unknown }).downloadAndInstall).toHaveBeenCalled(),
+      expect(
+        (u as { downloadAndInstall: { mock: { calls: unknown[] } } }).downloadAndInstall.mock.calls,
+      ).toHaveLength(2),
     );
     await waitFor(() => expect(relaunch).toHaveBeenCalled());
   });

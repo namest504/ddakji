@@ -143,11 +143,12 @@ never included.
 
 ## Updates
 
-On launch the app quietly checks for a new version. If one exists, an
-"Update to vX" button appears at the top of the **note list window**; pressing
-it downloads, installs, and restarts. Installer builds only — running portable,
-the button opens the releases page instead. A failed check (offline, …) is
-silently retried on the next launch.
+On launch the app quietly checks for a new version and, if one exists,
+**downloads, installs, and restarts automatically** (installer builds only).
+While it runs, "Installing…" shows at the top of the note list window. If the
+install fails, an "Update to vX" button remains so you can retry with a click.
+Running portable, the button opens the releases page instead of installing.
+A failed check (offline, …) is silently retried on the next launch.
 
 ## Collections (note groups)
 

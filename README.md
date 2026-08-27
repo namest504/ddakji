@@ -1,7 +1,5 @@
 # ddakji
 
-[![ci](https://github.com/namest504/ddakji/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/namest504/ddakji/actions/workflows/ci.yml)
-
 Markdown sticky notes for Windows.
 
 마크다운 기반 위젯형 스티키 노트. Win11 Sticky Notes를 대체하면서
@@ -72,5 +70,3 @@ Tauri 2 · React · TypeScript · TipTap
 ## 데모
 
 마크다운을 치는 대로 제목·체크리스트·굵게가 그려지고, 체크박스는 클릭으로 끄고, 색은 툴바에서 바꿉니다:
-
-![ddakji 데모 — 배포 전 점검 체크리스트를 타이핑하고, 항목을 체크하고, 노트 색을 바꾸는 모습](docs/assets/demo.gif)

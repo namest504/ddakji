@@ -279,6 +279,25 @@ pub fn set_storage_path(
     app.restart();
 }
 
+/// 실행 형태 (#141) — 업데이터는 설치본(NSIS) 전용이다. 포터블에서 설치를
+/// 돌리면 사용자가 고른 배포 형태를 바꿔 버리므로, 프런트가 이 값을 보고
+/// 포터블에는 릴리스 페이지 링크만 보여 준다.
+#[tauri::command]
+pub fn exe_kind() -> &'static str {
+    let installed = std::env::current_exe()
+        .ok()
+        .and_then(|p| {
+            p.to_str()
+                .map(|s| s.to_lowercase().contains("\\programs\\ddakji"))
+        })
+        .unwrap_or(false);
+    if installed {
+        "installed"
+    } else {
+        "portable"
+    }
+}
+
 /// 모음집 이름 바꾸기 (#139) — 목록의 그룹 헤더 인라인 편집이 부른다
 #[tauri::command]
 pub async fn rename_group(

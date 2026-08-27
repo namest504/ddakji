@@ -41,6 +41,8 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -64,6 +66,7 @@ pub fn run() {
             commands::open_data_dir,
             commands::reveal_note,
             commands::list_system_fonts,
+            commands::exe_kind,
             commands::rename_group,
             commands::set_last_viewed,
             commands::get_last_viewed,

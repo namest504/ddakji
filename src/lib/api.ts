@@ -88,6 +88,10 @@ export const listSystemFonts = () => invoke<string[]>("list_system_fonts");
 export const setLastViewed = (id: string) => invoke<void>("set_last_viewed", { id });
 export const setStoragePath = (newPath: string) => invoke<void>("set_storage_path", { newPath });
 export const navGroup = (dir: 1 | -1) => invoke<Note | null>("nav_group", { dir });
+/** AI 연동 (#161) — 스킬 설치(심은 경로 반환)·MCP 등록 JSON */
+export const installAiSkill = () => invoke<string>("install_ai_skill");
+export const mcpConfig = () => invoke<string>("mcp_config");
+export const openAppDir = () => invoke<void>("open_app_dir");
 /** 노트 내보내기 (#149) — 실제로 쓴 경로를 돌려준다 (.md 또는 .zip) */
 export const exportNoteMd = (id: string, dest: string) =>
   invoke<string>("export_note_md", { id, dest });

@@ -21,6 +21,9 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
   const [autostart, setAutostart] = useState(false);
   const [version, setVersion] = useState("");
   const [rootPath, setRootPath] = useState("");
+  // AI 연동 (#161) — 클릭 결과를 그 자리에서 말해 준다 (README 없이 완결)
+  const [skillPath, setSkillPath] = useState<string | null>(null);
+  const [mcpCopied, setMcpCopied] = useState(false);
   const [sysFonts, setSysFonts] = useState<string[] | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [fontQuery, setFontQuery] = useState("");
@@ -252,6 +255,47 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="group-label">{t("aiSection")}</div>
+        <div className="inset-group">
+          <div
+            className="settings-row link"
+            onClick={() => {
+              api
+                .installAiSkill()
+                .then(setSkillPath)
+                .catch(() => {});
+            }}
+          >
+            {t("installSkill")}
+          </div>
+          {skillPath && (
+            <div className="settings-row">
+              <span className="row-dim">{t("skillInstalled", { path: skillPath })}</span>
+            </div>
+          )}
+          <div
+            className="settings-row link"
+            onClick={async () => {
+              const cfg = await api.mcpConfig().catch(() => null);
+              if (cfg === null) return;
+              const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
+              await writeText(cfg);
+              setMcpCopied(true);
+              window.setTimeout(() => setMcpCopied(false), 4000);
+            }}
+          >
+            {t("copyMcp")}
+          </div>
+          {mcpCopied && (
+            <div className="settings-row">
+              <span className="row-dim">{t("mcpCopied")}</span>
+            </div>
+          )}
+          <div className="settings-row link" onClick={() => api.openAppDir().catch(() => {})}>
+            {t("openCliFolder")}
+          </div>
         </div>
 
         <div className="group-label">{t("storage")}</div>

@@ -5,7 +5,7 @@ vi.mock("../lib/api", () => ({
   getSettings: vi.fn(),
   saveSettings: vi.fn(),
   openDataDir: vi.fn(),
-  openAppDir: vi.fn(),
+  openAppDir: vi.fn().mockResolvedValue(undefined),
   installAiSkill: vi.fn(),
   mcpConfig: vi.fn(),
   dataRoot: vi.fn(),

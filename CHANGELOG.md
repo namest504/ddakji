@@ -7,6 +7,14 @@
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-27
+
+### 추가
+
+- **설정에 AI 연동 섹션** ([#161]) — README 없이도 앱 안에서 끝납니다:
+  **Claude 스킬 설치**(클릭 한 번으로 AI에게 노트 사용법을 가르침),
+  **MCP 설정 복사**(Claude Desktop 등 설정에 붙여넣기), **CLI 위치 열기**.
+
 ## [0.2.2] - 2026-08-27
 
 ### 수정
@@ -257,7 +265,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.2...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.3...develop
+[0.2.3]: https://github.com/namest504/ddakji/releases/tag/v0.2.3
 [0.2.2]: https://github.com/namest504/ddakji/releases/tag/v0.2.2
 [0.2.1]: https://github.com/namest504/ddakji/releases/tag/v0.2.1
 [0.2.0]: https://github.com/namest504/ddakji/releases/tag/v0.2.0
@@ -291,6 +300,7 @@
 [#143]: https://github.com/namest504/ddakji/issues/143
 [#149]: https://github.com/namest504/ddakji/issues/149
 [#153]: https://github.com/namest504/ddakji/issues/153
+[#161]: https://github.com/namest504/ddakji/issues/161
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

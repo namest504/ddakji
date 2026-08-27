@@ -7,6 +7,7 @@ vi.mock("../lib/api", () => ({
   deleteNote: vi.fn(),
   openNote: vi.fn(),
   saveMeta: vi.fn(),
+  renameGroup: vi.fn(),
   importMarkdown: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/window", () => ({
@@ -170,5 +171,57 @@ describe("ListApp 선택 모드 (모음집 묶기)", () => {
     fireEvent.click(screen.getByText("첫째"));
     fireEvent.click(screen.getByText("해제"));
     await waitFor(() => expect(api.saveMeta).toHaveBeenCalledWith("a", { group: "" }));
+  });
+});
+
+describe("ListApp 모음집 이름 바꾸기 (#139)", () => {
+  const twoGroups = () => {
+    vi.mocked(api.listNotes).mockResolvedValue([
+      mkNote("a", "하나-1", { group: "데일리" }),
+      mkNote("b", "하나-2", { group: "데일리", group_order: 1 }),
+      mkNote("c", "둘-1", { group: "업무" }),
+      mkNote("d", "둘-2", { group: "업무", group_order: 1 }),
+    ]);
+  };
+
+  it("그룹 헤더의 이름 바꾸기로 renameGroup을 부른다", async () => {
+    twoGroups();
+    vi.mocked(api.renameGroup).mockResolvedValue(2);
+    render(<ListApp />);
+    await screen.findByText("데일리");
+    fireEvent.click(screen.getAllByTitle("이름 바꾸기")[0]);
+    const input = screen.getByDisplayValue("데일리");
+    fireEvent.change(input, { target: { value: "아침루틴" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(api.renameGroup).toHaveBeenCalledWith("데일리", "아침루틴"));
+    // 확정되면 입력은 닫힌다
+    await waitFor(() => expect(screen.queryByDisplayValue("아침루틴")).toBeNull());
+  });
+
+  it("겹치는 이름은 거부 안내를 보여 주고 입력을 유지한다", async () => {
+    twoGroups();
+    vi.mocked(api.renameGroup).mockRejectedValue("같은 이름의 모음집이 있습니다");
+    render(<ListApp />);
+    await screen.findByText("데일리");
+    fireEvent.click(screen.getAllByTitle("이름 바꾸기")[0]);
+    const input = screen.getByDisplayValue("데일리");
+    fireEvent.change(input, { target: { value: "업무" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await screen.findByText("같은 이름의 모음집이 있습니다");
+    // 입력은 열린 채 — 사용자가 고쳐서 다시 시도할 수 있게
+    expect(screen.getByDisplayValue("업무")).toBeTruthy();
+  });
+
+  it("Esc는 바꾸지 않고 닫는다", async () => {
+    twoGroups();
+    render(<ListApp />);
+    await screen.findByText("데일리");
+    fireEvent.click(screen.getAllByTitle("이름 바꾸기")[0]);
+    const input = screen.getByDisplayValue("데일리");
+    fireEvent.change(input, { target: { value: "버릴이름" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(api.renameGroup).not.toHaveBeenCalled();
+    expect(screen.queryByDisplayValue("버릴이름")).toBeNull();
+    expect(screen.getByText("데일리")).toBeTruthy();
   });
 });

@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+### 추가
+
+- **모음집 이름 바꾸기** ([#139]) — 노트 목록의 그룹 제목에 마우스를 올리면
+  나오는 연필로 이름을 바꿉니다. 멤버 순서와 "마지막으로 보던 장" 기억이
+  유지되고, 이미 있는 이름과 겹치면 거부합니다(두 모음집을 합치려면 드래그로).
+
+### 변경
+
+- **툴바의 모음집 버튼이 사라졌습니다** ([#139]) — 묶기는 드래그·목록
+  다중선택, 빼기는 꺼내기(↗), 이름은 목록에서. 팝오버가 하던 일이 전부
+  제자리를 찾아 버튼만 남아 있었습니다.
+
 ## [0.1.7] - 2026-08-25
 
 ### 추가
@@ -216,6 +228,7 @@
 [#120]: https://github.com/namest504/ddakji/issues/120
 [#133]: https://github.com/namest504/ddakji/issues/133
 [#135]: https://github.com/namest504/ddakji/issues/135
+[#139]: https://github.com/namest504/ddakji/issues/139
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

@@ -111,9 +111,6 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         onPopOut={popOut}
         onColor={(color) => patchMeta({ color })}
         onFont={(font_family) => patchMeta({ font_family })}
-        onGroup={(name) =>
-          guard("meta", () => api.saveMeta(noteId, { group: name ?? "" }).then(setNote))
-        }
         onPin={async () => {
           const v = !m.always_on_top;
           await getCurrentWindow().setAlwaysOnTop(v);

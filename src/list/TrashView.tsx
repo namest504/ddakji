@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLang, useT } from "../lib/i18n";
 import * as api from "../lib/api";
 import type { TrashedNote } from "../lib/api";
 import { noteTitle, relativeTime } from "../lib/noteUtils";
@@ -17,6 +18,8 @@ export default function TrashView({
   onBack: () => void;
   onRestored: () => void;
 }) {
+  const t = useT();
+  const lang = useLang();
   const [items, setItems] = useState<TrashedNote[]>([]);
 
   const reload = useCallback(() => {
@@ -29,7 +32,7 @@ export default function TrashView({
 
   const confirm = async (message: string, okLabel: string) => {
     const { ask } = await import("@tauri-apps/plugin-dialog");
-    return ask(message, { title: "영구 삭제", kind: "warning", okLabel, cancelLabel: "취소" });
+    return ask(message, { title: t("purge"), kind: "warning", okLabel, cancelLabel: t("cancel") });
   };
 
   const restore = (id: string) =>
@@ -42,7 +45,7 @@ export default function TrashView({
       .catch(() => {});
 
   const purge = async (id: string) => {
-    if (await confirm("이 노트를 완전히 지울까요? 되돌릴 수 없습니다.", "영구 삭제"))
+    if (await confirm(t("purgeConfirm"), t("purge")))
       api
         .purgeNote(id)
         .then(reload)
@@ -50,12 +53,7 @@ export default function TrashView({
   };
 
   const empty = async () => {
-    if (
-      await confirm(
-        `휴지통의 노트 ${items.length}개를 완전히 지울까요? 되돌릴 수 없습니다.`,
-        "비우기",
-      )
-    )
+    if (await confirm(t("emptyTrashConfirm", { n: items.length }), t("emptyTrash")))
       api
         .emptyTrash()
         .then(reload)
@@ -65,10 +63,10 @@ export default function TrashView({
   return (
     <div className="list settings">
       <div className="list-header">
-        <button className="icon-btn" title="뒤로" onClick={onBack}>
+        <button className="icon-btn" title={t("goBack")} onClick={onBack}>
           <BackIcon />
         </button>
-        <span className="settings-title">휴지통</span>
+        <span className="settings-title">{t("trash")}</span>
         <span className="spacer" />
         {items.length > 0 && (
           <button className="trash-empty" onClick={empty}>
@@ -80,7 +78,7 @@ export default function TrashView({
         {items.length === 0 ? (
           <div className="empty">
             휴지통이 비어 있습니다.
-            <div className="trash-hint">지운 노트는 여기 남고, 언제든 되돌릴 수 있습니다.</div>
+            <div className="trash-hint">{t("trashHint")}</div>
           </div>
         ) : (
           <div className="inset-group">
@@ -88,17 +86,17 @@ export default function TrashView({
               <div className="list-row" key={note.meta.id}>
                 <span className="dot" data-color={note.meta.color} />
                 <span className="title">{noteTitle(note)}</span>
-                <span className="row-dim">{relativeTime(deleted_at)}</span>
+                <span className="row-dim">{relativeTime(deleted_at, lang)}</span>
                 <button
                   className="trash-action"
-                  title="이 노트를 목록으로 되돌린다"
+                  title={t("restoreNote")}
                   onClick={() => restore(note.meta.id)}
                 >
                   복원
                 </button>
                 <button
                   className="trash-action danger"
-                  title="파일까지 지운다 — 되돌릴 수 없다"
+                  title={t("purgeTitle")}
                   onClick={() => purge(note.meta.id)}
                 >
                   영구 삭제

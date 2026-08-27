@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ddakji",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "identifier": "com.ddakji.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,12 +13,22 @@
     "windows": [],
     "security": {
       "csp": null,
-      "assetProtocol": { "enable": true, "scope": ["$APPDATA/assets/**"] }
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/assets/**"]
+      }
     }
   },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"]
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM2NzVDREEwRjM5Q0E1QTQKUldTa3BaenpvTTExTnU5TE1qQ2tpell4dXJvRlcyS21TSDd6ZHdUc0xZY29xY1ZBS0NUMTNlTUYK",
+      "endpoints": ["https://github.com/namest504/ddakji/releases/latest/download/latest.json"]
+    }
   }
 }

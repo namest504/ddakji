@@ -7,6 +7,9 @@ vi.mock("../lib/api", () => ({
   deleteNote: vi.fn(),
   openNote: vi.fn(),
   saveMeta: vi.fn(),
+  renameGroup: vi.fn(),
+  exeKind: vi.fn(),
+  getSettings: vi.fn(),
   importMarkdown: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/window", () => ({
@@ -16,10 +19,16 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn(), open: vi.fn() }));
+vi.mock("@tauri-apps/plugin-updater", () => ({ check: vi.fn() }));
+vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
 import * as api from "../lib/api";
 import type { Note, NoteMeta } from "../lib/api";
 import { ask, open } from "@tauri-apps/plugin-dialog";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import ListApp from "./ListApp";
 
 const mkNote = (id: string, body: string, extra: Partial<NoteMeta> = {}): Note => ({
@@ -46,6 +55,8 @@ const rowTitles = (el: HTMLElement) =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.listNotes).mockResolvedValue([]);
+  vi.mocked(api.exeKind).mockResolvedValue("installed");
+  vi.mocked(check).mockResolvedValue(null);
 });
 afterEach(cleanup);
 
@@ -170,5 +181,123 @@ describe("ListApp 선택 모드 (모음집 묶기)", () => {
     fireEvent.click(screen.getByText("첫째"));
     fireEvent.click(screen.getByText("해제"));
     await waitFor(() => expect(api.saveMeta).toHaveBeenCalledWith("a", { group: "" }));
+  });
+});
+
+describe("ListApp 모음집 이름 바꾸기 (#139)", () => {
+  const twoGroups = () => {
+    vi.mocked(api.listNotes).mockResolvedValue([
+      mkNote("a", "하나-1", { group: "데일리" }),
+      mkNote("b", "하나-2", { group: "데일리", group_order: 1 }),
+      mkNote("c", "둘-1", { group: "업무" }),
+      mkNote("d", "둘-2", { group: "업무", group_order: 1 }),
+    ]);
+  };
+
+  it("그룹 헤더의 이름 바꾸기로 renameGroup을 부른다", async () => {
+    twoGroups();
+    vi.mocked(api.renameGroup).mockResolvedValue(2);
+    render(<ListApp />);
+    await screen.findByText("데일리");
+    fireEvent.click(screen.getAllByTitle("이름 바꾸기")[0]);
+    const input = screen.getByDisplayValue("데일리");
+    fireEvent.change(input, { target: { value: "아침루틴" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(api.renameGroup).toHaveBeenCalledWith("데일리", "아침루틴"));
+    // 확정되면 입력은 닫힌다
+    await waitFor(() => expect(screen.queryByDisplayValue("아침루틴")).toBeNull());
+  });
+
+  it("겹치는 이름은 거부 안내를 보여 주고 입력을 유지한다", async () => {
+    twoGroups();
+    vi.mocked(api.renameGroup).mockRejectedValue("같은 이름의 모음집이 있습니다");
+    render(<ListApp />);
+    await screen.findByText("데일리");
+    fireEvent.click(screen.getAllByTitle("이름 바꾸기")[0]);
+    const input = screen.getByDisplayValue("데일리");
+    fireEvent.change(input, { target: { value: "업무" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await screen.findByText("같은 이름의 모음집이 있습니다");
+    // 입력은 열린 채 — 사용자가 고쳐서 다시 시도할 수 있게
+    expect(screen.getByDisplayValue("업무")).toBeTruthy();
+  });
+
+  it("Esc는 바꾸지 않고 닫는다", async () => {
+    twoGroups();
+    render(<ListApp />);
+    await screen.findByText("데일리");
+    fireEvent.click(screen.getAllByTitle("이름 바꾸기")[0]);
+    const input = screen.getByDisplayValue("데일리");
+    fireEvent.change(input, { target: { value: "버릴이름" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(api.renameGroup).not.toHaveBeenCalled();
+    expect(screen.queryByDisplayValue("버릴이름")).toBeNull();
+    expect(screen.getByText("데일리")).toBeTruthy();
+  });
+});
+
+describe("ListApp 업데이트 (#141)", () => {
+  const update = (v: string) =>
+    ({ version: v, downloadAndInstall: vi.fn().mockResolvedValue(undefined) }) as never;
+
+  it("새 버전이 없으면 버튼도 없다", async () => {
+    render(<ListApp />);
+    await waitFor(() => expect(check).toHaveBeenCalled());
+    expect(screen.queryByText(/업데이트/)).toBeNull();
+  });
+
+  it("새 버전이 있으면 버튼이 뜨고, 누르면 설치·재시작한다", async () => {
+    const u = update("9.9.9");
+    vi.mocked(check).mockResolvedValue(u);
+    render(<ListApp />);
+    const btn = await screen.findByText("v9.9.9 업데이트");
+    fireEvent.click(btn);
+    await waitFor(() =>
+      expect((u as { downloadAndInstall: unknown }).downloadAndInstall).toHaveBeenCalled(),
+    );
+    await waitFor(() => expect(relaunch).toHaveBeenCalled());
+  });
+
+  it("포터블 실행이면 설치 대신 릴리스 페이지를 연다", async () => {
+    vi.mocked(api.exeKind).mockResolvedValue("portable");
+    const u = update("9.9.9");
+    vi.mocked(check).mockResolvedValue(u);
+    render(<ListApp />);
+    const btn = await screen.findByText("v9.9.9 업데이트");
+    fireEvent.click(btn);
+    await waitFor(() =>
+      expect(openUrl).toHaveBeenCalledWith("https://github.com/namest504/ddakji/releases/latest"),
+    );
+    expect(
+      (u as { downloadAndInstall: unknown }).downloadAndInstall as never,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("확인 실패는 조용히 넘어간다 — 다음 시작 때 다시", async () => {
+    vi.mocked(check).mockRejectedValue(new Error("offline"));
+    render(<ListApp />);
+    await waitFor(() => expect(check).toHaveBeenCalled());
+    expect(screen.queryByText(/업데이트/)).toBeNull();
+  });
+});
+
+describe("ListApp 언어 설정 (#143)", () => {
+  it("설정이 en이면 UI가 영어로 렌더된다", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue({
+      default_color: "yellow",
+      default_font_family: "system",
+      default_font_size: 16,
+      favorite_fonts: [],
+      theme: "system",
+      language: "en",
+    });
+    const { I18nProvider } = await import("../lib/i18n");
+    render(
+      <I18nProvider>
+        <ListApp />
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByPlaceholderText("Search")).toBeTruthy());
+    expect(screen.getByTitle("New note")).toBeTruthy();
   });
 });

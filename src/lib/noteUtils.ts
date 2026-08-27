@@ -1,3 +1,4 @@
+import { translate, type Lang } from "./i18n";
 import type { FontFamily, Note } from "./api";
 
 // 의미 키 → 플랫폼 폰트 스택. mac/iOS 이식 시 여기만 플랫폼별로 확장한다.
@@ -30,22 +31,27 @@ export function filterNotes(notes: Note[], query: string): Note[] {
 }
 
 // 목록의 수정시각 표시: 방금/N분 전/N시간 전 → 하루 전/이틀 전/N일 전 → 날짜 명시
-export function relativeTime(iso: string, now: Date = new Date()): string {
+export function relativeTime(iso: string, lang: Lang = "ko", now: Date = new Date()): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   const diffMs = now.getTime() - d.getTime();
   const dayStart = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const dayDiff = Math.round((dayStart(now) - dayStart(d)) / 86_400_000);
   if (dayDiff <= 0) {
-    if (diffMs < 60_000) return "방금";
+    if (diffMs < 60_000) return translate(lang, "justNow");
     const mins = Math.floor(diffMs / 60_000);
-    if (mins < 60) return `${mins}분 전`;
-    return `${Math.floor(mins / 60)}시간 전`;
+    if (mins < 60) return translate(lang, "minutesAgo", { n: mins });
+    return translate(lang, "hoursAgo", { n: Math.floor(mins / 60) });
   }
-  if (dayDiff === 1) return "하루 전";
-  if (dayDiff === 2) return "이틀 전";
-  if (dayDiff < 7) return `${dayDiff}일 전`;
-  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  if (dayDiff === 1) return translate(lang, "dayAgo");
+  if (dayDiff === 2) return translate(lang, "twoDaysAgo");
+  if (dayDiff < 7) return translate(lang, "daysAgo", { n: dayDiff });
+  const sameYear = d.getFullYear() === now.getFullYear();
+  if (lang === "en") {
+    const md = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return sameYear ? md : `${md}, ${d.getFullYear()}`;
+  }
+  if (sameYear) return `${d.getMonth() + 1}월 ${d.getDate()}일`;
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 

@@ -130,44 +130,44 @@ describe("relativeTime", () => {
   const now = new Date("2026-08-05T14:00:00");
   const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
   it("1분 미만은 방금", () => {
-    expect(relativeTime(ago(30_000), now)).toBe("방금");
+    expect(relativeTime(ago(30_000), "ko", now)).toBe("방금");
   });
   it("분 단위", () => {
-    expect(relativeTime(ago(5 * 60_000), now)).toBe("5분 전");
+    expect(relativeTime(ago(5 * 60_000), "ko", now)).toBe("5분 전");
   });
   it("같은 날은 시간 단위", () => {
-    expect(relativeTime(ago(3 * 3600_000), now)).toBe("3시간 전");
+    expect(relativeTime(ago(3 * 3600_000), "ko", now)).toBe("3시간 전");
   });
   it("하루 전·이틀 전·N일 전", () => {
-    expect(relativeTime(ago(26 * 3600_000), now)).toBe("하루 전");
-    expect(relativeTime(ago(50 * 3600_000), now)).toBe("이틀 전");
-    expect(relativeTime(ago(5 * 24 * 3600_000), now)).toBe("5일 전");
+    expect(relativeTime(ago(26 * 3600_000), "ko", now)).toBe("하루 전");
+    expect(relativeTime(ago(50 * 3600_000), "ko", now)).toBe("이틀 전");
+    expect(relativeTime(ago(5 * 24 * 3600_000), "ko", now)).toBe("5일 전");
   });
   it("7일 이상 같은 해는 월·일", () => {
-    expect(relativeTime("2026-07-20T12:00:00", now)).toBe("7월 20일");
+    expect(relativeTime("2026-07-20T12:00:00", "ko", now)).toBe("7월 20일");
   });
   it("다른 해는 연도 포함", () => {
-    expect(relativeTime("2025-12-30T12:00:00", now)).toBe("2025년 12월 30일");
+    expect(relativeTime("2025-12-30T12:00:00", "ko", now)).toBe("2025년 12월 30일");
   });
   it("파싱 불가면 빈 문자열", () => {
-    expect(relativeTime("", now)).toBe("");
+    expect(relativeTime("", "ko", now)).toBe("");
   });
   it("59분/60분 경계", () => {
-    expect(relativeTime(ago(59 * 60_000), now)).toBe("59분 전");
-    expect(relativeTime(ago(60 * 60_000), now)).toBe("1시간 전");
+    expect(relativeTime(ago(59 * 60_000), "ko", now)).toBe("59분 전");
+    expect(relativeTime(ago(60 * 60_000), "ko", now)).toBe("1시간 전");
   });
   it("6일/7일 경계 — 7일부터는 날짜 표기", () => {
-    expect(relativeTime(ago(6 * 24 * 3600_000), now)).toBe("6일 전");
-    expect(relativeTime(ago(7 * 24 * 3600_000), now)).toBe("7월 29일");
+    expect(relativeTime(ago(6 * 24 * 3600_000), "ko", now)).toBe("6일 전");
+    expect(relativeTime(ago(7 * 24 * 3600_000), "ko", now)).toBe("7월 29일");
   });
   it("미래 시각(기기 간 시계 오차)은 방금으로 관용 처리", () => {
     const future = new Date(now.getTime() + 5 * 60_000).toISOString();
-    expect(relativeTime(future, now)).toBe("방금");
+    expect(relativeTime(future, "ko", now)).toBe("방금");
   });
   it("자정 직후에는 어제 저녁 수정이 하루 전으로 (날짜 기준 의미론)", () => {
     // 오프셋 없는 로컬 시각 문자열 — 테스트 실행 타임존과 무관하게 성립
     const midnight = new Date("2026-08-06T00:05:00");
-    expect(relativeTime("2026-08-05T23:55:00", midnight)).toBe("하루 전");
+    expect(relativeTime("2026-08-05T23:55:00", "ko", midnight)).toBe("하루 전");
   });
 });
 

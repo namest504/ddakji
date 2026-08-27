@@ -279,6 +279,41 @@ pub fn set_storage_path(
     app.restart();
 }
 
+/// 실행 형태 (#141) — 업데이터는 설치본(NSIS) 전용이다. 포터블에서 설치를
+/// 돌리면 사용자가 고른 배포 형태를 바꿔 버리므로, 프런트가 이 값을 보고
+/// 포터블에는 릴리스 페이지 링크만 보여 준다.
+#[tauri::command]
+pub fn exe_kind() -> &'static str {
+    let installed = std::env::current_exe()
+        .ok()
+        .and_then(|p| {
+            p.to_str()
+                .map(|s| s.to_lowercase().contains("\\programs\\ddakji"))
+        })
+        .unwrap_or(false);
+    if installed {
+        "installed"
+    } else {
+        "portable"
+    }
+}
+
+/// 모음집 이름 바꾸기 (#139) — 목록의 그룹 헤더 인라인 편집이 부른다
+#[tauri::command]
+pub async fn rename_group(
+    app: AppHandle,
+    store: StoreState<'_>,
+    old: String,
+    new: String,
+) -> Result<usize> {
+    use tauri::Emitter;
+    let n = lock(&store)?.rename_group(&old, &new)?;
+    if n > 0 {
+        let _ = app.emit("groups-changed", ());
+    }
+    Ok(n)
+}
+
 #[tauri::command]
 pub fn set_last_viewed(state: State<LastViewed>, id: String) {
     if let Ok(mut g) = state.0.lock() {
@@ -836,10 +871,18 @@ pub fn get_settings(store: StoreState) -> Result<Settings> {
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> Result<()> {
-    lock(&store)?.set_settings(&settings)?;
-    // 다른 창(노트들)이 테마·즐겨찾기 변경을 즉시 반영하도록 알린다
+    let lang_changed = {
+        let mut s = lock(&store)?;
+        let changed = s.settings().language != settings.language;
+        s.set_settings(&settings)?;
+        changed
+    };
+    // 다른 창(노트들)이 테마·즐겨찾기·언어 변경을 즉시 반영하도록 알린다
     use tauri::Emitter;
     let _ = app.emit("settings-changed", ());
+    if lang_changed {
+        crate::tray::rebuild_menu(&app); // 트레이는 Rust가 그린다 (#143)
+    }
     Ok(())
 }
 

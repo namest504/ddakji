@@ -7,6 +7,28 @@
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-08-27
+
+### 추가
+
+- **한/영 UI** ([#143]) — 노트·목록·설정·트레이·다이얼로그가 언어 설정을
+  따릅니다: 시스템(OS 언어 추종, 기본)/한국어/English. 설정에서 바꾸면 즉시
+  적용됩니다. `ddakji-cli`·`ddakji-mcp`는 셸과 AI가 읽는 표면이라 영어로
+  통일했고, GitHub 문서는 영어 정본에 `.ko.md` 한국어판이 나란히 있습니다
+- **자동 업데이트** ([#141]) — 앱을 켜면 조용히 새 버전을 확인하고, 있으면
+  노트 목록 창에 "vX 업데이트" 버튼이 나타납니다. 누르면 내려받아 설치하고
+  다시 시작합니다(설치형 전용 — 포터블은 릴리스 페이지가 열립니다).
+  업데이트 파일은 서명을 검증한 뒤에만 설치됩니다
+- **모음집 이름 바꾸기** ([#139]) — 노트 목록의 그룹 제목에 마우스를 올리면
+  나오는 연필로 이름을 바꿉니다. 멤버 순서와 "마지막으로 보던 장" 기억이
+  유지되고, 이미 있는 이름과 겹치면 거부합니다(두 모음집을 합치려면 드래그로).
+
+### 변경
+
+- **툴바의 모음집 버튼이 사라졌습니다** ([#139]) — 묶기는 드래그·목록
+  다중선택, 빼기는 꺼내기(↗), 이름은 목록에서. 팝오버가 하던 일이 전부
+  제자리를 찾아 버튼만 남아 있었습니다.
+
 ## [0.1.7] - 2026-08-25
 
 ### 추가
@@ -191,7 +213,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.7...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.8...develop
+[0.1.8]: https://github.com/namest504/ddakji/releases/tag/v0.1.8
 [0.1.7]: https://github.com/namest504/ddakji/releases/tag/v0.1.7
 [0.1.6]: https://github.com/namest504/ddakji/releases/tag/v0.1.6
 [0.1.5]: https://github.com/namest504/ddakji/releases/tag/v0.1.5
@@ -216,6 +239,9 @@
 [#120]: https://github.com/namest504/ddakji/issues/120
 [#133]: https://github.com/namest504/ddakji/issues/133
 [#135]: https://github.com/namest504/ddakji/issues/135
+[#139]: https://github.com/namest504/ddakji/issues/139
+[#141]: https://github.com/namest504/ddakji/issues/141
+[#143]: https://github.com/namest504/ddakji/issues/143
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

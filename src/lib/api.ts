@@ -52,6 +52,8 @@ export interface Settings {
   default_font_size: number;
   favorite_fonts: string[];
   theme: "system" | "light" | "dark";
+  /** "system"은 OS 언어 추종 (#143) */
+  language: "system" | "ko" | "en";
 }
 
 export const listNotes = () => invoke<Note[]>("list_notes");
@@ -86,6 +88,11 @@ export const listSystemFonts = () => invoke<string[]>("list_system_fonts");
 export const setLastViewed = (id: string) => invoke<void>("set_last_viewed", { id });
 export const setStoragePath = (newPath: string) => invoke<void>("set_storage_path", { newPath });
 export const navGroup = (dir: 1 | -1) => invoke<Note | null>("nav_group", { dir });
+/** 설치본이면 "installed", 포터블이면 "portable" (#141) */
+export const exeKind = () => invoke<"installed" | "portable">("exe_kind");
+/** 모음집 이름 바꾸기 — 충돌·빈 이름이면 reject (#139) */
+export const renameGroup = (old: string, next: string) =>
+  invoke<number>("rename_group", { old, new: next });
 export const navTo = (id: string) => invoke<Note | null>("nav_to", { id });
 export const groupMembers = (id: string) => invoke<string[]>("group_members", { id });
 /** 이 창의 현재 노트 하나만 숨긴다. 모음집이면 창이 전환할 다음 멤버를 돌려준다 */

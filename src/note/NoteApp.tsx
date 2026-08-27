@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useT } from "../lib/i18n";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Editor } from "@tiptap/react";
 import * as api from "../lib/api";
@@ -23,6 +24,7 @@ import { useWindowSync } from "./hooks/useWindowSync";
  * 이 창이 표시하는 노트는 고정이 아니다 — 모음집 넘기기·팝아웃으로 바뀐다.
  */
 export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
+  const t = useT();
   const { saveError, guard, retry } = useSaveGuard();
   const doc = useNoteDocument(initialNoteId, guard);
   const {
@@ -90,11 +92,11 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     // window.confirm은 WebView2가 웹뷰 영역 안에 그려서 작은 노트 창에서는
     // 버튼이 잘려 진행이 불가능하다 (#11) — OS 네이티브 다이얼로그를 쓴다.
     const { ask } = await import("@tauri-apps/plugin-dialog");
-    const ok = await ask("이 노트를 휴지통으로 보낼까요? 휴지통에서 되돌릴 수 있습니다.", {
-      title: "노트 삭제",
+    const ok = await ask(t("deleteToTrash"), {
+      title: t("deleteNoteTitle"),
       kind: "warning",
-      okLabel: "삭제",
-      cancelLabel: "취소",
+      okLabel: t("delete"),
+      cancelLabel: t("cancel"),
     });
     if (ok) guard("delete", () => api.deleteNote(noteId));
   };
@@ -111,9 +113,6 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
         onPopOut={popOut}
         onColor={(color) => patchMeta({ color })}
         onFont={(font_family) => patchMeta({ font_family })}
-        onGroup={(name) =>
-          guard("meta", () => api.saveMeta(noteId, { group: name ?? "" }).then(setNote))
-        }
         onPin={async () => {
           const v = !m.always_on_top;
           await getCurrentWindow().setAlwaysOnTop(v);
@@ -128,12 +127,13 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       />
       {saveError && (
         <div className="save-error">
-          저장 실패 — <button onClick={retry}>재시도</button>
+          {t("saveFailed")}
+          <button onClick={retry}>{t("retry")}</button>
         </div>
       )}
       {merged && (
         <div className="merge-undo">
-          모음집으로 합쳤습니다
+          {t("mergedIntoGroup")}
           <span className="merge-undo-actions">
             <button
               onClick={() => {
@@ -141,10 +141,14 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
                 api.undoMerge().catch(() => {});
               }}
             >
-              되돌리기
+              {t("undo")}
             </button>
             {/* 자동 소멸이 실패해도 탈출구는 남는다 — 배너는 툴바 위 레이어다 */}
-            <button aria-label="안내 닫기" className="merge-undo-close" onClick={dismissMerged}>
+            <button
+              aria-label={t("dismissNotice")}
+              className="merge-undo-close"
+              onClick={dismissMerged}
+            >
               ✕
             </button>
           </span>
@@ -152,10 +156,10 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       )}
       {inGroup && !flipped && (
         <>
-          <button className="nav-arrow left" title="이전 노트 (Alt+←)" onClick={() => navigate(-1)}>
+          <button className="nav-arrow left" title={t("prevNote")} onClick={() => navigate(-1)}>
             <NavLeftIcon />
           </button>
-          <button className="nav-arrow right" title="다음 노트 (Alt+→)" onClick={() => navigate(1)}>
+          <button className="nav-arrow right" title={t("nextNote")} onClick={() => navigate(1)}>
             <NavRightIcon />
           </button>
         </>
@@ -209,8 +213,8 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
       {/* 오른쪽 아래 빗금 모서리 = 뒷면 전환 (앞뒷면 동일 위치) */}
       <button
         className="flip-grip"
-        title={flipped ? "앞면으로" : "뒷면 정보"}
-        aria-label={flipped ? "앞면으로 돌아가기" : "뒤집어서 정보 보기"}
+        title={flipped ? t("flipToFront") : t("flipToBack")}
+        aria-label={flipped ? t("flipToFrontAria") : t("flipToBackAria")}
         onClick={toggleFlip}
       />
     </div>

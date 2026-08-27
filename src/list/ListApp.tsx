@@ -1,20 +1,30 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../lib/api";
+import { useUpdater } from "./useUpdater";
+import { useLang, useT } from "../lib/i18n";
 import type { Note } from "../lib/api";
 import { filterNotes, noteTitle, relativeTime } from "../lib/noteUtils";
 import { CheckboxIcon } from "../note/icons";
-import { GearIcon, ImportIcon, InfoIcon, PlusIcon, TrashIcon } from "../note/icons";
+import { GearIcon, ImportIcon, InfoIcon, PencilIcon, PlusIcon, TrashIcon } from "../note/icons";
 import DetailView from "./DetailView";
 import SettingsView from "./SettingsView";
 import TrashView from "./TrashView";
 
 export default function ListApp() {
+  const t = useT();
+  const lang = useLang();
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"list" | "settings" | "trash">("list");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
+  // 모음집 이름 인라인 편집 (#139) — 어느 그룹을, 무슨 값으로, 실패 사유는
+  const [renaming, setRenaming] = useState<{ group: string; value: string; error?: string } | null>(
+    null,
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const updater = useUpdater();
 
   const reload = useCallback(() => {
     api.listNotes().then(setNotes);
@@ -35,11 +45,11 @@ export default function ListApp() {
 
   const remove = async (id: string) => {
     const { ask } = await import("@tauri-apps/plugin-dialog");
-    const ok = await ask("이 노트를 휴지통으로 보낼까요? 휴지통에서 되돌릴 수 있습니다.", {
-      title: "노트 삭제",
+    const ok = await ask(t("deleteToTrash"), {
+      title: t("deleteNoteTitle"),
       kind: "warning",
-      okLabel: "삭제",
-      cancelLabel: "취소",
+      okLabel: t("delete"),
+      cancelLabel: t("cancel"),
     });
     if (ok) api.deleteNote(id).then(reload);
   };
@@ -107,16 +117,20 @@ export default function ListApp() {
   return (
     <div className="list">
       <div className="list-header">
-        <input placeholder="검색" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button className="icon-btn" title="새 노트" onClick={() => api.createNote().then(reload)}>
+        <input placeholder={t("search")} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button
+          className="icon-btn"
+          title={t("newNoteShort")}
+          onClick={() => api.createNote().then(reload)}
+        >
           <PlusIcon />
         </button>
-        <button className="icon-btn" title="마크다운 가져오기" onClick={importMd}>
+        <button className="icon-btn" title={t("importMd")} onClick={importMd}>
           <ImportIcon />
         </button>
         <button
           className="icon-btn"
-          title="선택해서 모음집으로 묶기"
+          title={t("selectToGroup")}
           onClick={() => {
             setSelecting(!selecting);
             setSelected(new Set());
@@ -124,10 +138,15 @@ export default function ListApp() {
         >
           <CheckboxIcon />
         </button>
-        <button className="icon-btn" title="휴지통" onClick={() => setView("trash")}>
+        <button className="icon-btn" title={t("trash")} onClick={() => setView("trash")}>
           <TrashIcon />
         </button>
-        <button className="icon-btn" title="설정" onClick={() => setView("settings")}>
+        {updater && (
+          <button className="update-btn" disabled={updater.installing} onClick={updater.run}>
+            {updater.installing ? t("installingUpdate") : t("updateTo", { v: updater.version })}
+          </button>
+        )}
+        <button className="icon-btn" title={t("settings")} onClick={() => setView("settings")}>
           <GearIcon />
         </button>
       </div>
@@ -136,7 +155,50 @@ export default function ListApp() {
           <div key={g ?? "__loose"}>
             {(g || sections.length > 1) && (
               <div className="group-label">
-                {g ?? "노트"}
+                {g && renaming?.group === g ? (
+                  <span className="group-rename">
+                    <input
+                      className="font-custom"
+                      autoFocus
+                      value={renaming.value}
+                      onChange={(e) => setRenaming({ group: g, value: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const next = renaming.value.trim();
+                          if (!next || next === g) {
+                            setRenaming(null);
+                            return;
+                          }
+                          api
+                            .renameGroup(g, next)
+                            .then(() => {
+                              setRenaming(null);
+                              reload();
+                            })
+                            // 거부 사유를 입력 밑에 그대로 — 고쳐서 재시도할 수 있게 연다
+                            .catch((err) =>
+                              setRenaming({ group: g, value: next, error: String(err) }),
+                            );
+                        }
+                        if (e.key === "Escape") setRenaming(null);
+                      }}
+                    />
+                    {renaming.error && <span className="group-rename-error">{renaming.error}</span>}
+                  </span>
+                ) : (
+                  <>
+                    {g ?? t("looseNotes")}
+                    {g && (
+                      <button
+                        className="group-rename-btn"
+                        title={t("renameGroup")}
+                        onClick={() => setRenaming({ group: g, value: g })}
+                      >
+                        <PencilIcon />
+                      </button>
+                    )}
+                  </>
+                )}
                 <span className="group-count">{arr.length}</span>
               </div>
             )}
@@ -152,12 +214,12 @@ export default function ListApp() {
                   )}
                   <span className="dot" data-color={n.meta.color} />
                   <span className="title">{noteTitle(n)}</span>
-                  <span className="row-dim">{relativeTime(n.meta.updated_at)}</span>
+                  <span className="row-dim">{relativeTime(n.meta.updated_at, lang)}</span>
                   {!selecting && (
                     <>
                       <button
                         className="row-info"
-                        title="자세히 보기"
+                        title={t("detailView")}
                         onClick={(e) => {
                           e.stopPropagation();
                           setDetailId(n.meta.id);
@@ -167,7 +229,7 @@ export default function ListApp() {
                       </button>
                       <button
                         className="row-delete"
-                        title="삭제"
+                        title={t("delete")}
                         onClick={(e) => {
                           e.stopPropagation();
                           remove(n.meta.id);
@@ -182,7 +244,7 @@ export default function ListApp() {
             </div>
           </div>
         ))}
-        {shown.length === 0 && <p className="empty">노트가 없습니다. ＋로 시작하세요.</p>}
+        {shown.length === 0 && <p className="empty">{t("emptyList")}</p>}
       </div>
       {selecting && (
         <div className="sel-bar">
@@ -190,7 +252,7 @@ export default function ListApp() {
             <>
               <input
                 className="font-custom"
-                placeholder="모음집 이름 (Enter)"
+                placeholder={t("groupNamePlaceholder")}
                 list="group-names"
                 autoFocus
                 onKeyDown={(e) => {
@@ -205,10 +267,10 @@ export default function ListApp() {
                   <option key={g} value={g} />
                 ))}
               </datalist>
-              <button onClick={() => applyGroup("")}>해제</button>
+              <button onClick={() => applyGroup("")}>{t("ungroup")}</button>
             </>
           ) : (
-            <span className="row-dim">묶을 노트를 선택하세요</span>
+            <span className="row-dim">{t("selectPrompt")}</span>
           )}
           <button
             onClick={() => {

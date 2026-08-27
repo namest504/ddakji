@@ -912,10 +912,52 @@ body {
   border-radius: var(--r-card);
   overflow: hidden;
 }
+/* 업데이트 버튼 (#141) — 헤더의 다른 아이콘들 사이에서 유일하게 글자 버튼 */
+.update-btn {
+  border: 1px solid var(--field-line);
+  background: transparent;
+  color: inherit;
+  border-radius: var(--r-ctl);
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.update-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .group-label {
   margin: 16px 24px 0;
   font-size: 12px;
   color: var(--l-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 모음집 이름 바꾸기 (#139) — 연필은 헤더 호버에만, 입력은 제자리 교체 */
+.group-rename-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 1px 2px;
+  cursor: pointer;
+  opacity: 0;
+  display: inline-flex;
+}
+.group-label:hover .group-rename-btn {
+  opacity: 0.7;
+}
+.group-rename-btn:hover {
+  opacity: 1;
+}
+.group-rename {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.group-rename-error {
+  color: var(--danger);
 }
 .list-row {
   display: flex;

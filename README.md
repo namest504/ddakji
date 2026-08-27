@@ -1,76 +1,71 @@
 # ddakji
 
-[![ci](https://github.com/namest504/ddakji/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/namest504/ddakji/actions/workflows/ci.yml)
+[한국어](README.ko.md) · **English**
 
 Markdown sticky notes for Windows.
 
-마크다운 기반 위젯형 스티키 노트. Win11 Sticky Notes를 대체하면서
-라이브 마크다운 편집 · 모음집(그룹) · 이미지 · 테마를 지원합니다.
+Widget-style sticky notes built on Markdown — a Win11 Sticky Notes replacement
+with live Markdown editing, collections (groups), images, and themes.
 
-## 기능
+## Features
 
-- 노트별 독립 위젯 창 (프레임 없음, 노트별 항상-위 고정)
-- 라이브 마크다운 편집: 문법을 타이핑하면 즉시 렌더, 서식 단축키·하단 서식 바
-- 체크박스(클릭 토글)·중첩 목록(Tab)·GFM 표(좁은 창은 표만 가로 스크롤)
-- 기존 `.md` 파일 가져오기(다중 선택), 마크다운 텍스트 붙여넣으면 서식 적용
-- **모음집**: 관련 노트를 묶어 한 창에서 넘겨보기 — 드래그로 합치기, Alt+←→/화살표/점 인디케이터
-- 배경색 7종·노트별 폰트(설치 폰트 조회), 시스템 다크/라이트 추종, 반투명 글라스 창
-- 이미지: 붙여넣기·드롭·드래그 재배치·그립으로 크기 조절
-- 노트 목록(모음집 섹션·상대시간·자세히 보기), 검색, 설정(저장 위치 변경 포함)
-- **휴지통**: 어느 경로로 지워도 목록 창에서 복원 — 파일이 사라지는 건 영구 삭제·비우기뿐
-- Alt-Tab·작업표시줄에는 앱 항목 하나만 — 선택하면 모든 노트 표시, 썸네일은 최근 노트
-- 자동 저장, 트레이 상주, 부팅 시 시작, 단축키(Ctrl+N/W/L 등)
-- **CLI·MCP**: `ddakji-cli`로 스크립트가, `ddakji-mcp`로 AI 어시스턴트가 같은 노트를 읽고 씁니다
+- One frameless widget window per note, with per-note always-on-top
+- Live Markdown editing: type the syntax and it renders instantly; formatting shortcuts and a bottom format bar
+- Checkboxes (click to toggle), nested lists (Tab), GFM tables (narrow windows scroll just the table)
+- Import existing `.md` files (multi-select); pasted Markdown text is parsed into formatting
+- **Collections**: group related notes and flip through them in one window — merge by dragging, navigate with Alt+←/→, edge arrows, or the dot indicator
+- 7 paper colors, per-note fonts (installed fonts are searchable), system dark/light theme
+- Images: paste, drop, drag to rearrange, resize with the corner grip
+- Note list (collection sections, relative times, detail view), search, settings (including storage location)
+- **Trash**: however a note was deleted, restore it from the list window — files are only truly gone on purge/empty
+- One app entry in Alt-Tab and the taskbar — selecting it shows every note; the thumbnail is your most recent note
+- Auto-save, tray icon, start at login, automatic updates, shortcuts (Ctrl+N/W/L, …)
+- **CLI & MCP**: scripts use `ddakji-cli`, AI assistants use `ddakji-mcp` — same notes, same rules
+- UI in **English and Korean** — follows your OS language, switchable in Settings
 
-## 터미널과 AI에서
+## From the terminal and AI
 
-포터블 zip·설치본에 `ddakji-cli`와 `ddakji-mcp`가 함께 들어 있습니다.
+The portable zip and the installer both ship `ddakji-cli` and `ddakji-mcp`.
 
 ```sh
-ddakji-cli add "오늘 할 일" --open     # 노트를 만들고 창으로 연다
-ddakji-cli list --json                 # 스크립트에서 읽기
-ddakji-cli skill --install             # AI 에이전트용 설명서를 스킬 폴더에 심는다
-ddakji-mcp --print-config              # MCP 클라이언트 등록용 JSON 출력
+ddakji-cli add "today's plan" --open   # create a note and open its window
+ddakji-cli list --json                 # read from scripts
+ddakji-cli skill --install             # install the AI agent guide into your skills folder
+ddakji-mcp --print-config              # print the MCP client registration JSON
 ```
 
-앱이 켜져 있으면 바꾼 내용이 열린 노트 창에 바로 반영됩니다.
-자세한 명령은 **[docs/cli.md](docs/cli.md)**, MCP 도구 목록은 **[docs/mcp.md](docs/mcp.md)**.
+If the app is running, changes show up in open note windows right away.
+Commands: **[docs/cli.md](docs/cli.md)** · MCP tools: **[docs/mcp.md](docs/mcp.md)**.
 
-## 설치 (Windows)
+## Install (Windows)
 
-[Releases](../../releases)에서 최신 `ddakji_x.y.z_x64-setup.exe`(설치형) 또는
-`ddakji-x.y.z-portable-x64.zip`(포터블) 다운로드 후 실행.
+Grab the latest `ddakji_x.y.z_x64-setup.exe` (installer) or
+`ddakji-x.y.z-portable-x64.zip` (portable) from [Releases](../../releases) and run it.
 
-## 사용법
+## Usage
 
-**[docs/usage.md](docs/usage.md)** — 툴바·서식 바, 마크다운 입력 문법, 단축키, 이미지, 설정 안내.
+**[docs/usage.md](docs/usage.md)** — toolbar and format bar, Markdown input syntax, shortcuts, images, settings.
 
-## 개발
+## Development
 
-`main`은 릴리스된 것만, `develop`이 개발 브랜치입니다. 모든 PR은 `develop`을
-대상으로 보내주세요 — 릴리스는 `release/x.y.z` 브랜치를 거쳐 `main`으로 갑니다.
+`main` holds releases only; `develop` is the working branch. Please target all
+PRs at `develop` — releases go through a `release/x.y.z` branch into `main`.
 
     npm install
-    npm run tauri dev     # 앱 실행
-    npm test              # 프론트 테스트
-    cargo test --manifest-path src-tauri/Cargo.toml   # Rust 테스트
+    npm run tauri dev     # run the app
+    npm test              # frontend tests
+    cargo test --manifest-path src-tauri/Cargo.toml   # Rust tests
 
-**[CONTRIBUTING.md](CONTRIBUTING.md)** — 기여 방법·확인 명령·코드 방향.
-**[CHANGELOG.md](CHANGELOG.md)** — 버전별 변경 이력.
+**[CONTRIBUTING.md](CONTRIBUTING.md)** — how to contribute, check commands, code direction.
+**[CHANGELOG.md](CHANGELOG.md)** — per-version history.
 
-## 데이터 위치
+## Where your data lives
 
-- 노트: `%APPDATA%/Ddakji/notes/*.md` — 평문 마크다운 + YAML 프론트매터
-- 파일명: 생성 시각 기반 (`20260805-134024-a1b2c3.md`)
-- 이미지: `assets/<노트id>/`에 원본 저장
-- 저장 위치는 설정에서 변경할 수 있습니다
+- Notes: `%APPDATA%/Ddakji/notes/*.md` — plain Markdown with YAML frontmatter
+- Filenames are creation-time based (`20260805-134024-a1b2c3.md`)
+- Images are stored as originals under `assets/<note id>/`
+- The storage location can be changed in Settings
 
-## 스택
+## Stack
 
 Tauri 2 · React · TypeScript · TipTap
-
-## 데모
-
-마크다운을 치는 대로 제목·체크리스트·굵게가 그려지고, 체크박스는 클릭으로 끄고, 색은 툴바에서 바꿉니다:
-
-![ddakji 데모 — 배포 전 점검 체크리스트를 타이핑하고, 항목을 체크하고, 노트 색을 바꾸는 모습](docs/assets/demo.gif)

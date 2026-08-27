@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useT, type MsgKey } from "../lib/i18n";
+import { useLang, useT, type MsgKey } from "../lib/i18n";
 import { getVersion } from "@tauri-apps/api/app";
 import * as api from "../lib/api";
 import type { FontFamily, NoteColor, Settings } from "../lib/api";
@@ -16,6 +16,7 @@ const REPO_URL = "https://github.com/namest504/ddakji";
 
 export default function SettingsView({ onBack }: { onBack: () => void }) {
   const t = useT();
+  const lang = useLang();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [autostart, setAutostart] = useState(false);
   const [version, setVersion] = useState("");
@@ -289,10 +290,12 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
             className="settings-row link"
             onClick={async () => {
               const { openUrl } = await import("@tauri-apps/plugin-opener");
-              await openUrl(`${REPO_URL}/blob/main/docs/usage.md`);
+              // 문서도 화면 언어를 따른다 — ko면 .ko.md (#143)
+              const doc = lang === "ko" ? "usage.ko.md" : "usage.md";
+              await openUrl(`${REPO_URL}/blob/main/docs/${doc}`);
             }}
           >
-            사용법 보기
+            {t("viewUsage")}
           </div>
           <div className="settings-row link" onClick={openRepo}>
             GitHub

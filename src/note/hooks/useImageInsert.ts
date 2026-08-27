@@ -56,7 +56,7 @@ export function useImageInsert({ noteId, editorRef, guard }: Options) {
     guard(`image:${crypto.randomUUID()}`, async () => {
       insertRel(await api.importImage(noteId, sel));
     });
-  }, [guard, insertRel, noteId]);
+  }, [guard, insertRel, noteId, t]);
 
   return { savePastedImage, pickImage };
 }

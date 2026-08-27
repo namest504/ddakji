@@ -70,14 +70,14 @@ export default function TrashView({
         <span className="spacer" />
         {items.length > 0 && (
           <button className="trash-empty" onClick={empty}>
-            비우기
+            {t("emptyTrash")}
           </button>
         )}
       </div>
       <div className="list-items">
         {items.length === 0 ? (
           <div className="empty">
-            휴지통이 비어 있습니다.
+            {t("trashEmpty")}
             <div className="trash-hint">{t("trashHint")}</div>
           </div>
         ) : (
@@ -92,14 +92,14 @@ export default function TrashView({
                   title={t("restoreNote")}
                   onClick={() => restore(note.meta.id)}
                 >
-                  복원
+                  {t("restore")}
                 </button>
                 <button
                   className="trash-action danger"
                   title={t("purgeTitle")}
                   onClick={() => purge(note.meta.id)}
                 >
-                  영구 삭제
+                  {t("purge")}
                 </button>
               </div>
             ))}

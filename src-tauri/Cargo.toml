@@ -1,6 +1,6 @@
 [package]
 name = "ddakji"
-version = "0.1.8"
+version = "0.2.0"
 edition = "2021"
 # 바이너리가 둘(ddakji, ddakji-cli)이라 tauri build가 메인을 특정하지 못한다
 default-run = "ddakji"
@@ -40,6 +40,9 @@ tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 sys-locale = "0.3.2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+base64 = "0.22"
+tauri-plugin-clipboard-manager = "2"
 
 [dev-dependencies]
 tempfile = "3"

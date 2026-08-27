@@ -7,6 +7,23 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-27
+
+### 추가
+
+- **공유·내보내기** ([#149]) — 딱지 뒷면에서 ①**서식 복사**(클립보드에 서식
+  HTML+평문 마크다운, 이미지 내장) ②**마크다운 저장**(이미지가 있으면
+  `note.md`+`assets/` zip — 풀면 경로가 바로 통함) ③**HTML 저장**(이미지까지
+  내장한 한 파일 — 브라우저에서 그대로 보임). 창 위치·폰트 같은 내부 정보는
+  담기지 않습니다.
+
+### 수정
+
+- 영어 모드에서 한국어로 남아 있던 조각들 ([#143]) — "사용법 보기"(문서도
+  화면 언어를 따라 열림)·휴지통 비움 안내·복원/영구 삭제·노트 열기·이미지
+  그립 툴팁. 같은 실수가 다시 남지 않도록 하드코딩 한국어를 잡는 테스트를
+  추가했습니다.
+
 ## [0.1.8] - 2026-08-27
 
 ### 추가
@@ -213,7 +230,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.1.8...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.0...develop
+[0.2.0]: https://github.com/namest504/ddakji/releases/tag/v0.2.0
 [0.1.8]: https://github.com/namest504/ddakji/releases/tag/v0.1.8
 [0.1.7]: https://github.com/namest504/ddakji/releases/tag/v0.1.7
 [0.1.6]: https://github.com/namest504/ddakji/releases/tag/v0.1.6
@@ -242,6 +260,7 @@
 [#139]: https://github.com/namest504/ddakji/issues/139
 [#141]: https://github.com/namest504/ddakji/issues/141
 [#143]: https://github.com/namest504/ddakji/issues/143
+[#149]: https://github.com/namest504/ddakji/issues/149
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

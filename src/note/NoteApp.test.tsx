@@ -38,7 +38,10 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (p: string) => `asset://${p}`,
   invoke: vi.fn(),
 }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn(), open: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn(), open: vi.fn(), save: vi.fn() }));
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
+  writeHtml: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../lib/api", () => ({
   listNotes: vi.fn(),
   createNote: vi.fn(),
@@ -60,6 +63,9 @@ vi.mock("../lib/api", () => ({
   undoMerge: vi.fn(),
   mergePreview: vi.fn(),
   setLastViewed: vi.fn(),
+  exportNoteMd: vi.fn(),
+  assetDataUri: vi.fn(),
+  writeTextFile: vi.fn(),
 }));
 
 import * as api from "../lib/api";
@@ -609,5 +615,54 @@ describe("NoteApp 본문 보존 (#120)", () => {
       finishLoad([note]);
     });
     await waitFor(() => expect(win.show).toHaveBeenCalled());
+  });
+});
+
+describe("NoteApp 공유 (#149)", () => {
+  it("서식 복사는 이미지가 data URI로 내장된 HTML과 평문 마크다운을 함께 담는다", async () => {
+    const { writeHtml } = await import("@tauri-apps/plugin-clipboard-manager");
+    setupNote(mkNote("n1", "![](assets/n1/a.png)\n\n본문"));
+    vi.mocked(api.assetDataUri).mockResolvedValue("data:image/png;base64,AAA");
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    fireEvent.click(screen.getByText("서식 복사"));
+    await waitFor(() => expect(writeHtml).toHaveBeenCalled());
+    const [html, plain] = vi.mocked(writeHtml).mock.calls[0];
+    expect(html).toContain("data:image/png;base64,AAA");
+    expect(html).not.toContain("assets/n1/a.png");
+    expect(plain).toContain("![](assets/n1/a.png)");
+    await screen.findByText("복사됨");
+  });
+
+  it("마크다운 내보내기는 저장 위치를 물어 백엔드에 넘긴다", async () => {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    setupNote(mkNote("n1", "본문", { title: "회의록" }));
+    vi.mocked(save).mockResolvedValue("C:/tmp/회의록.md");
+    vi.mocked(api.exportNoteMd).mockResolvedValue("C:/tmp/회의록.md");
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    fireEvent.click(screen.getByText("마크다운"));
+    await waitFor(() => expect(api.exportNoteMd).toHaveBeenCalledWith("n1", "C:/tmp/회의록.md"));
+  });
+
+  it("HTML 내보내기는 자급자족 문서를 쓴다 — 취소하면 아무것도 안 한다", async () => {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    setupNote(mkNote("n1", "# 제목"));
+    vi.mocked(save).mockResolvedValueOnce(null); // 취소
+    render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.click(screen.getByTitle("뒷면 정보"));
+    fireEvent.click(screen.getByText("HTML"));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(api.writeTextFile).not.toHaveBeenCalled();
+
+    vi.mocked(save).mockResolvedValueOnce("C:/tmp/n1.html");
+    fireEvent.click(screen.getByText("HTML"));
+    await waitFor(() => expect(api.writeTextFile).toHaveBeenCalled());
+    const [, content] = vi.mocked(api.writeTextFile).mock.calls[0];
+    expect(content).toContain("<!doctype html>");
+    expect(content).toContain("제목");
   });
 });

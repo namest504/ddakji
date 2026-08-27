@@ -45,7 +45,8 @@ Deleting a note lives on its back side — press the hatched corner at the botto
 ### Hiding, deleting, and the trash
 
 Hiding only clears a note off your screen. Hidden notes keep their file and
-their list entry, and open again from the list. While hidden they don't come
+their list entry — dimmed with a **Hidden** chip so you can tell — and open
+again from the list. While hidden they don't come
 back on restart and don't appear in collection arrows or dots.
 
 Deleting sends a note **to the trash.** It leaves the list, but the file
@@ -142,11 +143,12 @@ never included.
 
 ## Updates
 
-On launch the app quietly checks for a new version. If one exists, an
-"Update to vX" button appears at the top of the **note list window**; pressing
-it downloads, installs, and restarts. Installer builds only — running portable,
-the button opens the releases page instead. A failed check (offline, …) is
-silently retried on the next launch.
+On launch the app quietly checks for a new version and, if one exists,
+**downloads, installs, and restarts automatically** (installer builds only).
+While it runs, "Installing…" shows at the top of the note list window. If the
+install fails, an "Update to vX" button remains so you can retry with a click.
+Running portable, the button opens the releases page instead of installing.
+A failed check (offline, …) is silently retried on the next launch.
 
 ## Collections (note groups)
 

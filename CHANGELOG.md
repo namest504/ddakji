@@ -7,6 +7,26 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-27
+
+### 추가
+
+- **목록에서 숨긴 노트가 구별됩니다** ([#153]) — 흐려진 제목과 "숨김" 칩.
+  열면 돌아오는 동작은 그대로입니다.
+
+### 변경
+
+- **업데이트가 전자동이 됐습니다** — 새 버전을 발견하면 버튼을 기다리지 않고
+  바로 내려받아 설치하고 다시 시작합니다. 진행 중에는 목록 창에 "설치 중…"이
+  표시되고, 실패하면 버튼이 남아 다시 시도할 수 있습니다.
+
+### 수정
+
+- **설치본이 포터블로 오판되던 문제** — 실행 위치 판별이 실제 설치
+  경로(`AppData\Local\ddakji`)가 아닌 존재하지 않는 경로를 보고 있어,
+  업데이트 버튼이 설치 대신 릴리스 페이지만 열 뻔했습니다. 문서의 CLI
+  경로 안내도 같이 바로잡았습니다.
+
 ## [0.2.0] - 2026-08-27
 
 ### 추가
@@ -230,7 +250,8 @@
 
 - Windows에서 새 노트 생성 시 데드락, 삭제 확인창 잘림, 창 흰 화면 플래시
 
-[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.0...develop
+[unreleased]: https://github.com/namest504/ddakji/compare/v0.2.1...develop
+[0.2.1]: https://github.com/namest504/ddakji/releases/tag/v0.2.1
 [0.2.0]: https://github.com/namest504/ddakji/releases/tag/v0.2.0
 [0.1.8]: https://github.com/namest504/ddakji/releases/tag/v0.1.8
 [0.1.7]: https://github.com/namest504/ddakji/releases/tag/v0.1.7
@@ -261,6 +282,7 @@
 [#141]: https://github.com/namest504/ddakji/issues/141
 [#143]: https://github.com/namest504/ddakji/issues/143
 [#149]: https://github.com/namest504/ddakji/issues/149
+[#153]: https://github.com/namest504/ddakji/issues/153
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

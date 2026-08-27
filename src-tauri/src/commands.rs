@@ -284,13 +284,19 @@ pub fn set_storage_path(
 /// 포터블에는 릴리스 페이지 링크만 보여 준다.
 #[tauri::command]
 pub fn exe_kind() -> &'static str {
-    let installed = std::env::current_exe()
+    std::env::current_exe()
         .ok()
-        .and_then(|p| {
-            p.to_str()
-                .map(|s| s.to_lowercase().contains("\\programs\\ddakji"))
-        })
-        .unwrap_or(false);
+        .and_then(|p| p.to_str().map(exe_kind_of))
+        .unwrap_or("portable")
+}
+
+/// NSIS 설치 위치 판별. per-user 기본은 `%LOCALAPPDATA%\ddakji`,
+/// per-machine은 `Program Files\ddakji` — 처음엔 존재하지 않는
+/// `Programs\ddakji`를 보고 있어 설치본이 포터블로 오판됐다(#153 QA).
+fn exe_kind_of(path: &str) -> &'static str {
+    let p = path.to_lowercase();
+    let installed =
+        p.contains("\\appdata\\local\\ddakji\\") || p.contains("\\program files\\ddakji\\");
     if installed {
         "installed"
     } else {
@@ -904,6 +910,30 @@ pub fn save_settings(app: AppHandle, store: StoreState, settings: Settings) -> R
         crate::tray::rebuild_menu(&app); // 트레이는 Rust가 그린다 (#143)
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod exe_kind_tests {
+    use super::exe_kind_of;
+
+    #[test]
+    fn installer_locations_are_installed_everything_else_portable() {
+        // per-user NSIS 기본 경로 — 실측 (#153)
+        assert_eq!(
+            exe_kind_of("C:\\Users\\gnt\\AppData\\Local\\ddakji\\ddakji.exe"),
+            "installed"
+        );
+        assert_eq!(
+            exe_kind_of("C:\\Program Files\\ddakji\\ddakji.exe"),
+            "installed"
+        );
+        // 개발 빌드·포터블
+        assert_eq!(
+            exe_kind_of("C:\\Users\\gnt\\projects\\ddakji\\src-tauri\\target\\release\\ddakji.exe"),
+            "portable"
+        );
+        assert_eq!(exe_kind_of("D:\\tools\\ddakji\\ddakji.exe"), "portable");
+    }
 }
 
 #[cfg(test)]

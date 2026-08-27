@@ -246,14 +246,34 @@ describe("ListApp 업데이트 (#141)", () => {
     expect(screen.queryByText(/업데이트/)).toBeNull();
   });
 
-  it("새 버전이 있으면 버튼이 뜨고, 누르면 설치·재시작한다", async () => {
+  it("설치본은 발견 즉시 내려받아 설치·재시작한다 — 클릭 불필요 (전자동)", async () => {
     const u = update("9.9.9");
+    vi.mocked(check).mockResolvedValue(u);
+    render(<ListApp />);
+    // 무슨 일이 벌어지는지는 보여 준다 — 조용한 재시작은 오동작처럼 보인다
+    await screen.findByText("설치 중…");
+    await waitFor(() =>
+      expect((u as { downloadAndInstall: unknown }).downloadAndInstall).toHaveBeenCalled(),
+    );
+    await waitFor(() => expect(relaunch).toHaveBeenCalled());
+  });
+
+  it("자동 설치가 실패하면 버튼으로 남아 다시 시도할 수 있다", async () => {
+    const u = {
+      version: "9.9.9",
+      downloadAndInstall: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("net"))
+        .mockResolvedValue(undefined),
+    } as never;
     vi.mocked(check).mockResolvedValue(u);
     render(<ListApp />);
     const btn = await screen.findByText("v9.9.9 업데이트");
     fireEvent.click(btn);
     await waitFor(() =>
-      expect((u as { downloadAndInstall: unknown }).downloadAndInstall).toHaveBeenCalled(),
+      expect(
+        (u as { downloadAndInstall: { mock: { calls: unknown[] } } }).downloadAndInstall.mock.calls,
+      ).toHaveLength(2),
     );
     await waitFor(() => expect(relaunch).toHaveBeenCalled());
   });
@@ -299,5 +319,22 @@ describe("ListApp 언어 설정 (#143)", () => {
     );
     await waitFor(() => expect(screen.getByPlaceholderText("Search")).toBeTruthy());
     expect(screen.getByTitle("New note")).toBeTruthy();
+  });
+});
+
+describe("ListApp 숨김 표시 (#153)", () => {
+  it("숨긴 노트는 흐려지고 숨김 칩이 붙는다", async () => {
+    vi.mocked(api.listNotes).mockResolvedValue([
+      mkNote("a", "보이는 노트"),
+      mkNote("b", "숨긴 노트", { hidden: true }),
+    ]);
+    const { container } = render(<ListApp />);
+    await screen.findByText("숨긴 노트");
+    const rows = container.querySelectorAll(".list-row");
+    expect(rows[0].className).not.toContain("row-hidden");
+    expect(rows[1].className).toContain("row-hidden");
+    expect(screen.getByText("숨김")).toBeTruthy();
+    // 보이는 노트에는 칩이 없다
+    expect(screen.getAllByText("숨김")).toHaveLength(1);
   });
 });

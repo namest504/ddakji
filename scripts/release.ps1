@@ -39,7 +39,8 @@ $manifest = @{
     url = "https://github.com/namest504/ddakji/releases/download/v$Version/ddakji_${Version}_x64-setup.exe"
   } }
 } | ConvertTo-Json -Depth 4
-Set-Content -Path "latest.json" -Value $manifest -Encoding utf8
+# PS 5.1 "utf8" writes a BOM and serde_json rejects BOM - write BOM-less
+[IO.File]::WriteAllText("$PWD\latest.json", $manifest)
 
 Write-Output "Assets to upload:"
 Write-Output "  $setup"

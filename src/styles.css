@@ -634,7 +634,8 @@ body {
 }
 .tiptap hr {
   border: 0;
-  border-top: 1px solid rgba(0, 0, 0, 0.2);
+  /* 잉크색 기반 — 검정 고정이면 차콜 노트·다크 모드에서 안 보인다 */
+  border-top: 1px solid color-mix(in srgb, currentColor 30%, transparent);
   margin: 8px 0;
 }
 

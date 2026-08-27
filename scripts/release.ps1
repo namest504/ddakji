@@ -9,13 +9,14 @@ $ErrorActionPreference = "Stop"
 
 # Tauri v2 reads TAURI_SIGNING_PRIVATE_KEY (key CONTENT; the _PATH variant is ignored)
 $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "C:\Users\gnt\.tauri\ddakji.key" -Raw
-# NOTE: PowerShell DELETES an env var assigned "" - an empty password cannot
-# be exported. Instead we pipe one empty line into the build so the CLI's
-# password prompt reads it and proceeds (the key was generated with --ci).
+# NOTE: cmd/PowerShell cannot express an EMPTY env var ("" deletes it), and
+# the CLI's password prompt reads the console, not stdin. Node CAN set an
+# empty-string env value, so the build is wrapped in a node spawn that adds
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" (the key was generated with --ci).
 
 npm install
 if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
-Write-Output "" | npm run tauri build
+node -e "const{spawnSync}=require('child_process');const r=spawnSync('npm',['run','tauri','build'],{stdio:'inherit',shell:true,env:{...process.env,TAURI_SIGNING_PRIVATE_KEY_PASSWORD:''}});process.exit(r.status===null?1:r.status)"
 if ($LASTEXITCODE -ne 0) { throw "tauri build failed" }
 
 $nsis = "src-tauri/target/release/bundle/nsis"

@@ -16,12 +16,13 @@ fn build_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
     let list = MenuItemBuilder::with_id("list", tray(lang, "list")).build(app)?;
     // "모든 노트 펼치기"는 "모음집 하나 = 창 하나" 불변식(#77)과 모순이라 제거됨.
     let show_all = MenuItemBuilder::with_id("show_all", tray(lang, "show_all")).build(app)?;
+    let arrange = MenuItemBuilder::with_id("arrange", tray(lang, "arrange")).build(app)?;
     let autostart = CheckMenuItemBuilder::with_id("autostart", tray(lang, "autostart"))
         .checked(app.autolaunch().is_enabled().unwrap_or(false))
         .build(app)?;
     let quit = MenuItemBuilder::with_id("quit", tray(lang, "quit")).build(app)?;
     MenuBuilder::new(app)
-        .items(&[&new_note, &list, &show_all])
+        .items(&[&new_note, &list, &show_all, &arrange])
         .separator()
         .item(&autostart)
         .separator()
@@ -61,6 +62,11 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
             }
             "show_all" => {
                 let _ = crate::session::unhide_and_show_all(app);
+            }
+            "arrange" => {
+                // 애니메이션(~112ms) 동안 트레이 이벤트 스레드를 잡지 않는다
+                let app = app.clone();
+                std::thread::spawn(move || crate::arrange::run(&app));
             }
             "autostart" => {
                 let al = app.autolaunch();

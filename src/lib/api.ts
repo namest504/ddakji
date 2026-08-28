@@ -114,7 +114,10 @@ export const hideGroup = () => invoke<void>("hide_group");
 export const checkMerge = () => invoke<boolean>("check_merge");
 /** 직전 합치기 되돌리기 — 이전 모음집과 창 자리를 복구한다 */
 export const undoMerge = () => invoke<boolean>("undo_merge");
-export const mergePreview = () => invoke<boolean>("merge_preview");
+/** 지금 놓으면 합쳐질 대상 노트의 표시 이름 — 없으면 null (#171) */
+export const mergePreview = () => invoke<string | null>("merge_preview");
+/** 노트 창 전부를 크기 그대로 화면에 맞게 재배치 (#170) */
+export const arrangeWindows = () => invoke<void>("arrange_windows");
 // 현재 노트가 새 창으로 분리되고, 이 창이 표시할 다음 멤버가 반환된다 (#74)
 export const popOut = () => invoke<Note | null>("pop_out");
 export const listGroups = () => invoke<string[]>("list_groups");

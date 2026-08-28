@@ -142,9 +142,32 @@ body {
     filter var(--dur-note) var(--ease-ui);
   transform-origin: center;
 }
-/* 드래그 중 흡수 예고 — 창 자체가 축소(백엔드)되고 내용은 어두워진다 */
-.note.merge-hint {
-  filter: brightness(0.55) saturate(0.8);
+/* 병합 예고 (#171) — 끌던 창(자석): 종이가 살짝 들려 기울어진 모습.
+   OS 창은 회전할 수 없으므로 내용을 기울여 줄이고, 드러나는 여백은 body를
+   액센트색(NoteApp 효과)으로 칠해 색종이의 어두운 뒷면이 비치는 것처럼
+   보이게 한다. 창 반투명은 백엔드(레이어드 알파)가, 대상 창의 들썩임은
+   백엔드의 실제 창 진동이 맡는다. */
+.note.merge-magnet {
+  transform: rotate(2.2deg) scale(0.96);
+}
+/* 병합 예고 칩 — 끌던 창 하단 중앙에 "『제목』에 합치기" */
+.merge-chip {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: var(--z-banner);
+  pointer-events: none;
+  background: rgba(20, 22, 26, 0.92);
+  color: #f2f2f2;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 12px;
+  border-radius: var(--r-round);
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .note[data-color="yellow"] {
   --paper: var(--note-yellow-paper);
@@ -1534,4 +1557,72 @@ body {
   color: var(--l-dim);
   font-weight: 400;
   margin-left: 4px;
+}
+
+/* ── 우클릭 컨텍스트 메뉴 (#172) — 팝오버와 같은 불투명 패널 ── */
+.ctx-menu {
+  position: fixed;
+  z-index: var(--z-pop);
+  min-width: 168px;
+  max-width: calc(100vw - 8px);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--pop-face);
+  color: var(--pop-ink);
+  border-radius: var(--r-card);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.22);
+}
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 6px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  border-radius: var(--r-check);
+  cursor: pointer;
+}
+.ctx-item:hover:not(:disabled),
+.ctx-item:focus-visible {
+  background: rgba(0, 0, 0, 0.08);
+}
+.ctx-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ctx-check {
+  width: 14px;
+  flex: none;
+  text-align: center;
+  font-size: 10px;
+}
+.ctx-sep {
+  height: 1px;
+  margin: 4px 8px;
+  background: rgba(128, 128, 128, 0.3);
+}
+.ctx-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  /* 왼쪽 여백은 항목의 체크 칸과 줄을 맞춘다 */
+  padding: 6px 10px 6px 26px;
+}
+.ctx-swatches .swatch.active {
+  outline: 2px solid var(--accent-select);
+  outline-offset: 1px;
+}
+.note[data-color="charcoal"] .ctx-menu,
+:root[data-theme="dark"] .ctx-menu {
+  background: var(--pop-face-dark);
+  color: var(--pop-ink-dark);
+}
+.note[data-color="charcoal"] .ctx-item:hover:not(:disabled),
+:root[data-theme="dark"] .ctx-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
 }

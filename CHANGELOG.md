@@ -7,6 +7,24 @@
 
 ## [Unreleased]
 
+### 추가
+
+- **자동 정렬** ([#170]) — 트레이 메뉴나 노트 우클릭 메뉴에서 한 번에, 열려
+  있는 노트 창들을 크기는 그대로 두고 화면에 맞게 겹침 없이 재배치합니다.
+  노트는 자기가 떠 있던 모니터 안에서만 움직이고, 다 들어가지 않으면
+  오른쪽 위에 계단식으로 쌓입니다.
+- **노트 우클릭 메뉴** ([#172]) — 본문에서는 잘라내기·복사·붙여넣기·굵게·
+  체크박스로 만들기, 타이틀바에서는 새 노트·색 변경·항상 위·자동 정렬·
+  노트 목록·이 장만 숨기기·뒷면 보기·창 닫기.
+
+### 변경
+
+- **합치기는 이제 타이틀바에 놓아야 일어납니다** ([#171]) — 노트를 옮기다
+  다른 노트 위에 겹쳐 놓기만 해도 합쳐지던 사고를 없앴습니다. 커서가 대상
+  노트의 타이틀바 위에 있을 때만: 끌던 노트가 반투명해지며 살짝 기울고,
+  대상 노트가 한 번 까딱이고, "『제목』에 합치기" 안내가 뜹니다. 그때
+  놓으면 합쳐지고, 되돌리기는 그대로 있습니다.
+
 ## [0.2.4] - 2026-08-27
 
 ### 수정
@@ -312,6 +330,9 @@
 [#153]: https://github.com/namest504/ddakji/issues/153
 [#161]: https://github.com/namest504/ddakji/issues/161
 [#166]: https://github.com/namest504/ddakji/issues/166
+[#170]: https://github.com/namest504/ddakji/issues/170
+[#171]: https://github.com/namest504/ddakji/issues/171
+[#172]: https://github.com/namest504/ddakji/issues/172
 [#79]: https://github.com/namest504/ddakji/pull/79
 [#80]: https://github.com/namest504/ddakji/pull/80
 [#81]: https://github.com/namest504/ddakji/pull/81

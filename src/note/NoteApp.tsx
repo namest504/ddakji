@@ -51,7 +51,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     switchTo,
     setNote,
   });
-  const { mergeTarget, swaying, merged, dismissMerged } = useWindowSync(noteId);
+  const { mergeTarget, merged, dismissMerged } = useWindowSync(noteId);
   const { hideNote, hideWindow } = useHide({ flushBody, switchTo });
   useNoteShortcuts({ changeFont, navigate, popOut, flushBody, hideNote, hideWindow });
 
@@ -112,18 +112,20 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     };
   }, [menu]);
 
-  // 들썩임(#171) 동안 body 배경을 종이색으로 맞춘다 — 흔들릴 때 가장자리로
-  // 드러나는 바탕이 앱 배경색이면 2px 띠가 어른거린다
+  // 자석 기울임(#171) 동안 body 배경을 노트 액센트색으로 맞춘다 — 내용이
+  // 기울며 드러나는 모서리가 "같은 색종이의 어두운 면(뒷면)"으로 보여, 종이가
+  // 살짝 들려 기울어진 그림이 된다. (OS 창은 회전할 수 없다 — 시안→앱 번역.)
   const rootRef = useRef<HTMLDivElement>(null);
+  const magnet = mergeTarget !== null;
   useEffect(() => {
     const el = rootRef.current;
-    if (!swaying || !el) return;
+    if (!magnet || !el) return;
     const prev = document.body.style.background;
-    document.body.style.background = getComputedStyle(el).backgroundColor;
+    document.body.style.background = getComputedStyle(el).getPropertyValue("--accent");
     return () => {
       document.body.style.background = prev;
     };
-  }, [swaying]);
+  }, [magnet]);
 
   if (!note || base === null) return null;
   const m = note.meta;
@@ -249,7 +251,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   return (
     <div
       ref={rootRef}
-      className={"note" + (swaying ? " merge-sway" : "")}
+      className={"note" + (magnet ? " merge-magnet" : "")}
       data-color={m.color}
       style={{ fontSize: m.font_size, fontFamily: fontStack(m.font_family) }}
       onContextMenu={(e) => {

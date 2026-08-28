@@ -130,7 +130,9 @@ fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Er
     )));
     app.manage(commands::LastMerge(Mutex::new(None)));
     app.manage(commands::DragCursor(Mutex::new(None)));
-    app.manage(commands::ArmedTarget(Mutex::new(None)));
+    app.manage(commands::ArmedTarget(Mutex::new(
+        commands::ArmState::default(),
+    )));
     tray::create_tray(app.handle())?;
     // 외부 변경 브리지 (#12) — CLI 등 밖에서 바뀐 파일을 이벤트로 번역
     bridge::spawn(app.handle().clone());

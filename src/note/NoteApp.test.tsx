@@ -734,7 +734,7 @@ describe("NoteApp 병합 예고 (#171)", () => {
     for (const [x, y] of points) act(() => win.movedCb!({ payload: { x, y } }));
   };
 
-  it("예고 대상이 생기면 이름 칩이 뜨고, 사라지면 걷힌다", async () => {
+  it("예고 대상이 생기면 이름 칩이 뜨고 노트가 기울어진다 (자석)", async () => {
     setupNote(mkNote("n1", "본문"));
     vi.mocked(api.mergePreview).mockResolvedValue("회의 메모");
     const { container } = render(<NoteApp noteId="n1" />);
@@ -742,6 +742,7 @@ describe("NoteApp 병합 예고 (#171)", () => {
     drag([[100, 100]]);
     await waitFor(() => expect(container.querySelector(".merge-chip")).toBeTruthy());
     expect(container.querySelector(".merge-chip")!.textContent).toContain("회의 메모");
+    expect(container.querySelector(".note")!.classList.contains("merge-magnet")).toBe(true);
   });
 
   it("이름 없는 노트가 대상이면 일반 문구를 쓴다", async () => {
@@ -754,13 +755,32 @@ describe("NoteApp 병합 예고 (#171)", () => {
     expect(container.querySelector(".merge-chip")!.textContent).toBe("여기에 놓으면 합쳐집니다");
   });
 
-  it("merge-arm을 받으면 들썩이고, merge-disarm이면 멈춘다", async () => {
+  it("merge-arm 동안의 창 이동(백엔드 들썩임)은 병합 판정을 건드리지 않는다", async () => {
     setupNote(mkNote("n1", "본문"));
-    const { container } = render(<NoteApp noteId="n1" />);
+    render(<NoteApp noteId="n1" />);
     await waitFor(() => expect(win.events?.["merge-arm"]).toBeTruthy());
+    await waitFor(() => expect(win.movedCb).toBeTruthy());
     act(() => win.events!["merge-arm"]({ payload: undefined }));
-    expect(container.querySelector(".note")!.classList.contains("merge-sway")).toBe(true);
+    // 진동에 해당하는 이동 — 누적 40px이지만 드래그가 아니다
+    drag([
+      [100, 100],
+      [110, 100],
+      [120, 100],
+      [130, 100],
+      [140, 100],
+    ]);
+    await new Promise((r) => setTimeout(r, 700)); // save 디바운스(500ms)보다 길게
+    expect(api.checkMerge).not.toHaveBeenCalled();
+    expect(api.mergePreview).not.toHaveBeenCalled();
+    // disarm 후의 같은 이동은 정상적으로 드래그로 판정된다
     act(() => win.events!["merge-disarm"]({ payload: undefined }));
-    expect(container.querySelector(".note")!.classList.contains("merge-sway")).toBe(false);
+    drag([
+      [150, 100],
+      [160, 100],
+      [170, 100],
+      [180, 100],
+      [190, 100],
+    ]);
+    await waitFor(() => expect(api.checkMerge).toHaveBeenCalled(), { timeout: 1500 });
   });
 });

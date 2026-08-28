@@ -142,24 +142,13 @@ body {
     filter var(--dur-note) var(--ease-ui);
   transform-origin: center;
 }
-/* 병합 예고 (#171) — 겨냥당한 대상이 천천히 팔랑인다 (들썩임).
-   끌던 창 쪽은 창 반투명(백엔드 레이어드 알파) + 하단 칩이 담당한다. */
-@keyframes merge-sway {
-  0%,
-  100% {
-    transform: translateX(-2px);
-  }
-  50% {
-    transform: translateX(2px);
-  }
-}
-.note.merge-sway {
-  animation: merge-sway 1.1s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .note.merge-sway {
-    animation: none;
-  }
+/* 병합 예고 (#171) — 끌던 창(자석): 종이가 살짝 들려 기울어진 모습.
+   OS 창은 회전할 수 없으므로 내용을 기울여 줄이고, 드러나는 여백은 body를
+   액센트색(NoteApp 효과)으로 칠해 색종이의 어두운 뒷면이 비치는 것처럼
+   보이게 한다. 창 반투명은 백엔드(레이어드 알파)가, 대상 창의 들썩임은
+   백엔드의 실제 창 진동이 맡는다. */
+.note.merge-magnet {
+  transform: rotate(2.2deg) scale(0.96);
 }
 /* 병합 예고 칩 — 끌던 창 하단 중앙에 "『제목』에 합치기" */
 .merge-chip {

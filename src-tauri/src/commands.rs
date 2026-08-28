@@ -37,9 +37,16 @@ pub struct LastMerge(pub Mutex<Option<MergeUndo>>);
 /// 드롭 지점으로 인정한다.
 pub struct DragCursor(pub Mutex<Option<(f64, f64)>>);
 
-/// 병합 예고가 켜진 대상 창 label (#171). 대상이 바뀌거나 판정이 끝나면
-/// `merge-disarm`을 보내 들썩임을 걷는 데 쓴다 — 예고를 켠 쪽이 끌 책임을 진다.
-pub struct ArmedTarget(pub Mutex<Option<String>>);
+/// 병합 예고가 켜진 대상 창 (#171). 대상이 바뀌거나 판정이 끝나면
+/// `merge-disarm`을 보내고 들썩임을 멈춘다 — 예고를 켠 쪽이 끌 책임을 진다.
+/// `gen`은 상태가 바뀔 때마다 증가한다: 들썩임 스레드는 자기 세대가 지나면
+/// 스스로 멈추고 창을 제자리로 되돌린다.
+#[derive(Default)]
+pub struct ArmState {
+    pub label: Option<String>,
+    pub gen: u64,
+}
+pub struct ArmedTarget(pub Mutex<ArmState>);
 
 /// 상태 잠금 — 다른 스레드가 패닉했을 때만 실패한다.
 /// 창이 이 노트를 표시하게 됐다 — 매핑을 갱신하고, 모음집이면 "마지막으로
@@ -745,21 +752,75 @@ fn display_title(n: &Note) -> String {
         .unwrap_or_default()
 }
 
-/// 예고 상태 전환 — 새 대상에 `merge-arm`(하트비트), 이전 대상에 `merge-disarm`.
-/// 대상이 그대로면 arm만 다시 보낸다(프런트가 1초 무소식이면 스스로 걷는다).
+/// 들썩임(#171) — 겨냥당한 창을 실제로 흔드는 진폭(논리 px)·주기·틱.
+/// 진폭이 크면 창이 "이동 중"으로 읽히고, 작으면 안 보인다 — 2~3px가 팔랑임.
+const SWAY_AMPLITUDE_PX: f64 = 2.5;
+const SWAY_PERIOD_MS: f64 = 1100.0;
+const SWAY_TICK: std::time::Duration = std::time::Duration::from_millis(30);
+/// 예고가 걷히지 않는 사고(하트비트 유실 등)에도 영원히 흔들리지 않는다.
+const SWAY_MAX: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// 예고 상태 전환 — 새 대상에 `merge-arm`(하트비트) + 들썩임 스레드,
+/// 이전 대상에 `merge-disarm`. 대상이 그대로면 arm 하트비트만 다시 보낸다
+/// (프런트가 1초 무소식이면 스스로 걷는다).
 fn set_armed(app: &AppHandle, armed: &State<'_, ArmedTarget>, next: Option<String>) -> Result<()> {
     use tauri::Emitter;
-    let mut slot = lock(&armed.0)?;
-    if *slot != next {
-        if let Some(prev) = slot.as_deref() {
-            let _ = app.emit_to(prev, "merge-disarm", ());
+    let spawn = {
+        let mut s = lock(&armed.0)?;
+        if s.label == next {
+            None
+        } else {
+            s.gen += 1;
+            if let Some(prev) = s.label.as_deref() {
+                let _ = app.emit_to(prev, "merge-disarm", ());
+            }
+            s.label = next.clone();
+            next.clone().map(|l| (l, s.gen))
         }
-    }
+    };
     if let Some(l) = next.as_deref() {
         let _ = app.emit_to(l, "merge-arm", ());
     }
-    *slot = next;
+    if let Some((label, gen)) = spawn {
+        spawn_sway(app.clone(), label, gen);
+    }
     Ok(())
+}
+
+/// 겨냥당한 창을 실제로 좌우로 흔든다 — 데모의 "들썩"을 창 이동으로 번역.
+/// (웹뷰 내용만 흔들면 창은 가만히 있고 글자만 팔랑여 어색하다 — QA 피드백.)
+///
+/// 프런트는 merge-arm을 받는 동안 자기 onMoved를 드래그로 치지 않으므로,
+/// 이 진동이 병합 판정·위치 저장을 오염시키지 않는다. 세대(`gen`)가 바뀌면
+/// 멈추고 제자리로 되돌린다.
+fn spawn_sway(app: AppHandle, label: String, gen: u64) {
+    std::thread::spawn(move || {
+        let Some(win) = app.get_webview_window(&label) else {
+            return;
+        };
+        let Ok(orig) = win.outer_position() else {
+            return;
+        };
+        let amp = SWAY_AMPLITUDE_PX * win.scale_factor().unwrap_or(1.0);
+        let started = std::time::Instant::now();
+        loop {
+            let live = app
+                .try_state::<ArmedTarget>()
+                .and_then(|a| a.0.lock().ok().map(|s| s.gen == gen))
+                .unwrap_or(false);
+            if !live || started.elapsed() > SWAY_MAX {
+                break;
+            }
+            let t = started.elapsed().as_millis() as f64;
+            let dx = (t / SWAY_PERIOD_MS * std::f64::consts::TAU).sin() * amp;
+            let _ = win.set_position(tauri::PhysicalPosition::new(
+                orig.x + dx.round() as i32,
+                orig.y,
+            ));
+            std::thread::sleep(SWAY_TICK);
+        }
+        let _ = win.set_position(orig);
+    });
 }
 
 /// 다른 노트의 **타이틀바 위에 놓였으면** 그 노트와 같은 모음집으로 묶고,

@@ -62,6 +62,7 @@ vi.mock("../lib/api", () => ({
   checkMerge: vi.fn(),
   undoMerge: vi.fn(),
   mergePreview: vi.fn(),
+  arrangeWindows: vi.fn(),
   setLastViewed: vi.fn(),
   exportNoteMd: vi.fn(),
   assetDataUri: vi.fn(),
@@ -108,7 +109,7 @@ const setupNote = (note: Note, members: string[] = []) => {
   vi.mocked(api.saveMeta).mockResolvedValue(note);
   vi.mocked(api.groupMembers).mockResolvedValue(members);
   vi.mocked(api.checkMerge).mockResolvedValue(false);
-  vi.mocked(api.mergePreview).mockResolvedValue(false);
+  vi.mocked(api.mergePreview).mockResolvedValue(null);
   vi.mocked(api.setLastViewed).mockResolvedValue(undefined);
   vi.mocked(api.popOut).mockResolvedValue(null);
   vi.mocked(api.hideNote).mockResolvedValue(null);
@@ -680,5 +681,86 @@ describe("NoteApp 공유 (#149)", () => {
     const [, content] = vi.mocked(api.writeTextFile).mock.calls[0];
     expect(content).toContain("<!doctype html>");
     expect(content).toContain("제목");
+  });
+});
+
+describe("NoteApp 우클릭 메뉴 (#172)", () => {
+  it("본문 우클릭은 편집 메뉴 — 자동 정렬을 누르면 재배치를 요청한다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.contextMenu(container.querySelector(".note")!, { clientX: 60, clientY: 120 });
+    expect(screen.getByText("붙여넣기")).toBeTruthy();
+    fireEvent.click(screen.getByText("자동 정렬"));
+    expect(api.arrangeWindows).toHaveBeenCalled();
+    // 항목을 누르면 메뉴가 닫힌다
+    expect(container.querySelector(".ctx-menu")).toBeNull();
+  });
+
+  it("선택이 없으면 잘라내기·복사는 비활성", async () => {
+    setupNote(mkNote("n1", "본문"));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.contextMenu(container.querySelector(".note")!, { clientX: 60, clientY: 120 });
+    expect((screen.getByText("잘라내기") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByText("복사") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("타이틀바(상단 40px) 우클릭은 창 메뉴 — 새 노트·색·닫기", async () => {
+    setupNote(mkNote("n1", "본문"));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.contextMenu(container.querySelector(".note")!, { clientX: 60, clientY: 20 });
+    fireEvent.click(screen.getByText("새 노트"));
+    expect(api.createNote).toHaveBeenCalled();
+    fireEvent.contextMenu(container.querySelector(".note")!, { clientX: 60, clientY: 20 });
+    expect(container.querySelectorAll(".ctx-swatches .swatch")).toHaveLength(7);
+    expect(screen.getByText("창 닫기")).toBeTruthy();
+  });
+
+  it("Esc로 닫힌다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.show).toHaveBeenCalled());
+    fireEvent.contextMenu(container.querySelector(".note")!, { clientX: 60, clientY: 120 });
+    expect(container.querySelector(".ctx-menu")).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(container.querySelector(".ctx-menu")).toBeNull();
+  });
+});
+
+describe("NoteApp 병합 예고 (#171)", () => {
+  const drag = (points: [number, number][]) => {
+    for (const [x, y] of points) act(() => win.movedCb!({ payload: { x, y } }));
+  };
+
+  it("예고 대상이 생기면 이름 칩이 뜨고, 사라지면 걷힌다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    vi.mocked(api.mergePreview).mockResolvedValue("회의 메모");
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.movedCb).toBeTruthy());
+    drag([[100, 100]]);
+    await waitFor(() => expect(container.querySelector(".merge-chip")).toBeTruthy());
+    expect(container.querySelector(".merge-chip")!.textContent).toContain("회의 메모");
+  });
+
+  it("이름 없는 노트가 대상이면 일반 문구를 쓴다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    vi.mocked(api.mergePreview).mockResolvedValue("");
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.movedCb).toBeTruthy());
+    drag([[100, 100]]);
+    await waitFor(() => expect(container.querySelector(".merge-chip")).toBeTruthy());
+    expect(container.querySelector(".merge-chip")!.textContent).toBe("여기에 놓으면 합쳐집니다");
+  });
+
+  it("merge-arm을 받으면 들썩이고, merge-disarm이면 멈춘다", async () => {
+    setupNote(mkNote("n1", "본문"));
+    const { container } = render(<NoteApp noteId="n1" />);
+    await waitFor(() => expect(win.events?.["merge-arm"]).toBeTruthy());
+    act(() => win.events!["merge-arm"]({ payload: undefined }));
+    expect(container.querySelector(".note")!.classList.contains("merge-sway")).toBe(true);
+    act(() => win.events!["merge-disarm"]({ payload: undefined }));
+    expect(container.querySelector(".note")!.classList.contains("merge-sway")).toBe(false);
   });
 });

@@ -37,6 +37,10 @@ pub struct LastMerge(pub Mutex<Option<MergeUndo>>);
 /// 드롭 지점으로 인정한다.
 pub struct DragCursor(pub Mutex<Option<(f64, f64)>>);
 
+/// 병합 예고가 켜진 대상 창 label (#171). 대상이 바뀌거나 판정이 끝나면
+/// `merge-disarm`을 보내 들썩임을 걷는 데 쓴다 — 예고를 켠 쪽이 끌 책임을 진다.
+pub struct ArmedTarget(pub Mutex<Option<String>>);
+
 /// 상태 잠금 — 다른 스레드가 패닉했을 때만 실패한다.
 /// 창이 이 노트를 표시하게 됐다 — 매핑을 갱신하고, 모음집이면 "마지막으로
 /// 보던 장" 커서를 지속한다. **매핑 갱신은 반드시 이 함수로**: insert가
@@ -619,33 +623,79 @@ pub async fn nav_to(
     Ok(Some(target))
 }
 
-/// 드래그 중 프리뷰: 지금 놓으면 합쳐질 상태(60%+ 겹침)인지 — 프런트가 암전 표시
+/// 예고 중 끌던 창의 불투명도 (자석 효과) — 아래 깔린 대상이 비쳐 보인다
+const DRAG_ALPHA: u8 = 140;
+
+/// 드래그 중 프리뷰 (#171): 지금 놓으면 합쳐질 대상 노트의 표시 이름.
+///
+/// 판정 기준은 check_merge와 동일(커서가 대상 **타이틀바 띠** 위) — 예고와
+/// 실제 판정이 어긋나면 예고가 거짓말이 된다. 대상이 있으면 끌던 창을
+/// 반투명(자석)으로 만들고 대상 창에 `merge-arm`(들썩임)을 보낸다.
 #[tauri::command]
 pub async fn merge_preview(
     app: AppHandle,
     window: tauri::WebviewWindow,
+    store: StoreState<'_>,
     wn: State<'_, WindowNotes>,
     drag: State<'_, DragCursor>,
-) -> Result<bool> {
+    armed: State<'_, ArmedTarget>,
+) -> Result<Option<String>> {
     let label = window.label().to_string();
-    let Some(cursor) = crate::pointer::cursor_pos() else {
-        return Ok(false);
-    };
+    let button_down = crate::pointer::primary_button_down();
+    let cursor = crate::pointer::cursor_pos();
+    // 버튼이 확실히 올라가 있으면 예고하지 않는다 — 자동 정렬·흡수 애니메이션
+    // 같은 프로그램 이동에서 오발동하지 않는다. 버튼 상태를 알 수 없는
+    // 플랫폼(None)은 드래그로 간주한다(기존 동작 유지).
+    if button_down == Some(false) || cursor.is_none() {
+        crate::window_fx::set_alpha(&window, 255);
+        set_armed(&app, &armed, None)?;
+        return Ok(None);
+    }
+    let cursor = cursor.expect("checked above");
     // 드래그로 움직이는 중에만 드롭 지점 후보로 기억한다. 버튼을 누르지 않은
     // 이동(프로그램에 의한 배치 등)은 합치기 대상이 아니다.
-    if crate::pointer::primary_button_down() == Some(true) {
+    if button_down == Some(true) {
         *lock(&drag.0)? = Some(cursor);
     }
-    Ok(drop_target(cursor, &other_note_rects(&app, &wn, &label)?).is_some())
+    let bars: Vec<((String, String), Rect)> = other_note_rects(&app, &wn, &label)?
+        .iter()
+        .map(|(owner, r, f)| (owner.clone(), bar_rect(*r, *f)))
+        .collect();
+    match drop_target(cursor, &bars).cloned() {
+        Some((target_label, target_id)) => {
+            crate::window_fx::set_alpha(&window, DRAG_ALPHA);
+            set_armed(&app, &armed, Some(target_label))?;
+            let title = lock(&store)?
+                .load(&target_id)
+                .map(|n| display_title(&n))
+                .unwrap_or_default();
+            Ok(Some(title))
+        }
+        None => {
+            crate::window_fx::set_alpha(&window, 255);
+            set_armed(&app, &armed, None)?;
+            Ok(None)
+        }
+    }
 }
 
-/// 끌고 있는 창을 뺀, 화면에 떠 있는 노트 창들의 (label, id, 사각형).
+/// 자동 정렬 (#170) — 모든 노트 창을 크기 그대로 작업 영역 안에 재배치
+#[tauri::command]
+pub async fn arrange_windows(app: AppHandle) -> Result<()> {
+    crate::arrange::run(&app);
+    Ok(())
+}
+
+/// (창 label, 노트 id), 물리 px 사각형, 창 배율
+type NoteRect = ((String, String), Rect, f64);
+
+/// 끌고 있는 창을 뺀, 화면에 떠 있는 노트 창들의 (label, id, 사각형, 배율).
 /// 커서는 늘 끌고 있는 창 위에 있으므로 그 창은 후보에서 제외한다.
 fn other_note_rects(
     app: &AppHandle,
     wn: &State<'_, WindowNotes>,
     label: &str,
-) -> Result<Vec<((String, String), Rect)>> {
+) -> Result<Vec<NoteRect>> {
     let entries: Vec<(String, String)> = lock(&wn.0)?
         .iter()
         .filter(|(l, _)| l.as_str() != label)
@@ -665,13 +715,55 @@ fn other_note_rects(
         out.push((
             (l, id),
             (p.x as f64, p.y as f64, sz.width as f64, sz.height as f64),
+            w.scale_factor().unwrap_or(1.0),
         ));
     }
     Ok(out)
 }
 
-/// 다른 노트 창과 충분히 겹치게 **놓였으면**(60%+) 그 노트와 같은 모음집으로
-/// 묶고, 끌던 창은 닫는다 (#25 G4).
+/// 병합 드롭 존 = 창 상단의 타이틀바 띠 (#171).
+///
+/// 창 전체를 드롭 존으로 삼던 방식은 노트가 클수록 우연히 맞을 확률이 커져
+/// "옮기려던 드롭"이 병합으로 끝나곤 했다. 커서 한 점 대 40px 띠로 좁히면
+/// 창 크기와 무관하게 병합은 조준해야만 일어난다.
+fn bar_rect((x, y, w, _h): Rect, factor: f64) -> Rect {
+    (x, y, w, windows::TITLE_BAR_HEIGHT * factor)
+}
+
+/// 예고 표시용 노트 이름 — 제목이 없으면 본문 첫 줄 (CLI 목록과 같은 규칙)
+fn display_title(n: &Note) -> String {
+    n.meta
+        .title
+        .clone()
+        .or_else(|| {
+            n.body
+                .lines()
+                .map(str::trim)
+                .find(|l| !l.is_empty())
+                .map(String::from)
+        })
+        .unwrap_or_default()
+}
+
+/// 예고 상태 전환 — 새 대상에 `merge-arm`(하트비트), 이전 대상에 `merge-disarm`.
+/// 대상이 그대로면 arm만 다시 보낸다(프런트가 1초 무소식이면 스스로 걷는다).
+fn set_armed(app: &AppHandle, armed: &State<'_, ArmedTarget>, next: Option<String>) -> Result<()> {
+    use tauri::Emitter;
+    let mut slot = lock(&armed.0)?;
+    if *slot != next {
+        if let Some(prev) = slot.as_deref() {
+            let _ = app.emit_to(prev, "merge-disarm", ());
+        }
+    }
+    if let Some(l) = next.as_deref() {
+        let _ = app.emit_to(l, "merge-arm", ());
+    }
+    *slot = next;
+    Ok(())
+}
+
+/// 다른 노트의 **타이틀바 위에 놓였으면** 그 노트와 같은 모음집으로 묶고,
+/// 끌던 창은 닫는다 (#25 G4, 드롭 존은 #171에서 타이틀바 띠로 축소).
 ///
 /// 프런트는 움직임이 멎으면 이 커맨드를 부르지만, 멎은 것과 놓은 것은 다르다
 /// (#115). 여기서 마우스 버튼이 떨어질 때까지 기다린 **뒤에** 위치를 잰다 —
@@ -684,11 +776,16 @@ pub async fn check_merge(
     wn: State<'_, WindowNotes>,
     last: State<'_, LastMerge>,
     drag: State<'_, DragCursor>,
+    armed: State<'_, ArmedTarget>,
 ) -> Result<bool> {
     use tauri::Emitter;
     // 놓을 때까지 기다리고, **버튼이 눌린 동안** 본 좌표를 드롭 지점으로 삼는다.
     // 놓은 뒤에 읽으면 그사이 마우스를 옮긴 자리로 오판한다 (#115).
     let sampled = crate::pointer::wait_for_drop();
+    // 놓였으니 예고를 걷는다 — 합쳐지면 곧 흡수 애니메이션이, 아니면 아무 일도
+    // 없다. 어느 쪽이든 반투명·들썩임이 남아 있으면 안 된다.
+    crate::window_fx::set_alpha(&window, 255);
+    set_armed(&app, &armed, None)?;
     let remembered = lock(&drag.0)?.take();
     let dropped_at = match sampled {
         Err(()) => return Ok(false), // 20초 넘게 누르고 있음 — 판정 포기
@@ -712,19 +809,25 @@ pub async fn check_merge(
         asz.width as f64,
         asz.height as f64,
     );
-    // 놓인 지점이 어느 창 위인지로 정한다 — 겨냥한 곳이 곧 대상 (#115).
-    // `cursor`는 위에서 구한 **놓은 순간**의 좌표다.
+    // 놓인 지점이 어느 창의 **타이틀바** 위인지로 정한다 — 겨냥한 곳이 곧
+    // 대상 (#115), 드롭 존은 상단 40px 띠 (#171). `cursor`는 위에서 구한
+    // **놓은 순간**의 좌표다.
     let candidates = other_note_rects(&app, &wn, &label)?;
-    let Some((target_label, target_id)) = drop_target(cursor, &candidates).cloned() else {
+    let bars: Vec<((String, String), Rect)> = candidates
+        .iter()
+        .map(|(owner, r, f)| (owner.clone(), bar_rect(*r, *f)))
+        .collect();
+    let Some((target_label, target_id)) = drop_target(cursor, &bars).cloned() else {
         return Ok(false);
     };
     if target_id == moved_id {
         return Ok(false);
     }
+    // 흡수 애니메이션의 목적지는 창 전체 중심 — 판정만 타이틀바로 좁혔다
     let tb = candidates
         .iter()
-        .find(|((l, _), _)| *l == target_label)
-        .map(|(_, r)| *r)
+        .find(|((l, _), _, _)| *l == target_label)
+        .map(|(_, r, _)| *r)
         .unwrap_or(a);
     // 되돌리기용 이전 상태 — 합치기 **전에** 찍어 둔다 (#115)
     let previous = {

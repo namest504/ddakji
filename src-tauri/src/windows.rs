@@ -9,7 +9,7 @@ const FALLBACK_POSITION: (f64, f64) = (100.0, 100.0);
 /// require to be reachable — this is where the (custom, `decorations(false)`)
 /// title bar / drag handle lives, so it must land on-screen for the window to
 /// be movable/closable by the user.
-const TITLE_BAR_HEIGHT: f64 = 40.0;
+pub const TITLE_BAR_HEIGHT: f64 = 40.0;
 
 /// Decides where to place a note window given its saved bounds and the
 /// logical-pixel rects of the currently available monitors.

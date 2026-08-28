@@ -1,10 +1,11 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLang, useT } from "../lib/i18n";
 import { buildHtmlDoc, collectAssetRefs, embedAssets, exportBodyHtml } from "../lib/exportNote";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Editor } from "@tiptap/react";
 import * as api from "../lib/api";
 import { fontStack } from "../lib/noteUtils";
+import ContextMenu, { type CtxEntry } from "./ContextMenu";
 import Toolbar from "./Toolbar";
 import { NavLeftIcon, NavRightIcon } from "./icons";
 import FormatBar from "./FormatBar";
@@ -50,7 +51,7 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     switchTo,
     setNote,
   });
-  const { mergeHint, merged, dismissMerged } = useWindowSync(noteId);
+  const { mergeTarget, swaying, merged, dismissMerged } = useWindowSync(noteId);
   const { hideNote, hideWindow } = useHide({ flushBody, switchTo });
   useNoteShortcuts({ changeFont, navigate, popOut, flushBody, hideNote, hideWindow });
 
@@ -71,9 +72,14 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
   // 효과가 아니라 렌더 중에 맞춘다(React의 "prop이 바뀔 때 state 조정" 패턴) —
   // 효과로 하면 뒷면이 한 프레임 비쳤다가 사라진다.
   const [flipFor, setFlipFor] = useState(noteId);
+  // 우클릭 메뉴 (#172) — null이면 닫힘. 장이 넘어가면 메뉴도 닫는다.
+  // 항목은 **여는 순간**(이벤트 핸들러)에 만든다 — 렌더 중에 만들면 에디터
+  // ref를 렌더에서 읽게 된다 (react-hooks/refs).
+  const [menu, setMenu] = useState<{ x: number; y: number; entries: CtxEntry[] } | null>(null);
   if (flipFor !== noteId) {
     setFlipFor(noteId);
     setFlip(null);
+    setMenu(null);
   }
   const flipped = flip === "back";
   const toggleFlip = () => {
@@ -86,9 +92,106 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
     setFlip(flipped ? "front" : "back");
   };
 
+  // 메뉴 닫기: 바깥 누름·Esc·창 blur — 열림 상태의 주인은 여기 하나다 (#172)
+  useEffect(() => {
+    if (!menu) return;
+    const onDown = (ev: PointerEvent) => {
+      if (!(ev.target as Element | null)?.closest?.(".ctx-menu")) setMenu(null);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setMenu(null);
+    };
+    const onBlur = () => setMenu(null);
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [menu]);
+
+  // 들썩임(#171) 동안 body 배경을 종이색으로 맞춘다 — 흔들릴 때 가장자리로
+  // 드러나는 바탕이 앱 배경색이면 2px 띠가 어른거린다
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!swaying || !el) return;
+    const prev = document.body.style.background;
+    document.body.style.background = getComputedStyle(el).backgroundColor;
+    return () => {
+      document.body.style.background = prev;
+    };
+  }, [swaying]);
+
   if (!note || base === null) return null;
   const m = note.meta;
   const inGroup = members.length > 1;
+
+  // ── 우클릭 메뉴 (#172): 본문은 편집 우선, 타이틀바는 창 단위 기능 ──
+  // 이 빌더들은 onContextMenu(이벤트 핸들러)에서만 부른다.
+  const editorEntries = (): CtxEntry[] => {
+    const ed = editorRef.current;
+    const hasSelection = !!ed && !ed.state.selection.empty;
+    return [
+      {
+        kind: "item",
+        label: t("ctxCut"),
+        disabled: !hasSelection,
+        onClick: () => document.execCommand("cut"),
+      },
+      {
+        kind: "item",
+        label: t("ctxCopy"),
+        disabled: !hasSelection,
+        onClick: () => document.execCommand("copy"),
+      },
+      {
+        kind: "item",
+        label: t("ctxPaste"),
+        onClick: async () => {
+          const text = await navigator.clipboard.readText().catch(() => "");
+          if (text) editorRef.current?.chain().focus().insertContent(text).run();
+        },
+      },
+      { kind: "sep" },
+      {
+        kind: "item",
+        label: t("ctxBold"),
+        onClick: () => editorRef.current?.chain().focus().toggleBold().run(),
+      },
+      {
+        kind: "item",
+        label: t("ctxTask"),
+        onClick: () => editorRef.current?.chain().focus().toggleTaskList().run(),
+      },
+      { kind: "sep" },
+      { kind: "item", label: t("ctxArrange"), onClick: () => api.arrangeWindows() },
+      { kind: "item", label: t("ctxFlip"), onClick: toggleFlip },
+    ];
+  };
+  const windowEntries = (): CtxEntry[] => [
+    { kind: "item", label: t("newNoteShort"), onClick: () => api.createNote() },
+    { kind: "swatches", current: m.color, onPick: (color) => patchMeta({ color }) },
+    {
+      kind: "item",
+      label: t("alwaysOnTop"),
+      checked: m.always_on_top,
+      onClick: async () => {
+        const v = !m.always_on_top;
+        await getCurrentWindow().setAlwaysOnTop(v);
+        patchMeta({ always_on_top: v });
+      },
+    },
+    { kind: "sep" },
+    { kind: "item", label: t("ctxArrange"), onClick: () => api.arrangeWindows() },
+    { kind: "item", label: t("ctxList"), onClick: () => api.openList() },
+    ...(inGroup ? [{ kind: "item", label: t("ctxHide"), onClick: hideNote } as CtxEntry] : []),
+    { kind: "item", label: flipped ? t("flipToFront") : t("ctxFlip"), onClick: toggleFlip },
+    { kind: "sep" },
+    { kind: "item", label: t("ctxClose"), onClick: hideWindow },
+  ];
 
   // ── 공유 (#149): 렌더는 JSON에서(원본 상대경로), 이미지는 data URI로 내장 ──
   const embeddedHtml = async () => {
@@ -145,9 +248,17 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
 
   return (
     <div
-      className={"note" + (mergeHint ? " merge-hint" : "")}
+      ref={rootRef}
+      className={"note" + (swaying ? " merge-sway" : "")}
       data-color={m.color}
       style={{ fontSize: m.font_size, fontFamily: fontStack(m.font_family) }}
+      onContextMenu={(e) => {
+        // WebView2 기본 메뉴 대신 앱 메뉴 (#172). 상단 40px(타이틀바 띠)와
+        // 뒷면은 창 단위 메뉴, 나머지는 편집 메뉴.
+        e.preventDefault();
+        const entries = flipped || e.clientY <= 40 ? windowEntries() : editorEntries();
+        setMenu({ x: e.clientX, y: e.clientY, entries });
+      }}
     >
       <Toolbar
         note={note}
@@ -257,6 +368,15 @@ export default function NoteApp({ noteId: initialNoteId }: { noteId: string }) {
             />
           ))}
         </div>
+      )}
+      {/* 병합 예고 칩 (#171 자석) — 어느 노트에 합쳐질지 이름으로 보여 준다 */}
+      {mergeTarget !== null && (
+        <div className="merge-chip">
+          {mergeTarget ? t("mergeChip", { title: mergeTarget }) : t("mergeChipUntitled")}
+        </div>
+      )}
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} entries={menu.entries} />
       )}
       {!flipped && <FormatBar editor={editor} onAddImage={pickImage} />}
       {/* 오른쪽 아래 빗금 모서리 = 뒷면 전환 (앞뒷면 동일 위치) */}

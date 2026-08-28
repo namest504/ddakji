@@ -15,20 +15,30 @@ const PREVIEW_LINGER = 600;
 /** 되돌리기 안내가 떠 있는 시간 (ms) */
 const UNDO_LINGER = 7000;
 
+/** 대상 창 들썩임(merge-arm 하트비트)이 이 시간 동안 안 오면 스스로 걷는다 (ms).
+ *  드래그가 소리 없이 끝나는 경로(작은 이동, 판정 미발동)에서도 영원히 흔들리지
+ *  않기 위한 안전판 — 예고 폴링(100ms)보다 넉넉하게. */
+const SWAY_LINGER = 1000;
+
 /**
  * 창 상태를 노트에 반영한다: 위치·크기 저장, 드래그 합치기 판정, 최근 본 노트 추적.
  *
- * 반환값은 "지금 놓으면 합쳐짐" 예고(암전) 여부와, 방금 다른 창을 흡수했는지다.
+ * 반환값은 "지금 놓으면 이 노트에 합쳐짐" 예고 대상 이름(#171 자석 칩),
+ * 다른 창이 이 창을 겨냥 중인지(들썩임), 방금 다른 창을 흡수했는지다.
  *
  * 합치기는 **누적** 이동 거리로 판정한다 — 연속 이벤트 사이의 델타로 재면
  * 천천히 끄는 드래그가 임계값을 영영 넘지 못해 병합이 발동하지 않았다 (#25 G4).
  */
 export function useWindowSync(noteId: string): {
-  mergeHint: boolean;
+  /** 지금 놓으면 합쳐질 대상의 표시 이름. null = 예고 없음, "" = 이름 없는 노트 */
+  mergeTarget: string | null;
+  /** 다른 창이 이 창의 타이틀바를 겨냥 중 — 들썩임 표시 */
+  swaying: boolean;
   merged: boolean;
   dismissMerged: () => void;
 } {
-  const [mergeHint, setMergeHint] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [swaying, setSwaying] = useState(false);
   const [merged, setMerged] = useState(false);
   // 안내가 걷혀야 하는 벽시계 시각. 타이머는 창이 가려져 있는 동안 밀릴 수
   // 있으므로(WebView2 스로틀링) 기한을 따로 들고 포커스 복귀 때 재검사한다.
@@ -60,7 +70,7 @@ export function useWindowSync(noteId: string): {
       api
         .checkMerge()
         .then((merged) => {
-          if (!merged) setMergeHint(false);
+          if (!merged) setMergeTarget(null);
         })
         .catch(() => {})
         .finally(() => {
@@ -82,14 +92,14 @@ export function useWindowSync(noteId: string): {
         lastPreview = now;
         api
           .mergePreview()
-          .then(setMergeHint)
+          .then(setMergeTarget)
           .catch(() => {});
       }
       window.clearTimeout(previewClear);
       // 판정이 대기 중(= 아직 놓지 않음)이면 예고를 걷지 않는다. 걷어 버리면
       // 경고가 사라진 상태로 합쳐져 "갑자기 흡수"로 느껴진다 (#115).
       previewClear = window.setTimeout(() => {
-        if (!mergePending) setMergeHint(false);
+        if (!mergePending) setMergeTarget(null);
       }, PREVIEW_LINGER);
       scheduleSave();
     });
@@ -114,15 +124,31 @@ export function useWindowSync(noteId: string): {
       undoTimer = window.setTimeout(() => setMerged(false), UNDO_LINGER);
     });
 
+    // 다른 창이 이 창의 타이틀바를 겨냥 중 — 들썩임 (#171). arm은 예고 폴링을
+    // 타고 반복해서 오는 하트비트라, 명시적 disarm을 놓쳐도 스스로 걷힌다.
+    let swayTimer: number | undefined;
+    const un5 = win.listen("merge-arm", () => {
+      setSwaying(true);
+      window.clearTimeout(swayTimer);
+      swayTimer = window.setTimeout(() => setSwaying(false), SWAY_LINGER);
+    });
+    const un6 = win.listen("merge-disarm", () => {
+      window.clearTimeout(swayTimer);
+      setSwaying(false);
+    });
+
     return () => {
       clearTimeout(saveTimer);
       window.clearTimeout(undoTimer);
+      window.clearTimeout(swayTimer);
       un1.then((f) => f());
       un2.then((f) => f());
       un3.then((f) => f());
       un4.then((f) => f());
+      un5.then((f) => f());
+      un6.then((f) => f());
     };
   }, [noteId]);
 
-  return { mergeHint, merged, dismissMerged };
+  return { mergeTarget, swaying, merged, dismissMerged };
 }

@@ -34,6 +34,8 @@ pub fn tray(lang: Lang, key: &str) -> &'static str {
         (Lang::En, "list") => "Note list",
         (Lang::Ko, "show_all") => "모든 노트 표시",
         (Lang::En, "show_all") => "Show all notes",
+        (Lang::Ko, "arrange") => "자동 정렬",
+        (Lang::En, "arrange") => "Arrange windows",
         (Lang::Ko, "autostart") => "부팅 시 시작",
         (Lang::En, "autostart") => "Start at login",
         (Lang::Ko, "quit") => "종료",
@@ -54,7 +56,7 @@ mod tests {
 
     #[test]
     fn every_tray_key_has_both_languages() {
-        for key in ["new", "list", "show_all", "autostart", "quit"] {
+        for key in ["new", "list", "show_all", "arrange", "autostart", "quit"] {
             assert_ne!(tray(Lang::Ko, key), "?", "{key} ko 누락");
             assert_ne!(tray(Lang::En, key), "?", "{key} en 누락");
         }

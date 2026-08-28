@@ -752,15 +752,15 @@ fn display_title(n: &Note) -> String {
         .unwrap_or_default()
 }
 
-/// 들썩임(#171) — 겨냥당한 창을 실제로 흔드는 진폭(논리 px)·주기·틱.
-/// 진폭이 크면 창이 "이동 중"으로 읽히고, 작으면 안 보인다 — 2~3px가 팔랑임.
-const SWAY_AMPLITUDE_PX: f64 = 2.5;
-const SWAY_PERIOD_MS: f64 = 1100.0;
-const SWAY_TICK: std::time::Duration = std::time::Duration::from_millis(30);
-/// 예고가 걷히지 않는 사고(하트비트 유실 등)에도 영원히 흔들리지 않는다.
-const SWAY_MAX: std::time::Duration = std::time::Duration::from_secs(30);
+/// 까딱임(#171) — 겨냥당하는 순간 창이 한 번 흔들리고 멈춘다.
+/// 연속 진동은 OS 창 이동이 서브픽셀이 안 돼 기계적 떨림으로 보였다(QA).
+/// 감쇠 사인 2사이클: 또렷하게 "반응했다"가 전달되고 바로 잠잠해진다.
+const NOD_AMPLITUDE_PX: f64 = 3.0;
+const NOD_DURATION_MS: f64 = 360.0;
+const NOD_CYCLES: f64 = 2.0;
+const NOD_TICK: std::time::Duration = std::time::Duration::from_millis(15);
 
-/// 예고 상태 전환 — 새 대상에 `merge-arm`(하트비트) + 들썩임 스레드,
+/// 예고 상태 전환 — 새 대상에 `merge-arm`(하트비트) + 까딱임 한 번,
 /// 이전 대상에 `merge-disarm`. 대상이 그대로면 arm 하트비트만 다시 보낸다
 /// (프런트가 1초 무소식이면 스스로 걷는다).
 fn set_armed(app: &AppHandle, armed: &State<'_, ArmedTarget>, next: Option<String>) -> Result<()> {
@@ -782,18 +782,19 @@ fn set_armed(app: &AppHandle, armed: &State<'_, ArmedTarget>, next: Option<Strin
         let _ = app.emit_to(l, "merge-arm", ());
     }
     if let Some((label, gen)) = spawn {
-        spawn_sway(app.clone(), label, gen);
+        spawn_nod(app.clone(), label, gen);
     }
     Ok(())
 }
 
-/// 겨냥당한 창을 실제로 좌우로 흔든다 — 데모의 "들썩"을 창 이동으로 번역.
-/// (웹뷰 내용만 흔들면 창은 가만히 있고 글자만 팔랑여 어색하다 — QA 피드백.)
+/// 겨냥당한 창을 한 번 까딱인다 — 데모의 "들썩"을 창 이동으로 번역하되,
+/// 연속이 아니라 일회성 감쇠 진동으로. (내용만 흔들면 글자만 팔랑이고,
+/// 계속 흔들면 기계적 떨림으로 보인다 — 두 번의 QA 피드백.)
 ///
 /// 프런트는 merge-arm을 받는 동안 자기 onMoved를 드래그로 치지 않으므로,
-/// 이 진동이 병합 판정·위치 저장을 오염시키지 않는다. 세대(`gen`)가 바뀌면
-/// 멈추고 제자리로 되돌린다.
-fn spawn_sway(app: AppHandle, label: String, gen: u64) {
+/// 이 움직임이 병합 판정·위치 저장을 오염시키지 않는다. 세대(`gen`)가
+/// 바뀌면 즉시 멈추고, 끝나면 정확히 제자리로 되돌린다.
+fn spawn_nod(app: AppHandle, label: String, gen: u64) {
     std::thread::spawn(move || {
         let Some(win) = app.get_webview_window(&label) else {
             return;
@@ -801,23 +802,25 @@ fn spawn_sway(app: AppHandle, label: String, gen: u64) {
         let Ok(orig) = win.outer_position() else {
             return;
         };
-        let amp = SWAY_AMPLITUDE_PX * win.scale_factor().unwrap_or(1.0);
+        let amp = NOD_AMPLITUDE_PX * win.scale_factor().unwrap_or(1.0);
         let started = std::time::Instant::now();
         loop {
             let live = app
                 .try_state::<ArmedTarget>()
                 .and_then(|a| a.0.lock().ok().map(|s| s.gen == gen))
                 .unwrap_or(false);
-            if !live || started.elapsed() > SWAY_MAX {
+            let t = started.elapsed().as_millis() as f64;
+            if !live || t >= NOD_DURATION_MS {
                 break;
             }
-            let t = started.elapsed().as_millis() as f64;
-            let dx = (t / SWAY_PERIOD_MS * std::f64::consts::TAU).sin() * amp;
+            // 감쇠 사인 — 크게 시작해 잦아든다
+            let phase = t / NOD_DURATION_MS;
+            let dx = (phase * NOD_CYCLES * std::f64::consts::TAU).sin() * amp * (1.0 - phase);
             let _ = win.set_position(tauri::PhysicalPosition::new(
                 orig.x + dx.round() as i32,
                 orig.y,
             ));
-            std::thread::sleep(SWAY_TICK);
+            std::thread::sleep(NOD_TICK);
         }
         let _ = win.set_position(orig);
     });

@@ -156,6 +156,9 @@ Group related notes and flip through them in one window, like pages.
 **A collection always shows as exactly one window** — paging (arrows, dots,
 `Alt+←/→`) happens inside it.
 
+- **Snapping**: drop a window near another note's edge (or the screen edge)
+  and it aligns with a satisfying snap. With the cursor over the other window
+  you merge instead.
 - **Grouping**: **drag one note window onto another** and they merge.
   In the list window, use the check button to select several and group them at
   once. The merge is judged by **where the cursor is when you release** — drop

@@ -832,6 +832,23 @@ fn spawn_nod(app: AppHandle, label: String, gen: u64) {
 /// 프런트는 움직임이 멎으면 이 커맨드를 부르지만, 멎은 것과 놓은 것은 다르다
 /// (#115). 여기서 마우스 버튼이 떨어질 때까지 기다린 **뒤에** 위치를 잰다 —
 /// 기다리는 동안 창이 더 움직였을 수 있으므로 판정은 놓인 자리로 해야 한다.
+/// 놓인 창을 가까운 가장자리에 착 붙인다 (#175). 이동 거리가 임계(논리
+/// 14px) 이내라 애니메이션 없이 한 번에 옮겨도 순간이동으로 느껴지지 않는다.
+fn apply_snap(
+    window: &tauri::WebviewWindow,
+    moving: crate::snap::Rect,
+    others: &[crate::snap::Rect],
+) {
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let screen = crate::snap::work_area(window);
+    if let Some((dx, dy)) = crate::snap::snap_delta(moving, others, screen, 14.0 * scale) {
+        let _ = window.set_position(tauri::PhysicalPosition::new(
+            (moving.0 + dx).round() as i32,
+            (moving.1 + dy).round() as i32,
+        ));
+    }
+}
+
 #[tauri::command]
 pub async fn check_merge(
     app: AppHandle,
@@ -881,10 +898,14 @@ pub async fn check_merge(
         .iter()
         .map(|(owner, r, f)| (owner.clone(), bar_rect(*r, *f)))
         .collect();
+    let full_rects: Vec<crate::snap::Rect> = candidates.iter().map(|(_, r, _)| *r).collect();
     let Some((target_label, target_id)) = drop_target(cursor, &bars).cloned() else {
+        // 합칠 대상이 없는 드롭 — 자석 스냅 차례 (#175)
+        apply_snap(&window, a, &full_rects);
         return Ok(false);
     };
     if target_id == moved_id {
+        apply_snap(&window, a, &full_rects);
         return Ok(false);
     }
     // 흡수 애니메이션의 목적지는 창 전체 중심 — 판정만 타이틀바로 좁혔다

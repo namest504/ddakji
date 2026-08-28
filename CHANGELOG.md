@@ -9,6 +9,9 @@
 
 ### 추가
 
+- **자석 스냅** ([#175]) — 창을 끌어다 놓는 순간, 다른 노트 창의 가장자리나
+  화면 가장자리가 가까우면(논리 14px) 착 정렬됩니다. 맞닿기와 정렬 모두
+  지원하고, 커서가 상대 창 위에 놓이면 지금처럼 합치기가 됩니다.
 - **자동 정렬** ([#170]) — 트레이 메뉴나 노트 우클릭 메뉴에서 한 번에, 열려
   있는 노트 창들을 크기는 그대로 두고 화면에 맞게 겹침 없이 재배치합니다.
   노트는 자기가 떠 있던 모니터 안에서만 움직이고, 다 들어가지 않으면
@@ -331,6 +334,7 @@
 [#161]: https://github.com/namest504/ddakji/issues/161
 [#166]: https://github.com/namest504/ddakji/issues/166
 [#170]: https://github.com/namest504/ddakji/issues/170
+[#175]: https://github.com/namest504/ddakji/issues/175
 [#171]: https://github.com/namest504/ddakji/issues/171
 [#172]: https://github.com/namest504/ddakji/issues/172
 [#79]: https://github.com/namest504/ddakji/pull/79

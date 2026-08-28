@@ -19,6 +19,7 @@ pub mod i18n;
 pub mod pointer;
 pub mod session;
 pub mod skill;
+pub mod snap;
 pub mod store;
 pub mod tray;
 pub mod window_fx;
